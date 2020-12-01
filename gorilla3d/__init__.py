@@ -5,5 +5,6 @@ from .ops import *
 from .utils import *
 from .nn import *
 from .losses import *
+from .evaluation import *
 
 
