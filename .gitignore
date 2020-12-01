@@ -6,6 +6,7 @@ build
 dist
 work_dirs
 data
+.ipynb_checkpoints
 
 # file
 *.so
