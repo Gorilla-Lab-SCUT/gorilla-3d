@@ -6,11 +6,7 @@ import sys
 from numbers import Number
 from collections import Set, Mapping, deque
 
-import chamfer
-# from . import chamfer
-# from . import chamfer_disatnce_ext
-# chamfer_disatnce_ext.chamfer
-# print(dir(chamfer_disatnce_ext))
+from . import chamfer
 
 
 # Chamfer's distance module @thibaultgroueix

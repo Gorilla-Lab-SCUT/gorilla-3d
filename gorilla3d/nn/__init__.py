@@ -7,6 +7,6 @@ from .modules import (three_interpolate, three_nn, furthest_point_sample,
                       PointFPModule, PointSAModuleMSG, PointSAModule, PointNet2SASSG,
                       
                       single_conv, double_conv, triple_conv, stride_conv,
-                      ResidualBlock, VGGBlock, UBlock)
+                      ResidualBlock, VGGBlock, UBlock, UBlockBottom)
 
 __all__ = [k for k in globals().keys() if not k.startswith("_")]
