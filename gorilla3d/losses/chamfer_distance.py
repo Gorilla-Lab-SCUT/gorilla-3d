@@ -4,6 +4,7 @@ from torch.nn.functional import l1_loss, mse_loss, smooth_l1_loss
 
 from ..ops import cham_dist
 
+
 def chamfer_distance(src,
                      dst,
                      src_weight=1.0,
@@ -48,8 +49,8 @@ def chamfer_distance(src,
     else:
         raise NotImplementedError
 
-    loss_src = (dist_src * src_weight) # (B, N)
-    loss_dst = (dist_dst * dst_weight) # (B, M)
+    loss_src = (dist_src * src_weight)  # (B, N)
+    loss_dst = (dist_dst * dst_weight)  # (B, M)
 
     if reduction == "sum":
         loss_src = torch.sum(loss_src)
@@ -63,4 +64,3 @@ def chamfer_distance(src,
         raise NotImplementedError
 
     return loss_src, loss_dst, idx_src, idx_dst
-

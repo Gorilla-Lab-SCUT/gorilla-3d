@@ -33,7 +33,7 @@ class ChamferFunction(Function):
         return dist1, dist2, idx1, idx2
 
     @staticmethod
-    def backward(ctx, graddist1, graddist2,gradidx1,gradidx2):
+    def backward(ctx, graddist1, graddist2, gradidx1, gradidx2):
         xyz1, xyz2, idx1, idx2 = ctx.saved_tensors
         graddist1 = graddist1.contiguous()
         graddist2 = graddist2.contiguous()
@@ -43,7 +43,8 @@ class ChamferFunction(Function):
 
         gradxyz1 = gradxyz1.cuda()
         gradxyz2 = gradxyz2.cuda()
-        chamfer.backward(xyz1, xyz2, gradxyz1, gradxyz2, graddist1, graddist2, idx1, idx2)
+        chamfer.backward(xyz1, xyz2, gradxyz1, gradxyz2, graddist1, graddist2,
+                         idx1, idx2)
         return gradxyz1, gradxyz2
 
 
@@ -55,4 +56,3 @@ cham_dist = ChamferFunction.apply
 
 #     def forward(self, input1, input2):
 #         return ChamferFunction.apply(input1, input2)
-

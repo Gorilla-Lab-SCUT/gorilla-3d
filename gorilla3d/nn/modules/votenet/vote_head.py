@@ -21,7 +21,6 @@ class VoteHead(nn.Module):
         conv_cfg (dict): Config of convolution in prediction layer.
         norm_cfg (dict): Config of BN in prediction layer.
     """
-
     def __init__(self,
                  num_classes,
                  num_sizes,
@@ -45,21 +44,20 @@ class VoteHead(nn.Module):
         conv_pred_list = list()
         for k in range(len(feat_channels)):
             conv_pred_list.append(
-                GorillaConv(
-                    prev_channel,
-                    feat_channels[k],
-                    1,
-                    padding=0,
-                    conv_cfg=conv_cfg,
-                    norm_cfg=norm_cfg))
+                GorillaConv(prev_channel,
+                            feat_channels[k],
+                            1,
+                            padding=0,
+                            conv_cfg=conv_cfg,
+                            norm_cfg=norm_cfg))
             prev_channel = feat_channels[k]
         self.conv_pred = nn.Sequential(*conv_pred_list)
-        
+
         # Objectness scores (2), center residual (3),
         # heading class+residual (num_dir_bins*2),
         # size class+residual(num_sizes*4)
-        conv_out_channel = (2 + 3 + num_dir_bins * 2 +
-                            num_sizes * 4 + num_classes)
+        conv_out_channel = (2 + 3 + num_dir_bins * 2 + num_sizes * 4 +
+                            num_classes)
         self.conv_pred.add_module("conv_out",
                                   nn.Conv1d(prev_channel, conv_out_channel, 1))
 
@@ -84,16 +82,16 @@ class VoteHead(nn.Module):
         """
         assert sample_mod in ["vote", "seed", "random"]
 
-        seed_points = feat_dict["fp_xyz"][-1] # (B, 1024, 3)
-        seed_features = feat_dict["fp_features"][-1] # (B, 256, 1024)
-        seed_indices = feat_dict["fp_indices"][-1] # (B, 1024)
+        seed_points = feat_dict["fp_xyz"][-1]  # (B, 1024, 3)
+        seed_features = feat_dict["fp_features"][-1]  # (B, 256, 1024)
+        seed_indices = feat_dict["fp_indices"][-1]  # (B, 1024)
 
         # 1. generate vote_points from seed_points
         # vote_points: (B, num_vote, 3)
         # vote_features: (B, 256, num_vote)
         vote_points, vote_features = self.vote_module(seed_points,
                                                       seed_features)
-                                                      
+
         results = dict(seed_points=seed_points,
                        seed_indices=seed_indices,
                        vote_points=vote_points,
@@ -105,21 +103,22 @@ class VoteHead(nn.Module):
             sample_indices = None
         elif sample_mod == "seed":
             # FPS on seed and choose the votes corresponding to the seeds
-            sample_indices = furthest_point_sample(seed_points, # (B, 256)
-                                                   self.num_proposal)
+            sample_indices = furthest_point_sample(
+                seed_points,  # (B, 256)
+                self.num_proposal)
         elif sample_mod == "random":
             # Random sampling from the votes
             batch_size, num_seed = seed_points.shape[:2]
-            sample_indices = seed_points.new_tensor(
-                torch.randint(0, num_seed, (batch_size, self.num_proposal)),
-                dtype=torch.int32)
+            sample_indices = seed_points.new_tensor(torch.randint(
+                0, num_seed, (batch_size, self.num_proposal)),
+                                                    dtype=torch.int32)
         else:
             raise NotImplementedError
-        
+
         vote_aggregation_ret = self.vote_aggregation(vote_points,
                                                      vote_features,
                                                      sample_indices)
-        
+
         # aggregated_indices: (B, 256)
         # aggregated_points: (B, 256, 3)
         # features: (B, 128, 256)
@@ -128,7 +127,7 @@ class VoteHead(nn.Module):
         results["aggregated_indices"] = aggregated_indices
 
         # 3. predict bbox and score
-        predictions = self.conv_pred(features) # (B, 2+3+2+18*4+18, 256)
+        predictions = self.conv_pred(features)  # (B, 2+3+2+18*4+18, 256)
         results["predictions"] = predictions
 
         # 4. decode predictions (this will be processed in poster)

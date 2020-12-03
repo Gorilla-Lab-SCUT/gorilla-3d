@@ -7,6 +7,7 @@ from gorilla.nn import GorillaConv
 from gorilla3d.ops import furthest_point_sample, gather_points
 from .point_group_module import GroupAll, QueryAndGroup
 
+
 class PointSAModuleMSG(nn.Module):
     r"""Point set abstraction module with multi-scale grouping used in
         Pointnets.
@@ -26,7 +27,6 @@ class PointSAModuleMSG(nn.Module):
         normalize_xyz (bool): Whether to normalize local XYZ with radius.
             Default: False.
     """
-
     def __init__(self,
                  num_point: int,
                  radii: List[float],
@@ -50,11 +50,10 @@ class PointSAModuleMSG(nn.Module):
             radius = radii[i]
             sample_num = sample_nums[i]
             if num_point is not None:
-                grouper = QueryAndGroup(
-                    radius,
-                    sample_num,
-                    use_xyz=use_xyz,
-                    normalize_xyz=normalize_xyz)
+                grouper = QueryAndGroup(radius,
+                                        sample_num,
+                                        use_xyz=use_xyz,
+                                        normalize_xyz=normalize_xyz)
             else:
                 grouper = GroupAll(use_xyz)
             self.groupers.append(grouper)
@@ -67,13 +66,12 @@ class PointSAModuleMSG(nn.Module):
             for i in range(len(mlp_spec) - 1):
                 mlp.add_module(
                     "layer{}".format(i),
-                    GorillaConv(
-                        mlp_spec[i],
-                        mlp_spec[i + 1],
-                        kernel_size=(1, 1),
-                        stride=(1, 1),
-                        conv_cfg=dict(type="Conv2d"),
-                        norm_cfg=norm_cfg))
+                    GorillaConv(mlp_spec[i],
+                                mlp_spec[i + 1],
+                                kernel_size=(1, 1),
+                                stride=(1, 1),
+                                conv_cfg=dict(type="Conv2d"),
+                                norm_cfg=norm_cfg))
             self.mlps.append(mlp)
 
     def forward(
@@ -154,7 +152,6 @@ class PointSAModule(PointSAModuleMSG):
         normalize_xyz (bool): Whether to normalize local XYZ with radius.
             Default: False.
     """
-
     def __init__(self,
                  mlp_channels: List[int],
                  num_point: int = None,
@@ -164,12 +161,11 @@ class PointSAModule(PointSAModuleMSG):
                  use_xyz: bool = True,
                  pool_mod: str = "max",
                  normalize_xyz: bool = False):
-        super().__init__(
-            mlp_channels=[mlp_channels],
-            num_point=num_point,
-            radii=[radius],
-            sample_nums=[num_sample],
-            norm_cfg=norm_cfg,
-            use_xyz=use_xyz,
-            pool_mod=pool_mod,
-            normalize_xyz=normalize_xyz)
+        super().__init__(mlp_channels=[mlp_channels],
+                         num_point=num_point,
+                         radii=[radius],
+                         sample_nums=[num_sample],
+                         norm_cfg=norm_cfg,
+                         use_xyz=use_xyz,
+                         pool_mod=pool_mod,
+                         normalize_xyz=normalize_xyz)

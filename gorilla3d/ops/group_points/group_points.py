@@ -7,13 +7,11 @@ from ..ball_query import ball_query
 from . import group_points_ext
 
 
-
 class GroupingOperation(Function):
     """Grouping Operation.
 
     Group feature with given index.
     """
-
     @staticmethod
     def forward(ctx, features: torch.Tensor,
                 indices: torch.Tensor) -> torch.Tensor:

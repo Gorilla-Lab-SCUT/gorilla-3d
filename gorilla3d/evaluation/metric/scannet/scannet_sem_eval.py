@@ -21,20 +21,28 @@ try:
 except ImportError:
     izip = zip
 
-currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+currentdir = os.path.dirname(
+    os.path.abspath(inspect.getfile(inspect.currentframe())))
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
 
-
-CLASS_LABELS = ["wall", "floor", "cabinet", "bed", "chair", "sofa", "table", "door", "window", "bookshelf", "picture", "counter", "desk", "curtain", "refrigerator", "shower curtain", "toilet", "sink", "bathtub", "otherfurniture"]
-VALID_CLASS_IDS = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39])
+CLASS_LABELS = [
+    "wall", "floor", "cabinet", "bed", "chair", "sofa", "table", "door",
+    "window", "bookshelf", "picture", "counter", "desk", "curtain",
+    "refrigerator", "shower curtain", "toilet", "sink", "bathtub",
+    "otherfurniture"
+]
+VALID_CLASS_IDS = np.array(
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39])
 CAT_MAP = {i: cls_id for i, cls_id in enumerate(VALID_CLASS_IDS)}
 UNKNOWN_ID = np.max(VALID_CLASS_IDS) + 1
 
 
 def read_gt(origin_root, scene_name):
-    label = np.load(os.path.join(origin_root, scene_name + ".txt_sem_label.npy"))
+    label = np.load(
+        os.path.join(origin_root, scene_name + ".txt_sem_label.npy"))
     return label
+
 
 # TODO: move out
 def get_iou(label_id, confusion):
@@ -59,7 +67,8 @@ def evaluate_scan(data, confusion):
     gt_ids = data["semantic_gt"]
     # sanity checks
     if not pred_ids.shape == gt_ids.shape:
-        message = "{}: number of predicted values does not match number of vertices".format(pred_ids.shape)
+        message = "{}: number of predicted values does not match number of vertices".format(
+            pred_ids.shape)
         sys.stderr.write("ERROR: " + str(message) + "\n")
         sys.exit(2)
 
@@ -71,8 +80,8 @@ def evaluate(matches, logger=None):
     if logger is not None:
         assert isinstance(logger, logging.Logger)
     max_id = UNKNOWN_ID
-    confusion = np.zeros((max_id+1, max_id+1), dtype=np.ulonglong)
-    
+    confusion = np.zeros((max_id + 1, max_id + 1), dtype=np.ulonglong)
+
     def info(message):
         if logger is not None:
             logger.info(message)
@@ -83,7 +92,7 @@ def evaluate(matches, logger=None):
     info(message)
     for i, (scene, data) in enumerate(matches.items()):
         evaluate_scan(data, confusion)
-        sys.stdout.write("\rscans processed: {}".format(i+1))
+        sys.stdout.write("\rscans processed: {}".format(i + 1))
         sys.stdout.flush()
     info("")
 
@@ -99,8 +108,9 @@ def evaluate(matches, logger=None):
     for i in range(len(VALID_CLASS_IDS)):
         label_name = CLASS_LABELS[i]
         #print("{{0:<14s}: 1:>5.3f}".format(label_name, class_ious[label_name][0]))
-        info("{0:<14s}: {1:>5.3f}   ({2:>6d}/{3:<6d})".format(label_name, class_ious[label_name][0], class_ious[label_name][1], class_ious[label_name][2]))
+        info("{0:<14s}: {1:>5.3f}   ({2:>6d}/{3:<6d})".format(
+            label_name, class_ious[label_name][0], class_ious[label_name][1],
+            class_ious[label_name][2]))
         mean_iou += class_ious[label_name][0]
     mean_iou = mean_iou / len(VALID_CLASS_IDS)
     info("mean: {:>5.3f}".format(mean_iou))
-

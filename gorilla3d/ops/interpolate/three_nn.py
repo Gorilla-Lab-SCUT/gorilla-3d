@@ -6,7 +6,6 @@ from . import interpolate_ext
 
 
 class ThreeNN(Function):
-
     @staticmethod
     def forward(ctx, target: torch.Tensor,
                 source: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:

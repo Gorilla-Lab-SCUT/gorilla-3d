@@ -4,6 +4,7 @@ from torch import nn as nn
 
 from gorilla import GorillaConv
 
+
 class VoteModule(nn.Module):
     """Vote module.
     Generate votes from seed point features.
@@ -21,7 +22,6 @@ class VoteModule(nn.Module):
         norm_feats (bool): Whether to normalize features.
             Default: True.
     """
-
     def __init__(self,
                  in_channels,
                  vote_per_seed=1,
@@ -40,13 +40,12 @@ class VoteModule(nn.Module):
         vote_conv_list = list()
         for k in range(len(conv_channels)):
             vote_conv_list.append(
-                GorillaConv(
-                    prev_channels,
-                    conv_channels[k],
-                    1,
-                    padding=0,
-                    conv_cfg=conv_cfg,
-                    norm_cfg=norm_cfg))
+                GorillaConv(prev_channels,
+                            conv_channels[k],
+                            1,
+                            padding=0,
+                            conv_cfg=conv_cfg,
+                            norm_cfg=norm_cfg))
             prev_channels = conv_channels[k]
         self.vote_conv = nn.Sequential(*vote_conv_list)
 
@@ -71,24 +70,28 @@ class VoteModule(nn.Module):
         """
         batch_size, feat_channels, num_seed = seed_feats.shape
         num_vote = num_seed * self.vote_per_seed
-        x = self.vote_conv(seed_feats) # (B, 256, num_seed)
-        
+        x = self.vote_conv(seed_feats)  # (B, 256, num_seed)
+
         # (B, (3+out_dim)*vote_per_seed, num_seed)
         votes = self.conv_out(x)
 
         # (B, num_seed, vote_per_seed, (3+out_dim))
         votes = votes.transpose(2, 1).view(batch_size, num_seed,
                                            self.vote_per_seed, -1)
-        offset = votes[:, :, :, 0:3] # (B, num_seed, vote_per_seed, 3)
-        res_feats = votes[:, :, :, 3:] # (B, num_seed, vote_per_seed, in_dim)
+        offset = votes[:, :, :, 0:3]  # (B, num_seed, vote_per_seed, 3)
+        res_feats = votes[:, :, :, 3:]  # (B, num_seed, vote_per_seed, in_dim)
 
-        vote_points = (seed_points.unsqueeze(2) + offset).contiguous() # (B, num_seed, vote_per_seed, 3)
-        vote_points = vote_points.view(batch_size, num_vote, 3) # (B, num_vote, 3)
-        vote_feats = (seed_feats.transpose(2, 1).unsqueeze(2) +
-                      res_feats).contiguous() # (B, num_seed, vote_per_seed, in_dim)
+        vote_points = (seed_points.unsqueeze(2) +
+                       offset).contiguous()  # (B, num_seed, vote_per_seed, 3)
+        vote_points = vote_points.view(batch_size, num_vote,
+                                       3)  # (B, num_vote, 3)
+        vote_feats = (
+            seed_feats.transpose(2, 1).unsqueeze(2) +
+            res_feats).contiguous()  # (B, num_seed, vote_per_seed, in_dim)
         # (B, in_dim, num_vote)
-        vote_feats = vote_feats.view(
-            batch_size, num_vote, feat_channels).transpose(2, 1).contiguous()
+        vote_feats = vote_feats.view(batch_size, num_vote,
+                                     feat_channels).transpose(2,
+                                                              1).contiguous()
 
         if self.norm_feats:
             features_norm = torch.norm(vote_feats, p=2, dim=1)

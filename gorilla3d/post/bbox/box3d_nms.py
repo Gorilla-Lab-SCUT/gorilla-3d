@@ -1,6 +1,7 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
 import torch
 
+
 def aligned_3d_nms(boxes, scores, classes, thresh):
     """3d nms for aligned boxes.
     Args:
@@ -42,8 +43,8 @@ def aligned_3d_nms(boxes, scores, classes, thresh):
         inter = inter_l * inter_w * inter_h
         iou = inter / (area[i] + area[score_sorted[:last - 1]] - inter)
         iou = iou * (classes1 == classes2).float()
-        score_sorted = score_sorted[torch.nonzero(iou <= thresh, as_tuple=False).flatten()]
+        score_sorted = score_sorted[torch.nonzero(iou <= thresh,
+                                                  as_tuple=False).flatten()]
 
     indices = boxes.new_tensor(pick, dtype=torch.long)
     return indices
-

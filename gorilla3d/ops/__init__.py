@@ -10,5 +10,3 @@ from .chamfer_distance import cham_dist
 from .utils import get_compiler_version, get_compiling_cuda_version
 
 __all__ = [k for k in globals().keys() if not k.startswith("_")]
-
-

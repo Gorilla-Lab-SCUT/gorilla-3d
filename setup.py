@@ -18,8 +18,10 @@ def get_requirements(filename="requirements.txt"):
     with open(filename, "r") as f:
         content = f.read()
     lines = content.split("\n")
-    requirements_list = list(filter(lambda x: x!="" and not x.startswith("#"), lines))
+    requirements_list = list(
+        filter(lambda x: x != "" and not x.startswith("#"), lines))
     return requirements_list
+
 
 def get_version():
     version_file = osp.join("gorilla3d", "version.py")
@@ -48,37 +50,36 @@ def get_include_dir(module):
 def make_extension(name, module):
     if not torch.cuda.is_available(): return
     extersion = CUDAExtension
-    return extersion(
-        name=".".join([module, name]),
-        sources=get_sources(module),
-        include_dirs=get_include_dir(module),
-        extra_compile_args={
-            "cxx": ["-g"],
-            "nvcc": [
-                "-D__CUDA_NO_HALF_OPERATORS__",
-                "-D__CUDA_NO_HALF_CONVERSIONS__",
-                "-D__CUDA_NO_HALF2_OPERATORS__",
-            ],
-        },
-        define_macros=[("WITH_CUDA", None)]
-    )
+    return extersion(name=".".join([module, name]),
+                     sources=get_sources(module),
+                     include_dirs=get_include_dir(module),
+                     extra_compile_args={
+                         "cxx": ["-g"],
+                         "nvcc": [
+                             "-D__CUDA_NO_HALF_OPERATORS__",
+                             "-D__CUDA_NO_HALF_CONVERSIONS__",
+                             "-D__CUDA_NO_HALF2_OPERATORS__",
+                         ],
+                     },
+                     define_macros=[("WITH_CUDA", None)])
+
 
 def get_extensions():
     extensions = []
     if torch.cuda.is_available():
         extensions = [
-            # make_extension(name="compiling_info",
-            #                module="gorilla3d.ops.utils"),
-            # make_extension(name="ball_query_ext",
-            #                module="gorilla3d.ops.ball_query"),
-            # make_extension(name="group_points_ext",
-            #                module="gorilla3d.ops.group_points"),
-            # make_extension(name="interpolate_ext",
-            #                module="gorilla3d.ops.interpolate"),
-            # make_extension(name="furthest_point_sample_ext",
-            #                module="gorilla3d.ops.furthest_point_sample"),
-            # make_extension(name="gather_points_ext",
-            #                module="gorilla3d.ops.gather_points"),
+            make_extension(name="compiling_info",
+                           module="gorilla3d.ops.utils"),
+            make_extension(name="ball_query_ext",
+                           module="gorilla3d.ops.ball_query"),
+            make_extension(name="group_points_ext",
+                           module="gorilla3d.ops.group_points"),
+            make_extension(name="interpolate_ext",
+                           module="gorilla3d.ops.interpolate"),
+            make_extension(name="furthest_point_sample_ext",
+                           module="gorilla3d.ops.furthest_point_sample"),
+            make_extension(name="gather_points_ext",
+                           module="gorilla3d.ops.gather_points"),
             make_extension(name="chamfer",
                            module="gorilla3d.ops.chamfer_distance"),
         ]
@@ -86,19 +87,15 @@ def get_extensions():
 
 
 if __name__ == "__main__":
-    setup(
-        name = "gorilla3d",
-        version = get_version(),
-        author = "Gorilla Authors",
-        author_email = "mszhihaoliang@mail.scut.edu.cn",
-        description="3D vision library for Gorilla-Lab using PyTorch",
-        long_description=open("README.md").read(),
-        license="MIT",
-        install_requires=get_requirements(),
-        packages=find_packages(exclude=["tests"]),
-        ext_modules=get_extensions(),
-        cmdclass={"build_ext": BuildExtension},
-        zip_safe=False
-    )
-
-
+    setup(name="gorilla3d",
+          version=get_version(),
+          author="Gorilla Authors",
+          author_email="mszhihaoliang@mail.scut.edu.cn",
+          description="3D vision library for Gorilla-Lab using PyTorch",
+          long_description=open("README.md").read(),
+          license="MIT",
+          install_requires=get_requirements(),
+          packages=find_packages(exclude=["tests"]),
+          ext_modules=get_extensions(),
+          cmdclass={"build_ext": BuildExtension},
+          zip_safe=False)

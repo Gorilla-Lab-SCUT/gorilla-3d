@@ -6,7 +6,6 @@ from . import interpolate_ext
 
 
 class ThreeInterpolate(Function):
-
     @staticmethod
     def forward(ctx, features: torch.Tensor, indices: torch.Tensor,
                 weight: torch.Tensor) -> torch.Tensor:

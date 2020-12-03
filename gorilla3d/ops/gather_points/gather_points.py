@@ -9,7 +9,6 @@ class GatherPoints(Function):
 
     Gather points with given index.
     """
-
     @staticmethod
     def forward(ctx, features: torch.Tensor,
                 indicies: torch.Tensor) -> torch.Tensor:

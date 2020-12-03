@@ -16,7 +16,6 @@ class PointFPModule(nn.Module):
         norm_cfg (dict): Type of normalization method.
             Default: dict(type='BN2d').
     """
-
     def __init__(self,
                  mlp_channels: List[int],
                  norm_cfg: dict = dict(type='BN2d')):
@@ -27,13 +26,12 @@ class PointFPModule(nn.Module):
             self.mlps.add_module(
                 "layer{}".format(i),
                 # TODO: test this function
-                GorillaConv(
-                    mlp_channels[i],
-                    mlp_channels[i + 1],
-                    kernel_size=(1, 1),
-                    stride=(1, 1),
-                    conv_cfg=dict(type='Conv2d'),
-                    norm_cfg=norm_cfg))
+                GorillaConv(mlp_channels[i],
+                            mlp_channels[i + 1],
+                            kernel_size=(1, 1),
+                            stride=(1, 1),
+                            conv_cfg=dict(type='Conv2d'),
+                            norm_cfg=norm_cfg))
 
     def forward(self, target: torch.Tensor, source: torch.Tensor,
                 target_feats: torch.Tensor,

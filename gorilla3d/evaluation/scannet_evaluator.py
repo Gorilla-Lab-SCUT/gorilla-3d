@@ -13,10 +13,7 @@ class ScanNetSemanticEvaluator(DatasetEvaluator):
     """
     Evaluate semantic segmentation metrics.
     """
-
-    def __init__(
-        self, dataset_root, logger=None
-    ):
+    def __init__(self, dataset_root, logger=None):
         """
         Args:
             num_classes, ignore_label: deprecated argument
@@ -40,8 +37,8 @@ class ScanNetSemanticEvaluator(DatasetEvaluator):
         """
         for input, output in zip(inputs, outputs):
             scene_name = input["scene_name"]
-            semantic_gt = read_gt(
-                osp.join(self._dataset_root, scene_name), scene_name)
+            semantic_gt = read_gt(osp.join(self._dataset_root, scene_name),
+                                  scene_name)
             semantic_pred = output["semantic_pred"].cpu().numpy()
             self._gt[scene_name] = semantic_gt
             self._predictions[scene_name] = semantic_pred
@@ -58,7 +55,8 @@ class ScanNetSemanticEvaluator(DatasetEvaluator):
         for scene_name in self._gt.keys():
             matches[scene_name] = {}
             matches[scene_name]["semantic_gt"] = self._gt[scene_name]
-            matches[scene_name]["semantic_pred"] = self._predictions[scene_name]
+            matches[scene_name]["semantic_pred"] = self._predictions[
+                scene_name]
 
         evaluate(matches, self.logger)
 
@@ -67,10 +65,7 @@ class ScanNetInstanceEvaluator(DatasetEvaluator):
     """
     Evaluate semantic segmentation metrics.
     """
-
-    def __init__(
-        self, dataset_root, logger=None
-    ):
+    def __init__(self, dataset_root, logger=None):
         """
         Args:
             num_classes, ignore_label: deprecated argument
@@ -95,7 +90,8 @@ class ScanNetInstanceEvaluator(DatasetEvaluator):
         for input, output in zip(inputs, outputs):
             scene_name = input["scene_name"]
             gt_file = osp.join(self._dataset_root, scene_name + ".txt")
-            gt2pred, pred2gt = assign_instances_for_scan(scene_name, output, gt_file)
+            gt2pred, pred2gt = assign_instances_for_scan(
+                scene_name, output, gt_file)
             self._gt[scene_name] = gt2pred
             self._predictions[scene_name] = pred2gt
 
@@ -112,11 +108,11 @@ class ScanNetInstanceEvaluator(DatasetEvaluator):
             matches[scene_name] = {}
             matches[scene_name]["gt"] = self._gt[scene_name]
             matches[scene_name]["pred"] = self._predictions[scene_name]
-        
+
         ap_scores = evaluate_matches(matches)
         avgs = compute_averages(ap_scores)
         print_results(avgs, self.logger)
 
-ScanNetEvaluator = DatasetEvaluators([ScanNetSemanticEvaluator, ScanNetInstanceEvaluator])
 
-
+ScanNetEvaluator = DatasetEvaluators(
+    [ScanNetSemanticEvaluator, ScanNetInstanceEvaluator])

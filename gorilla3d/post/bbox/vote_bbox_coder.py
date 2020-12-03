@@ -20,7 +20,6 @@ class PartialBinBasedBBoxCoder(object):
         mean_sizes (list[list[int]]): Mean size of bboxes in each class.
         with_rot (bool): Whether the bbox is with rotation.
     """
-
     def __init__(self,
                  num_dir_bins,
                  num_sizes,
@@ -74,7 +73,7 @@ class PartialBinBasedBBoxCoder(object):
                                                                                       pts_semantic_mask,
                                                                                       pts_instance_mask,
                                                                                       bbox_preds)
-                                        
+
             # import ipdb; ipdb.set_trace()
             bbox_result = dict(bbox_preds=bbox_preds,
                                vote_targets=vote_targets,
@@ -91,7 +90,7 @@ class PartialBinBasedBBoxCoder(object):
                                box_loss_weights=box_loss_weights,
                                valid_gt_weights=valid_gt_weights,
                                sample_metas=sample_metas)
-            
+
         else:
             points = processed["points"]
             bbox_preds = processed["bbox_preds"]
@@ -110,10 +109,7 @@ class PartialBinBasedBBoxCoder(object):
 
             # the batch_size for test is 1, just use `0` to index data
             bbox_selected, score_selected, labels = self.multiclass_nms_single(
-                obj_scores[0],
-                sem_scores[0],
-                bbox3d[0],
-                points[0, ..., :3],
+                obj_scores[0], sem_scores[0], bbox3d[0], points[0, ..., :3],
                 sample_metas[0])
             bbox = sample_metas[0]["box_type_3d"](
                 bbox_selected,
@@ -136,7 +132,6 @@ class PartialBinBasedBBoxCoder(object):
 
         return bbox_result
 
-
     def encode(self, gt_bboxes_3d, gt_labels_3d):
         r"""Encode ground truth to prediction targets.
 
@@ -158,7 +153,8 @@ class PartialBinBasedBBoxCoder(object):
         # generate dir target
         box_num = gt_labels_3d.shape[0]
         if self.with_rot:
-            dir_class_target, dir_res_target = self.angle2class(gt_bboxes_3d.yaw)
+            dir_class_target, dir_res_target = self.angle2class(
+                gt_bboxes_3d.yaw)
         else:
             dir_class_target = gt_labels_3d.new_zeros(box_num)
             dir_res_target = gt_bboxes_3d.tensor.new_zeros(box_num)
@@ -204,7 +200,7 @@ class PartialBinBasedBBoxCoder(object):
 
         bbox3d = torch.cat([center, bbox_size, dir_angle], dim=-1)
         return bbox3d
-        
+
     def get_targets(self,
                     points,
                     gt_bboxes_3d,
@@ -289,7 +285,6 @@ class PartialBinBasedBBoxCoder(object):
                 objectness_targets, objectness_weights, box_loss_weights,
                 valid_gt_weights)
 
-
     def get_targets_single(self,
                            points,
                            gt_bboxes_3d,
@@ -326,7 +321,8 @@ class PartialBinBasedBBoxCoder(object):
             box_indices_all = gt_bboxes_3d.points_in_boxes(points)
             for i in range(gt_labels_3d.shape[0]):
                 box_indices = box_indices_all[:, i]
-                indices = torch.nonzero(box_indices, as_tuple=False).squeeze(-1)
+                indices = torch.nonzero(box_indices,
+                                        as_tuple=False).squeeze(-1)
                 selected_points = points[indices]
                 vote_target_masks[indices] = 1
                 vote_targets_tmp = vote_targets[indices]
@@ -335,7 +331,8 @@ class PartialBinBasedBBoxCoder(object):
 
                 for j in range(self.gt_per_seed):
                     column_indices = torch.nonzero(
-                        vote_target_idx[indices] == j, as_tuple=False).squeeze(-1)
+                        vote_target_idx[indices] == j,
+                        as_tuple=False).squeeze(-1)
                     vote_targets_tmp[column_indices,
                                      int(j * 3):int(j * 3 +
                                                     3)] = votes[column_indices]
@@ -356,8 +353,8 @@ class PartialBinBasedBBoxCoder(object):
                                         as_tuple=False).squeeze(-1)
                 if pts_semantic_mask[indices[0]] < self.num_classes:
                     selected_points = points[indices, :3]
-                    center = 0.5 * (
-                        selected_points.min(0)[0] + selected_points.max(0)[0])
+                    center = 0.5 * (selected_points.min(0)[0] +
+                                    selected_points.max(0)[0])
                     vote_targets[indices, :] = center - selected_points
                     vote_target_masks[indices] = 1
             vote_targets = vote_targets.repeat((1, self.gt_per_seed))
@@ -397,14 +394,14 @@ class PartialBinBasedBBoxCoder(object):
         one_hot_size_targets.scatter_(1, size_class_targets.unsqueeze(-1), 1)
         one_hot_size_targets = one_hot_size_targets.unsqueeze(-1).repeat(
             1, 1, 3)
-        mean_sizes = size_res_targets.new_tensor(
-            self.mean_sizes).unsqueeze(0)
+        mean_sizes = size_res_targets.new_tensor(self.mean_sizes).unsqueeze(0)
         pos_mean_sizes = torch.sum(one_hot_size_targets * mean_sizes, 1)
         size_res_targets /= pos_mean_sizes
 
         mask_targets = gt_labels_3d[assignment]
 
-        return (vote_targets, vote_target_masks, size_class_targets, size_res_targets,
+        return (vote_targets, vote_target_masks, size_class_targets,
+                size_res_targets,
                 dir_class_targets, dir_res_targets, center_targets,
                 mask_targets.long(), objectness_targets, objectness_masks)
 
@@ -458,8 +455,8 @@ class PartialBinBasedBBoxCoder(object):
 
         results["size_res_norm"] = size_res_norm
         mean_sizes = preds.new_tensor(self.mean_sizes)
-        results["size_res"] = (
-            size_res_norm * mean_sizes.unsqueeze(0).unsqueeze(0))
+        results["size_res"] = (size_res_norm *
+                               mean_sizes.unsqueeze(0).unsqueeze(0))
 
         # decode semantic score
         results["sem_scores"] = preds_trans[..., start:]
@@ -480,8 +477,8 @@ class PartialBinBasedBBoxCoder(object):
         angle_per_class = 2 * pi / float(self.num_dir_bins)
         shifted_angle = (angle + angle_per_class / 2) % (2 * pi)
         angle_cls = shifted_angle // angle_per_class
-        angle_res = shifted_angle - (
-            angle_cls * angle_per_class + angle_per_class / 2)
+        angle_res = shifted_angle - (angle_cls * angle_per_class +
+                                     angle_per_class / 2)
         return angle_cls.long(), angle_res
 
     def class2angle(self, angle_cls, angle_res, limit_period=True):
@@ -500,11 +497,7 @@ class PartialBinBasedBBoxCoder(object):
             angle[angle > pi] -= 2 * pi
         return angle
 
-    def multiclass_nms_single(self,
-                              obj_scores,
-                              sem_scores,
-                              bbox,
-                              points,
+    def multiclass_nms_single(self, obj_scores, sem_scores, bbox, points,
                               input_meta):
         """Multi-class nms in single batch.
         Args:
@@ -516,11 +509,10 @@ class PartialBinBasedBBoxCoder(object):
         Returns:
             tuple[torch.Tensor]: Bounding boxes, scores and labels.
         """
-        bbox = input_meta["box_type_3d"](
-            bbox,
-            box_dim=bbox.shape[-1],
-            with_yaw=self.with_rot,
-            origin=(0.5, 0.5, 0.5))
+        bbox = input_meta["box_type_3d"](bbox,
+                                         box_dim=bbox.shape[-1],
+                                         with_yaw=self.with_rot,
+                                         origin=(0.5, 0.5, 0.5))
         box_indices = bbox.points_in_boxes(points)
 
         corner3d = bbox.corners
@@ -539,7 +531,8 @@ class PartialBinBasedBBoxCoder(object):
 
         # filter empty boxes and boxes with low score
         scores_mask = (obj_scores > self.test_cfg.score_thr)
-        nonempty_box_inds = torch.nonzero(nonempty_box_mask, as_tuple=False).flatten()
+        nonempty_box_inds = torch.nonzero(nonempty_box_mask,
+                                          as_tuple=False).flatten()
         nonempty_mask = torch.zeros_like(bbox_classes).scatter(
             0, nonempty_box_inds[nms_selected], 1)
         selected = (nonempty_mask.bool() & scores_mask.bool())

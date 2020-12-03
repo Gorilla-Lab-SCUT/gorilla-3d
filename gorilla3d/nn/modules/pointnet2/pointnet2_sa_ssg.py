@@ -25,7 +25,6 @@ class PointNet2SASSG(nn.Module):
         normalize_xyz (bool): Whether to normalize xyz with radii in
             each SA module.
     """
-
     def __init__(self,
                  in_channels,
                  num_points=(2048, 1024, 512, 256),
@@ -58,15 +57,14 @@ class PointNet2SASSG(nn.Module):
             sa_out_channel = cur_sa_mlps[-1]
 
             self.SA_modules.append(
-                PointSAModule(
-                    num_point=num_points[sa_index],
-                    radius=radius[sa_index],
-                    num_sample=num_samples[sa_index],
-                    mlp_channels=cur_sa_mlps,
-                    norm_cfg=norm_cfg,
-                    use_xyz=use_xyz,
-                    pool_mod=pool_mod,
-                    normalize_xyz=normalize_xyz))
+                PointSAModule(num_point=num_points[sa_index],
+                              radius=radius[sa_index],
+                              num_sample=num_samples[sa_index],
+                              mlp_channels=cur_sa_mlps,
+                              norm_cfg=norm_cfg,
+                              use_xyz=use_xyz,
+                              pool_mod=pool_mod,
+                              normalize_xyz=normalize_xyz))
             skip_channel_list.append(sa_out_channel)
             sa_in_channel = sa_out_channel
 
@@ -154,9 +152,7 @@ class PointNet2SASSG(nn.Module):
             fp_xyz.append(sa_xyz[self.num_sa - i - 1])
             fp_indices.append(sa_indices[self.num_sa - i - 1])
 
-        ret = dict(
-            fp_xyz=fp_xyz, fp_features=fp_features, fp_indices=fp_indices)
+        ret = dict(fp_xyz=fp_xyz,
+                   fp_features=fp_features,
+                   fp_indices=fp_indices)
         return ret
-
-
-

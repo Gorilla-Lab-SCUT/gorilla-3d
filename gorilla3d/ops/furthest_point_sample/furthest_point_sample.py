@@ -10,7 +10,6 @@ class FurthestPointSampling(Function):
     Uses iterative furthest point sampling to select a set of features whose
     corresponding points have the furthest distance.
     """
-
     @staticmethod
     def forward(ctx, points_xyz: torch.Tensor,
                 num_points: int) -> torch.Tensor:
