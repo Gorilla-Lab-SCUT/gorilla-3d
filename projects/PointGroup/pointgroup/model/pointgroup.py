@@ -17,8 +17,8 @@ import sys
 sys.path.append("../../")
 import gorilla3d
 
-from lib.pointgroup_ops.functions import pointgroup_ops
-from util import utils
+from ..lib.pointgroup_ops.functions import pointgroup_ops
+from ..util import load_model_param, get_batch_offsets
 from .func_helper import *
 
 
@@ -133,7 +133,7 @@ class PointGroup(nn.Module):
         if self.pretrain_path is not None:
             pretrain_dict = torch.load(self.pretrain_path)
             for m in self.pretrain_module:
-                print("Load pretrained " + m + ": %d/%d" % utils.load_model_param(self.module_map[m], pretrain_dict, prefix=m))
+                print("Load pretrained " + m + ": %d/%d" % load_model_param(self.module_map[m], pretrain_dict, prefix=m))
 
     @staticmethod
     def freeze_bn(module):
@@ -430,7 +430,7 @@ class PointGroup(nn.Module):
 
             if len(object_idx_filter) > 0:
                 batch_idxs_ = batch_idxs[object_idx_filter]
-                batch_offsets_ = utils.get_batch_offsets(batch_idxs_, input.batch_size)
+                batch_offsets_ = get_batch_offsets(batch_idxs_, input.batch_size)
                 coords_ = coords[object_idx_filter]
                 pt_offsets_ = pt_offsets[object_idx_filter]
                 shifted_coords = coords_ + pt_offsets_

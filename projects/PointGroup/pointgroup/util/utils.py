@@ -3,9 +3,6 @@ import os.path as osp
 import sys
 sys.path.append("../")
 
-from util.log import logger
-from torch.optim import Optimizer
-
 import gorilla
 
 class AverageMeter(object):
@@ -24,24 +21,6 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
-
-
-def step_learning_rate(optimizer, base_lr, epoch, step_epoch, multiplier=0.1, clip=1e-6):
-    """Sets the learning rate to the base LR decayed by 10 every step epochs"""
-    lr = max(base_lr * (multiplier ** (epoch // step_epoch)), clip)
-    # logger.info("Learning rate {}".format(lr))
-    for param_group in optimizer.param_groups:
-        param_group["lr"] = lr
-
-
-def poly_learning_rate(optimizer, base_lr, epoch, poly_epoch, multiplier=0.5, clip=1e-6):
-    """Sets the learning rate to the base LR decayed by 10 every step epochs"""
-    delta_lr = base_lr * (1 - multiplier) / poly_epoch
-    lr = max(base_lr - delta_lr * epoch, base_lr * multiplier)
-    lr = max(lr, clip)
-    logger.info("Learning rate {}".format(lr))
-    for param_group in optimizer.param_groups:
-        param_group["lr"] = lr
 
 
 def intersectionAndUnion(output, target, K, ignore_index=255):
@@ -71,7 +50,7 @@ def get_checkpoint(exp_path, exp_name, epoch=0, f=""):
     return f, epoch + 1
 
 
-def checkpoint_restore(model, optimizer, scheduler, exp_path, exp_name, use_cuda=True, epoch=0, dist=False, f=""):
+def checkpoint_restore(model, optimizer, scheduler, exp_path, exp_name, use_cuda=True, epoch=0, dist=False, f="", logger=None):
     if not f:
         if epoch > 0:
             f = osp.join(exp_path, exp_name + "-%09d"%epoch + ".pth")
@@ -97,7 +76,7 @@ def is_multiple(num, multiple):
     return num != 0 and num % multiple == 0
 
 
-def checkpoint_save(model, optimizer, scheduler, exp_path, exp_name, epoch, save_freq=16, use_cuda=True, filename=None):
+def checkpoint_save(model, optimizer, scheduler, exp_path, exp_name, epoch, save_freq=16, use_cuda=True, filename=None, logger=None):
     if filename is None:
         filename = osp.join(exp_path, exp_name + "-%09d" % epoch + ".pth")
     logger.info("Saving " + filename)

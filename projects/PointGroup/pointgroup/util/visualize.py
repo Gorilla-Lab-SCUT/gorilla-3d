@@ -3,7 +3,7 @@ Visualization
 Written by Li Jiang
 '''
 
-import open3d as o3d
+# import open3d as o3d
 import numpy as np
 import os, glob, argparse
 import os.path as osp
