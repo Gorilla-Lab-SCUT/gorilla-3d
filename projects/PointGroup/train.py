@@ -13,9 +13,8 @@ import argparse
 import torch
 import gorilla
 
-from pointgroup import (get_log_file, is_multiple, is_power2, checkpoint_save,
-                        get_checkpoint, model_fn_decorator, Dataset,
-                        PointGroup as Network)
+from pointgroup import (get_log_file, get_checkpoint, model_fn_decorator,
+                        Dataset, PointGroup as Network)
 
 
 def get_parser():
@@ -51,7 +50,8 @@ def init():
     #### get logger file
     log_file = get_log_file(cfg)
     logger = gorilla.get_root_logger(log_file)
-    logger.info("************************ Start Logging ************************")
+    logger.info(
+        "************************ Start Logging ************************")
 
     # log the config
     logger.info(cfg)
@@ -63,8 +63,8 @@ def init():
 class PointGroupSolver(gorilla.BaseSolver):
     @property
     def val_flag(self):
-        return is_multiple(self.epoch, self.cfg.save_freq) or is_power2(
-            self.epoch)
+        return gorilla.is_multiple(
+            self.epoch, self.cfg.data.save_freq) or gorilla.is_power2(self.epoch)
 
     def solve(self, model_fn):
         self.model_fn = model_fn
@@ -90,7 +90,7 @@ class PointGroupSolver(gorilla.BaseSolver):
             data_time.update(time.time() - end)
 
             ##### prepare input and forward
-            loss, _, visual_dict, meter_dict = self.model_fn(
+            loss, meter_dict = self.model_fn(
                 batch, self.model, self.epoch)
 
             ##### meter_dict
@@ -142,11 +142,13 @@ class PointGroupSolver(gorilla.BaseSolver):
             self.epoch, self.cfg.data.epochs, loss_buffer.avg,
             time.time() - start_epoch))
 
-        checkpoint_save(self.model, self.optimizer, self.lr_scheduler,
-                        self.cfg.exp_path,
-                        self.cfg.config.split("/")[-1][:-5], self.epoch,
-                        self.cfg.save_freq,
-                        logger=self.logger)
+        meta = {"epoch": epoch}
+        filename = osp.join(self.cfg.exp_path,
+                            self.cfg.exp_name + "-%09d" % self.epoch + ".pth")
+        gorilla.save_checkpoint(self.model, filename, self.optimizer,
+                                self.lr_scheduler, meta)
+
+        self.logger.info("Saving " + filename)
         self.write()
 
     def evaluate(self):
@@ -159,7 +161,7 @@ class PointGroupSolver(gorilla.BaseSolver):
             for i, batch in enumerate(self.val_data_loader):
 
                 ##### prepare input and forward
-                loss, preds, visual_dict, meter_dict = self.model_fn(
+                loss, meter_dict = self.model_fn(
                     batch, self.model, self.epoch)
 
                 ##### meter_dict
@@ -211,8 +213,7 @@ if __name__ == "__main__":
     Trainer = PointGroupSolver(
         model, [dataset.train_data_loader, dataset.val_data_loader], cfg,
         logger)
-    checkpoint, epoch = get_checkpoint(cfg.exp_path,
-                                       cfg.exp_name)
+    checkpoint, epoch = get_checkpoint(cfg.exp_path, cfg.exp_name)
     Trainer.set_epoch(epoch)
     if gorilla.is_filepath(checkpoint):
         Trainer.resume(checkpoint)

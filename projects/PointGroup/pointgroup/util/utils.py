@@ -50,57 +50,6 @@ def get_checkpoint(exp_path, exp_name, epoch=0, f=""):
     return f, epoch + 1
 
 
-def checkpoint_restore(model, optimizer, scheduler, exp_path, exp_name, use_cuda=True, epoch=0, dist=False, f="", logger=None):
-    if not f:
-        if epoch > 0:
-            f = osp.join(exp_path, exp_name + "-%09d"%epoch + ".pth")
-            assert osp.isfile(f)
-        else:
-            f = sorted(glob.glob(osp.join(exp_path, exp_name + "-*.pth")))
-            if len(f) > 0:
-                f = f[-1]
-                epoch = int(f[len(exp_path) + len(exp_name) + 2 : -4])
-
-    if len(f) > 0:
-        logger.info("Restore from " + f)
-        gorilla.resume(model, f, optimizer, scheduler)
-        
-    return epoch + 1
-
-
-def is_power2(num):
-    return num != 0 and ((num & (num - 1)) == 0)
-
-
-def is_multiple(num, multiple):
-    return num != 0 and num % multiple == 0
-
-
-def checkpoint_save(model, optimizer, scheduler, exp_path, exp_name, epoch, save_freq=16, use_cuda=True, filename=None, logger=None):
-    if filename is None:
-        filename = osp.join(exp_path, exp_name + "-%09d" % epoch + ".pth")
-    logger.info("Saving " + filename)
-    model.cpu()
-    checkpoint = {"model": model.state_dict()}
-    if use_cuda:
-        model.cuda()
-    
-    meta = {"epoch": epoch}
-    gorilla.save_checkpoint(model, filename, optimizer, scheduler, meta)
-
-
-def load_model_param(model, pretrained_dict, prefix=""):
-    # suppose every param in model should exist in pretrain_dict, but may differ in the prefix of the name
-    # For example:    model_dict: "0.conv.weight"     pretrain_dict: "FC_layer.0.conv.weight"
-    model_dict = model.state_dict()
-    len_prefix = 0 if len(prefix) == 0 else len(prefix) + 1
-    pretrained_dict_filter = {k[len_prefix:]: v for k, v in pretrained_dict.items() if k[len_prefix:] in model_dict and prefix in k}
-    assert len(pretrained_dict_filter) > 0
-    model_dict.update(pretrained_dict_filter)
-    model.load_state_dict(model_dict)
-    return len(pretrained_dict_filter), len(model_dict)
-
-
 def write_obj(points, colors, out_filename):
     N = points.shape[0]
     fout = open(out_filename, "w")
@@ -121,11 +70,4 @@ def get_batch_offsets(batch_idxs, bs):
         batch_offsets[i + 1] = batch_offsets[i] + (batch_idxs == i).sum()
     assert batch_offsets[-1] == batch_idxs.shape[0]
     return batch_offsets
-
-
-def print_error(message, user_fault=False):
-    sys.stderr.write("ERROR: " + str(message) + "\n")
-    if user_fault:
-      sys.exit(2)
-    sys.exit(-1)
 

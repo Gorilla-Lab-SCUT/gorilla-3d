@@ -19,7 +19,7 @@ sys.path.append("../../")
 import gorilla3d
 
 from ..lib.pointgroup_ops.functions import pointgroup_ops
-from ..util import load_model_param, get_batch_offsets
+from ..util import get_batch_offsets
 from .func_helper import *
 
 
@@ -610,34 +610,21 @@ def model_fn_decorator(cfg, test=False):
         if prepare_flag:
             loss_inp["proposal_scores"] = (scores, proposals_idx, proposals_offset, instance_pointnum)
 
-        loss, loss_out, infos = loss_fn(loss_inp, epoch)
+        loss, loss_out = loss_fn(loss_inp, epoch)
 
-        ##### accuracy / visual_dict / meter_dict
+        ##### accuracy / meter_dict
         with torch.no_grad():
-            preds = {}
-            preds["semantic"] = semantic_scores
-            preds["pt_offsets"] = pt_offsets
-            if prepare_flag:
-                preds["score"] = scores
-                preds["proposals"] = (proposals_idx, proposals_offset)
-
-            visual_dict = {}
-            visual_dict["loss"] = loss
-            for k, v in loss_out.items():
-                visual_dict[k] = v[0]
-
             meter_dict = {}
             meter_dict["loss"] = (loss.item(), coords.shape[0])
             for k, v in loss_out.items():
                 meter_dict[k] = (float(v[0]), v[1])
 
-        return loss, preds, visual_dict, meter_dict
+        return loss, meter_dict
 
 
     def loss_fn(loss_inp, epoch):
 
         loss_out = {}
-        infos = {}
 
         """semantic loss"""
         semantic_scores, semantic_labels = loss_inp["semantic_scores"]
@@ -736,7 +723,7 @@ def model_fn_decorator(cfg, test=False):
         if prepare_flag:
             loss += (loss_weight[3] * score_loss)
 
-        return loss, loss_out, infos
+        return loss, loss_out
 
 
     def get_segmented_scores(scores, fg_thresh=1.0, bg_thresh=0.0):
