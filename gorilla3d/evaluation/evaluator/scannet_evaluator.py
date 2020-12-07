@@ -5,8 +5,8 @@ import torch
 import numpy as np
 
 from gorilla.evaluation import DatasetEvaluator, DatasetEvaluators
-from .metric import (read_gt, evaluate, assign_instances_for_scan,
-                     evaluate_matches, compute_averages, print_results)
+from ..metric import (read_gt, evaluate, assign_instances_for_scan,
+                      evaluate_matches, compute_averages, print_results)
 
 
 class ScanNetSemanticEvaluator(DatasetEvaluator):
