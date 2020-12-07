@@ -20,7 +20,7 @@ from torch.utils.data import DataLoader
 
 sys.path.append("../")
 
-from pointgroup import pointgroup_ops
+from ..lib import pointgroup_ops
 # from lib.pointgroup_ops.functions import pointgroup_ops
 
 
@@ -28,11 +28,7 @@ class Dataset:
     def __init__(self, cfg=None, logger=None, test=False):
         self.logger = logger
         self.data_root = cfg.data_root
-        self.dataset = cfg.dataset
-        try:
-            self.pose_file = cfg.pose_file
-        except:
-            self.pose_file = "scene_align.pkl"
+        self.dataset = "scannetv2"
         with open(osp.join(self.data_root, self.dataset, self.pose_file), "rb") as f:
             self.all_pose_dict = pickle.load(f)
         self.filename_suffix = cfg.filename_suffix
@@ -45,27 +41,10 @@ class Dataset:
         self.scale = cfg.scale
         self.max_npoint = cfg.max_npoint
         self.mode = cfg.mode
-        try:
-            self.train_mini = cfg.train_mini
-        except:
-            self.train_mini = False
-        
+
+        self.train_mini = cfg.train_mini 
         self.task = cfg.task
-
-        try:
-            self.without_angle = cfg.without_angle
-        except:
-            self.without_angle = False
-
-        try:
-            self.with_elastic = cfg.with_elastic
-        except:
-            self.with_elastic = False
-
-        try:
-            self.num_heading_bin = cfg.num_heading_bin
-        except:
-            self.num_heading_bin = 12
+        self.with_elastic = cfg.with_elastic
 
         if test:
             self.test_split = cfg.split  # val or test
@@ -97,8 +76,6 @@ class Dataset:
         train_set = list(range(len(self.train_files)))
         self.train_data_loader = DataLoader(train_set, batch_size=self.batch_size, collate_fn=self.train_merge, num_workers=self.train_workers,
                                             shuffle=True, sampler=None, drop_last=True, pin_memory=True)
-        # self.train_data_loader = DataLoader(train_set, batch_size=self.batch_size, collate_fn=self.val_merge, num_workers=self.train_workers,
-        #                                     shuffle=True, sampler=None, drop_last=True, pin_memory=True)
 
 
     def valLoader(self):
@@ -175,21 +152,16 @@ class Dataset:
         return instance_num, {"instance_info": instance_info, "instance_pointnum": instance_pointnum}
 
 
-    def dataAugmentOld(self, xyz, jitter=False, flip=False, rot=False, boxes=None):
+    def dataAugment(self, xyz, jitter=False, flip=False, rot=False):
         if jitter:
             m = np.eye(3)
             m += np.random.randn(3, 3) * 0.1
             xyz = xyz @ m
-            if boxes is not None:
-                boxes[:, :3] = boxes[:, :3] @ m
         if flip:
             # m[0][0] *= np.random.randint(0, 2) * 2 - 1  # flip x randomly
             flag = np.random.randint(0, 2)
-            # if flag:
-            xyz[:, 0] = -xyz[:, 0]
-            if boxes is not None:
-                boxes[:, 0] = -boxes[:, 0]
-                boxes[:, 6] = np.pi - boxes[:, 6]
+            if flag:
+                xyz[:, 0] = -xyz[:, 0]
         if rot:
             theta = np.random.rand() * 2 * math.pi
             rot_mat = np.eye(3)
@@ -199,49 +171,8 @@ class Dataset:
             rot_mat[1, 1] = c
             rot_mat[1, 0] = s
             xyz = xyz @ rot_mat.T
-            if boxes is not None:
-                boxes[:, :3] = boxes[:, :3] @ rot_mat.T
-                boxes[:, 6] += theta
-                boxes[:, 6][boxes[:, 6] > 2 * np.pi] -= 2 * np.pi
 
-        if boxes is not None:
-            return xyz, boxes
-        else:
-            return xyz
-
-
-    def dataAugment(self, xyz, scale=False, flip=False, rot=False, boxes=None):
-        if scale:
-            scale = np.random.uniform(0.8, 1.2)
-            xyz = xyz * scale
-            if boxes is not None:
-                boxes[:, :6] = boxes[:, :6] * scale
-        if flip:
-            # m[0][0] *= np.random.randint(0, 2) * 2 - 1  # flip x randomly
-            flag = np.random.randint(0, 2)
-            # if flag:
-            xyz[:, 0] = -xyz[:, 0]
-            if boxes is not None:
-                boxes[:, 0] = -boxes[:, 0]
-                boxes[:, 6] = np.pi - boxes[:, 6]
-        if rot:
-            theta = np.random.rand() * 2 * math.pi
-            rot_mat = np.eye(3)
-            c, s = np.cos(theta), np.sin(theta)
-            rot_mat[0, 0] = c
-            rot_mat[0, 1] = -s
-            rot_mat[1, 1] = c
-            rot_mat[1, 0] = s
-            xyz = xyz @ rot_mat.T
-            if boxes is not None:
-                boxes[:, :3] = boxes[:, :3] @ rot_mat.T
-                boxes[:, 6] += theta
-                boxes[:, 6][boxes[:, 6] > 2 * np.pi] -= 2 * np.pi
-
-        if boxes is not None:
-            return xyz, boxes
-        else:
-            return xyz
+        return xyz
 
 
     def crop(self, xyz):
@@ -274,18 +205,6 @@ class Dataset:
 
 
     def train_merge(self, id):
-        if self.pose_file == "scene_align_old.pkl":
-            semantic_label_idxs = [3, 4, 5, 6, 7, 10, 24, 33, 36]
-            semantic_label_names = ["cabinet", "bed", "chair", "sofa", "table",
-                                    "bookshelf", "refrigerator", "toilet", "bathtub"]
-        elif self.pose_file == "scene_align.pkl":
-            semantic_label_idxs = [3, 4, 5, 6, 7, 24, 33, 36, 39]
-            semantic_label_names = ["cabinet", "bed", "chair", "sofa", "table",
-                                    "refrigerator", "toilet", "bathtub", "otherfurniture"]
-        else:
-            raise ValueError
-        label_map = {sem_label: idx for idx, sem_label in enumerate(semantic_label_idxs)}
-        label_map[cfg.ignore_label] = cfg.ignore_label
         locs = []
         locs_float = []
         feats = []
@@ -296,10 +215,6 @@ class Dataset:
         instance_pointnum = []  # (total_nInst), int
 
         batch_offsets = [0]
-        bboxes_list = []
-        syms_list = []
-        angle_classes_list = []
-        angle_residuals_list = []
         sample_idx_list = []
         xyz_offset_list = []
         overseg_list = []
@@ -319,8 +234,7 @@ class Dataset:
             # read edge
 
             ### jitter / flip x / rotation
-            # xyz_middle, boxes = self.dataAugment(xyz_origin, True, True, True, boxes=boxes)
-            xyz_middle = self.dataAugment(xyz_origin, True, True, True, boxes=None)
+            xyz_middle = self.dataAugment(xyz_origin, True, True, True)
 
             ### scale
             xyz = xyz_middle * self.scale
@@ -388,156 +302,43 @@ class Dataset:
         ### voxelize
         voxel_locs, p2v_map, v2p_map = pointgroup_ops.voxelization_idx(locs, self.batch_size, self.mode)
 
-        # # visual
-        # visual_dir = osp.join(".", "visual")
-        # import open3d as o3d
-        # for idx, (start, end) in enumerate(zip(batch_offsets[:-1], batch_offsets[1:])):
-        #     sample_idx = sample_idx_list[idx]
-        #     coords = locs_float[start: end] # (n, 3)
-        #     colors = torch.clamp(feats[start: end]+0.5, 0, 1) # (n, 3)
-        #     pc = o3d.geometry.PointCloud()
-        #     pc.points = o3d.utility.Vector3dVector(coords)
-        #     pc.colors = o3d.utility.Vector3dVector(colors)
-        #     o3d.io.write_point_cloud(osp.join(visual_dir, "{}_pc.ply".format(sample_idx)), pc)
-        #     all_lines = o3d.geometry.LineSet()
-            
-        #     boxes = bboxes[idx]
-
-        #     mesh = o3d.geometry.TriangleMesh()
-        #     for box in boxes:
-        #         if box[-1] == -100:
-        #             continue
-        #         translation = box[:3].numpy()
-        #         size = box[3:6].numpy()
-        #         corner = o3d.io.read_triangle_mesh("./visual/bbox.ply")
-        #         corner.vertices = o3d.utility.Vector3dVector(np.array(corner.vertices) * size)
-        #         z_angle = box[6]
-        #         rot_mat = np.eye(3)
-        #         rot_mat[0, 0] = np.cos(z_angle)
-        #         rot_mat[0, 1] = -np.sin(z_angle)
-        #         rot_mat[1, 1] = np.cos(z_angle)
-        #         rot_mat[1, 0] = np.sin(z_angle)
-
-        #         transform = np.eye(4)
-        #         transform[0:3, 0:3] = rot_mat
-        #         transform[0:3, 3] = translation
-        #         corner.transform(transform)
-
-        #         mesh += corner
-        #     o3d.io.write_triangle_mesh(osp.join(visual_dir, "{}_corner.ply".format(sample_idx)), mesh)
-
         return {"locs": locs, "locs_offset": locs_offset, "voxel_locs": voxel_locs,
                 "sample_idx_list": sample_idx_list, "p2v_map": p2v_map, "v2p_map": v2p_map,
                 "locs_float": locs_float, "feats": feats, "labels": labels, "instance_labels": instance_labels,
                 "instance_info": instance_infos, "instance_pointnum": instance_pointnum,
-                "id": id, "offsets": batch_offsets, "spatial_shape": spatial_shape, "overseg": overseg,
-                "bboxes": None, "syms": None, "angle_classes": None, "angle_residuals": None}
+                "id": id, "offsets": batch_offsets, "spatial_shape": spatial_shape, "overseg": overseg}
 
 
     def val_merge(self, id):
-        if self.pose_file == "scene_align_old.pkl":
-            semantic_label_idxs = [3, 4, 5, 6, 7, 10, 24, 33, 36]
-            semantic_label_names = ["cabinet", "bed", "chair", "sofa", "table",
-                                    "bookshelf", "refrigerator", "toilet", "bathtub"]
-        elif self.pose_file == "scene_align.pkl":
-            semantic_label_idxs = [3, 4, 5, 6, 7, 24, 33, 36, 39]
-            semantic_label_names = ["cabinet", "bed", "chair", "sofa", "table",
-                                    "refrigerator", "toilet", "bathtub", "otherfurniture"]
-        else:
-            raise ValueError
-        label_map = {sem_label: idx for idx, sem_label in enumerate(semantic_label_idxs)}
-        label_map[16] = cfg.ignore_label
-        label_map[cfg.ignore_label] = cfg.ignore_label
         locs = []
         locs_float = []
         feats = []
         labels = []
         instance_labels = []
-        semantic_preds_list = []
         overseg_list = []
         overseg_bias = 0
 
         instance_infos = []  # (N, 9)
         instance_pointnum = []  # (total_nInst), int
 
-
         batch_offsets = [0]
-        bboxes_list = []
-        syms_list = []
-        angle_classes_list = []
-        angle_residuals_list = []
         sample_idx_list = []
         xyz_offset_list = []
 
         total_inst_num = 0
-        import random
         for i, idx in enumerate(id):
             xyz_origin, rgb, faces, label, instance_label, coords_shift, sample_idx = self.val_files[idx]
             scene = sample_idx.split("/")[1]
             sample_idx_list.append(scene)
-            pose_content = self.all_pose_dict[scene]
-            semantic_preds = np.load(osp.join("dataset", "scannetv2", "pred_seg_all", scene + ".npy"))
-            semantic_preds = self.semantic_map[semantic_preds]
 
             with open(osp.join(".", "dataset", "scannetv2", "scans", scene, scene+"_vh_clean_2.0.010000.segs.json"), "r") as f:
                 overseg = json.load(f)
 
             overseg = np.array(overseg["segIndices"])
 
-            box_list = []
-            sym_list = []
-            
-            for ins_id, pose_dict in pose_content.items():
-                sym = pose_dict["sym"]
-                if sym == "__SYM_NONE":
-                    sym_list.append(0)
-                elif sym == "__SYM_ROTATE_UP_2":
-                    sym_list.append(1)
-                elif sym == "__SYM_ROTATE_UP_4":
-                    sym_list.append(2)
-                elif sym == "__SYM_ROTATE_UP_INF":
-                    sym_list.append(3)
-                else:
-                    sym_list.append(0)
-                box = np.concatenate([pose_dict["translation"].reshape(-1) + coords_shift,
-                                      pose_dict["size"].reshape(-1),
-                                      pose_dict["z_angle"].reshape(1),
-                                      np.array(label_map[pose_dict["category"]]).reshape(1)])
-                box_list.append(box)
-
-            if len(box_list) == 0:
-                boxes = np.ones([1, 8], dtype=np.float32) * -100 # (1, 9)
-                syms = np.zeros([1], dtype=np.int32) # (1)
-            else:
-                boxes = np.array(box_list, dtype=np.float32) # (n, 3+3+1+1)
-                syms = np.array(sym_list, dtype=np.int32) # (n)
-
             ### jitter / flip x / rotation
-            # xyz_middle, boxes = self.dataAugment(xyz_origin, True, True, True, boxes=boxes)
-            xyz_middle, boxes = self.dataAugment(xyz_origin, False, False, False, boxes=boxes)
-            
-            # max length is 35
-            max_length = 35
-            # extract angle label
-            angle_classes = np.zeros((max_length,), dtype=np.int64)
-            angle_residuals = np.zeros((max_length,), dtype=np.float32)
-            for idx, box in enumerate(boxes):
-                angle_class, angle_residual = self.angle2class(box[6])
-                angle_classes[idx] = angle_class
-                angle_residuals[idx] = angle_residual
-            
-            angle_classes_list.append(torch.from_numpy(angle_classes))
-            angle_residuals_list.append(torch.from_numpy(angle_residuals))
+            xyz_middle = self.dataAugment(xyz_origin, False, False, False)
 
-            # residual = max_length - len(boxes)
-            boxes_empty = np.ones([max_length, 8]).astype(boxes.dtype) * -100
-            boxes_empty[:len(boxes), :] = boxes
-            # boxes = np.pad(boxes, ((0, residual), (0, 0)), "constant", constant_values=-100) # (40, 8)
-            sym_empty = np.zeros([max_length]).astype(syms.dtype)
-            sym_empty[:len(syms)] = syms
-
-            bboxes_list.append(torch.from_numpy(boxes_empty))
-            syms_list.append(torch.from_numpy(sym_empty))
 
             ### scale
             xyz = xyz_middle * self.scale
@@ -559,7 +360,6 @@ class Dataset:
             overseg += overseg_bias
             overseg_bias += (overseg.max() + 1)
             instance_label = self.get_cropped_inst_label(instance_label, valid_idxs)
-            semantic_preds = semantic_preds[valid_idxs]
 
             ### get instance information
             inst_num, inst_infos = self.get_instance_info(xyz_middle, instance_label.astype(np.int32))
@@ -577,7 +377,6 @@ class Dataset:
             feats.append(torch.from_numpy(rgb))
             labels.append(torch.from_numpy(label))
             instance_labels.append(torch.from_numpy(instance_label))
-            semantic_preds_list.append(torch.from_numpy(semantic_preds))
             overseg_list.append(torch.from_numpy(overseg))
 
             instance_infos.append(torch.from_numpy(inst_info))
@@ -592,7 +391,6 @@ class Dataset:
         labels = torch.cat(labels, 0).long()                       # long (N)
         instance_labels = torch.cat(instance_labels, 0).long()     # long (N)
         locs_offset = torch.stack(xyz_offset_list)               # long (B, 3)
-        semantic_preds = torch.cat(semantic_preds_list, 0).long() # long (N)
         overseg = torch.cat(overseg_list, 0).long()               # long(N)
 
         instance_infos = torch.cat(instance_infos, 0).to(torch.float32)               # float (N, 9) (meanxyz, minxyz, maxxyz)
@@ -603,19 +401,12 @@ class Dataset:
         ### voxelize
         voxel_locs, p2v_map, v2p_map = pointgroup_ops.voxelization_idx(locs, self.batch_size, self.mode)
 
-        ### get bboxes(pose)
-        bboxes = torch.stack(bboxes_list)
-        syms = torch.stack(syms_list)
-        angle_classes = torch.stack(angle_classes_list)
-        angle_residuals = torch.stack(angle_residuals_list)
 
         return {"locs": locs, "locs_offset": locs_offset, "voxel_locs": voxel_locs,
                 "sample_idx_list": sample_idx_list, "p2v_map": p2v_map, "v2p_map": v2p_map,
                 "locs_float": locs_float, "feats": feats, "labels": labels, "instance_labels": instance_labels,
                 "instance_info": instance_infos, "instance_pointnum": instance_pointnum,
-                "id": id, "offsets": batch_offsets, "spatial_shape": spatial_shape, "overseg": overseg,
-                "bboxes": bboxes, "syms": syms, "angle_classes": angle_classes, "angle_residuals": angle_residuals,
-                "semantic_preds": semantic_preds}
+                "id": id, "offsets": batch_offsets, "spatial_shape": spatial_shape, "overseg": overseg}
 
 
     def test_merge(self, id):
@@ -626,7 +417,6 @@ class Dataset:
         batch_offsets = [0]
         sample_idx_list = []
         xyz_offset_list = []
-        semantic_preds_list = []
         overseg_list = []
         connect_map_list = []
 
@@ -654,8 +444,6 @@ class Dataset:
 
             scene = sample_idx.split("/")[1]
             sample_idx_list.append(scene)
-            semantic_preds = np.load(osp.join("dataset", "scannetv2", "pred_seg_all", scene + ".npy"))
-            semantic_preds = self.semantic_map[semantic_preds]
 
             # read overseg
             with open(osp.join(".", "dataset", "scannetv2", split, scene, scene+"_vh_clean_2.0.010000.segs.json"), "r") as f:
@@ -675,7 +463,6 @@ class Dataset:
             connect_map_list.append(connect_map)
 
             ### flip x / rotation
-            # xyz_middle = self.dataAugment(xyz_origin, False, True, True)
             xyz_middle = self.dataAugment(xyz_origin, False, False, False)
 
             ### scale
@@ -692,7 +479,6 @@ class Dataset:
             locs.append(torch.cat([torch.LongTensor(xyz.shape[0], 1).fill_(i), torch.from_numpy(xyz).long()], 1))
             locs_float.append(torch.from_numpy(xyz_middle))
             feats.append(torch.from_numpy(rgb))
-            semantic_preds_list.append(torch.from_numpy(semantic_preds))
             overseg_list.append(torch.from_numpy(overseg))
 
             if self.test_split == "val":
@@ -709,7 +495,6 @@ class Dataset:
 
         locs = torch.cat(locs, 0)                                 # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
         locs_float = torch.cat(locs_float, 0).to(torch.float32)   # float (N, 3)
-        semantic_preds = torch.cat(semantic_preds_list, 0).long() # long (N)
         overseg = torch.cat(overseg_list, 0).long()               # long(N)
         feats = torch.cat(feats, 0)                               # float (N, C)
         locs_offset = torch.stack(xyz_offset_list)  # long (B, 3)
@@ -731,31 +516,13 @@ class Dataset:
                     "sample_idx_list": sample_idx_list, "p2v_map": p2v_map, "v2p_map": v2p_map,
                     "locs_float": locs_float, "feats": feats,
                     "instance_labels": instance_labels, "instance_info": instance_infos, "instance_pointnum": instance_pointnum,
-                    "id": id, "offsets": batch_offsets, "spatial_shape": spatial_shape, "semantic_preds": semantic_preds,
+                    "id": id, "offsets": batch_offsets, "spatial_shape": spatial_shape,
                     "overseg": overseg, "connect_map": connect_map_list}
         else:
             return {"locs": locs, "locs_offset": locs_offset, "voxel_locs": voxel_locs,
                     "sample_idx_list": sample_idx_list, "p2v_map": p2v_map, "v2p_map": v2p_map,
                     "locs_float": locs_float, "feats": feats,
-                    "id": id, "offsets": batch_offsets, "spatial_shape": spatial_shape, "semantic_preds": semantic_preds,
+                    "id": id, "offsets": batch_offsets, "spatial_shape": spatial_shape,
                     "overseg": overseg, "connect_map": connect_map_list}
-
-    def angle2class(self, angle):
-        ''' Convert continuous angle to discrete class
-            [optinal] also small regression number from  
-            class center angle to current angle.
-            
-            angle is from 0-2pi (or -pi~pi), class center at 0, 1*(2pi/N), 2*(2pi/N) ...  (N-1)*(2pi/N)
-            return is class of int32 of 0,1,...,N-1 and a number such that
-                class*(2pi/N) + number = angle
-        '''
-        num_class = self.num_heading_bin
-        angle = angle % (2 * np.pi)
-        assert(angle >= 0 and angle <= 2 * np.pi)
-        angle_per_class = 2 * np.pi / float(num_class)
-        shifted_angle = (angle + angle_per_class / 2) % (2 * np.pi)
-        class_id = int(shifted_angle / angle_per_class)
-        residual_angle = shifted_angle - (class_id * angle_per_class + angle_per_class / 2)
-        return class_id, residual_angle
 
 
