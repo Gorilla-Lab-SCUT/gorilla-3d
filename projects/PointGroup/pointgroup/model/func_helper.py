@@ -372,7 +372,7 @@ def get_gt_mask(proposals_idx, instance_labels, gt_instance_id):
     return mask
 
 
-def visual_tree(coords, overseg, batch_offsets, overseg_centers, overseg_batch_idxs, adajency_matrix_list, sample_idx_list, save_dir="visual", suffix="lines"):
+def visual_tree(coords, overseg, batch_offsets, overseg_centers, overseg_batch_idxs, adajency_matrix_list, scene_list, save_dir="visual", suffix="lines"):
     r"""visualize the tree build from overseg
 
     Args:
@@ -381,12 +381,12 @@ def visual_tree(coords, overseg, batch_offsets, overseg_centers, overseg_batch_i
         batch_offsets (torch.Tensor): (B + 1)
         overseg_centers (torch.Tensor): (num_overseg, 3)
         overseg_batch_idxs (torch.Tensor): (num_overseg)
-        sample_idx_list (list): list of sample_scene
+        scene_list (list): list of sample_scene
         adajency_matrix_list (torch.Tensor): (num_overseg, num_overseg)
     """
     import os.path as osp
     import open3d as o3d
-    for batch_idx, (start, end, scene) in enumerate(zip(batch_offsets[:-1], batch_offsets[1:], sample_idx_list)):
+    for batch_idx, (start, end, scene) in enumerate(zip(batch_offsets[:-1], batch_offsets[1:], scene_list)):
         # visual overseg point cloud
         batch_coords = coords[start:end].cpu().numpy() # (N, 3)
         batch_overseg = overseg[start:end].cpu().numpy() # (N)

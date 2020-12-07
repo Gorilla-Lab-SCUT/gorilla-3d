@@ -41,18 +41,17 @@ def get_parser():
 
 def init():
     args = get_parser()
-    exp_name = args.config.split("/")[-1][:-5]
+    exp_name = osp.splitext(args.config.split("/")[-1])[0]
     cfg = gorilla.Config.fromfile(args.config)
+    cfg.exp_name = exp_name
     cfg.pretrain = args.pretrain
     cfg.semantic = args.semantic
     cfg.exp_path = osp.join("exp", exp_name)
-    cfg.task = "train"
 
     #### get logger file
     log_file = get_log_file(cfg)
     logger = gorilla.get_root_logger(log_file)
-    logger.info(
-        "************************ Start Logging ************************")
+    logger.info("************************ Start Logging ************************")
 
     # log the config
     logger.info(cfg)
@@ -71,7 +70,7 @@ class PointGroupSolver(gorilla.BaseSolver):
         self.model_fn = model_fn
         self.train_data_loader = self.dataloaders[0]
         self.val_data_loader = self.dataloaders[1]
-        while self.epoch <= self.cfg.epochs:
+        while self.epoch <= self.cfg.data.epochs:
             self.train()
             if self.val_flag:
                 self.evaluate()
@@ -110,7 +109,7 @@ class PointGroupSolver(gorilla.BaseSolver):
             ##### time and print
             current_iter = (self.epoch - 1) * len(
                 self.train_data_loader) + i + 1
-            max_iter = self.cfg.epochs * len(self.train_data_loader)
+            max_iter = self.cfg.data.epochs * len(self.train_data_loader)
             remain_iter = max_iter - current_iter
 
             iter_time.update(time.time() - end)
@@ -126,7 +125,7 @@ class PointGroupSolver(gorilla.BaseSolver):
             sys.stdout.write(
                 "epoch: {}/{} iter: {}/{} lr: {:4f} loss: {:.4f}({:.4f}) data_time: {:.2f}({:.2f}) iter_time: {:.2f}({:.2f}) remain_time: {remain_time}\n"
                 .format(self.epoch,
-                        self.cfg.epochs,
+                        self.cfg.data.epochs,
                         i + 1,
                         len(self.train_data_loader),
                         lr,
@@ -140,7 +139,7 @@ class PointGroupSolver(gorilla.BaseSolver):
             if (i == len(self.train_data_loader) - 1): print()
 
         logger.info("epoch: {}/{}, train loss: {:.4f}, time: {}s".format(
-            self.epoch, self.cfg.epochs, loss_buffer.avg,
+            self.epoch, self.cfg.data.epochs, loss_buffer.avg,
             time.time() - start_epoch))
 
         checkpoint_save(self.model, self.optimizer, self.lr_scheduler,
@@ -177,7 +176,7 @@ class PointGroupSolver(gorilla.BaseSolver):
                 if (i == len(self.val_data_loader) - 1): print()
 
             logger.info("epoch: {}/{}, val loss: {:.4f}, time: {}s".format(
-                self.epoch, self.cfg.epochs, loss_buffer.avg,
+                self.epoch, self.cfg.data.epochs, loss_buffer.avg,
                 time.time() - start_epoch))
 
             self.write()
@@ -186,10 +185,6 @@ class PointGroupSolver(gorilla.BaseSolver):
 if __name__ == "__main__":
     ##### init
     logger, cfg = init()
-
-    ##### get model version and data version
-    exp_name = cfg.config.split("/")[-1][:-5]
-    data_name = exp_name.split("_")[-1]
 
     ##### model
     logger.info("=> creating model ...")
@@ -205,7 +200,7 @@ if __name__ == "__main__":
     logger.info("#classifier parameters new: {}".format(count_parameters))
 
     ##### model_fn (criterion)
-    model_fn = model_fn_decorator()
+    model_fn = model_fn_decorator(cfg)
 
     ##### dataset
     dataset = Dataset(cfg, logger)
@@ -217,7 +212,7 @@ if __name__ == "__main__":
         model, [dataset.train_data_loader, dataset.val_data_loader], cfg,
         logger)
     checkpoint, epoch = get_checkpoint(cfg.exp_path,
-                                       cfg.config.split("/")[-1][:-5])
+                                       cfg.exp_name)
     Trainer.set_epoch(epoch)
     if gorilla.is_filepath(checkpoint):
         Trainer.resume(checkpoint)

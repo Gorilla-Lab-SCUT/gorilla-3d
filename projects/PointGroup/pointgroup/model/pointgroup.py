@@ -4,6 +4,7 @@ Written by Li Jiang
 """
 from random import sample
 from copy import deepcopy
+from types import prepare_class
 
 import numpy as np
 import scipy.stats as stats
@@ -26,27 +27,25 @@ class PointGroup(nn.Module):
     def __init__(self, cfg):
         super().__init__()
 
-        input_c = cfg.input_channel
-        m = cfg.m
-        classes = cfg.classes
-        block_reps = cfg.block_reps
-        block_residual = cfg.block_residual
+        input_c = cfg.model.input_channel
+        blocks = cfg.model.blocks
+        m = cfg.model.m
+        classes = cfg.model.classes
+        block_reps = cfg.model.block_reps
 
-        self.cluster_radius = cfg.cluster_radius
-        self.cluster_radius_shift = cfg.cluster_radius_shift
-        self.cluster_meanActive = cfg.cluster_meanActive
-        self.cluster_shift_meanActive = cfg.cluster_shift_meanActive
-        self.cluster_npoint_thre = cfg.cluster_npoint_thre
+        self.cluster_radius = cfg.cluster.cluster_radius
+        self.cluster_radius_shift = cfg.cluster.cluster_radius_shift
+        self.cluster_meanActive = cfg.cluster.cluster_meanActive
+        self.cluster_shift_meanActive = cfg.cluster.cluster_shift_meanActive
+        self.cluster_npoint_thre = cfg.cluster.cluster_npoint_thre
 
-        self.score_scale = cfg.score_scale
-        self.score_fullscale = cfg.score_fullscale
-        self.mode = cfg.score_mode
+        self.score_scale = cfg.model.score_scale
+        self.score_fullscale = cfg.model.score_fullscale
+        self.mode = cfg.model.score_mode
 
-        self.prepare_epochs = cfg.prepare_epochs
+        self.prepare_epochs = cfg.model.prepare_epochs
 
-        self.pretrain_path = cfg.pretrain_path
-        self.pretrain_module = cfg.pretrain_module
-        self.fix_module = cfg.fix_module
+        self.fix_module = cfg.model.fix_module
 
         try:
             self.aggregate_feat = cfg.aggregate_feat
@@ -58,19 +57,12 @@ class PointGroup(nn.Module):
         except:
             self.overseg_pooling_type = "max"
 
-        try:
-            blocks = cfg.blocks
-        except:
-            blocks = 5
 
         norm_fn = functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1)
 
-        if block_residual:
-            block = gorilla3d.ResidualBlock
-        else:
-            block = gorilla3d.VGGBlock
+        block = gorilla3d.ResidualBlock
 
-        if cfg.use_coords:
+        if cfg.model.use_coords:
             input_c += 3
 
         #### backbone
@@ -127,13 +119,6 @@ class PointGroup(nn.Module):
             mod.eval()
             for param in mod.parameters():
                 param.requires_grad = False
-            # PointGroup.freeze_bn(mod)
-
-        #### load pretrain weights
-        if self.pretrain_path is not None:
-            pretrain_dict = torch.load(self.pretrain_path)
-            for m in self.pretrain_module:
-                print("Load pretrained " + m + ": %d/%d" % load_model_param(self.module_map[m], pretrain_dict, prefix=m))
 
     @staticmethod
     def freeze_bn(module):
@@ -321,7 +306,7 @@ class PointGroup(nn.Module):
         return combine_feats
 
 
-    def forward(self, input, input_map, coords, batch_idxs, batch_offsets, coords_offsets, sample_idx_list, epoch, extra_data=None, mode="train", semantic_only=False):
+    def forward(self, input, input_map, coords, batch_idxs, batch_offsets, coords_offsets, scene_list, epoch, extra_data=None, mode="train", semantic_only=False):
         """
         :param input_map: (N), int, cuda
         :param coords: (N, 3), float, cuda
@@ -415,18 +400,18 @@ class PointGroup(nn.Module):
             #     # proposals_offset: (nProposal + 1), int
 
             # import os.path as osp
-            # np.save(osp.join("visual", "data", sample_idx_list[0] + "_coords.npy"), coords.cpu().numpy())
-            # np.save(osp.join("visual", "data", sample_idx_list[0] + "_colors.npy"), input.features[input_map.long(), :3].cpu().numpy())
-            # np.save(osp.join("visual", "data", sample_idx_list[0] + "_overseg.npy"), overseg.cpu().numpy())
-            # np.save(osp.join("visual", "data", sample_idx_list[0] + "_overseg_semantic.npy"), overseg_semantic_preds.cpu().numpy())
-            # np.save(osp.join("visual", "data", sample_idx_list[0] + "_overseg_centers.npy"), overseg_centers.cpu().numpy())
-            # np.save(osp.join("visual", "data", sample_idx_list[0] + "_overseg_offsets.npy"), overseg_pt_offsets.cpu().numpy())
-            # # np.save(osp.join("visual", "data", sample_idx_list[0] + "_proposal_idx.npy"), proposals_idx_origin.cpu().numpy())
-            # np.save(osp.join("visual", "data", sample_idx_list[0] + "_proposal_idx.npy"), proposals_idx.cpu().numpy())
+            # np.save(osp.join("visual", "data", scene_list[0] + "_coords.npy"), coords.cpu().numpy())
+            # np.save(osp.join("visual", "data", scene_list[0] + "_colors.npy"), input.features[input_map.long(), :3].cpu().numpy())
+            # np.save(osp.join("visual", "data", scene_list[0] + "_overseg.npy"), overseg.cpu().numpy())
+            # np.save(osp.join("visual", "data", scene_list[0] + "_overseg_semantic.npy"), overseg_semantic_preds.cpu().numpy())
+            # np.save(osp.join("visual", "data", scene_list[0] + "_overseg_centers.npy"), overseg_centers.cpu().numpy())
+            # np.save(osp.join("visual", "data", scene_list[0] + "_overseg_offsets.npy"), overseg_pt_offsets.cpu().numpy())
+            # # np.save(osp.join("visual", "data", scene_list[0] + "_proposal_idx.npy"), proposals_idx_origin.cpu().numpy())
+            # np.save(osp.join("visual", "data", scene_list[0] + "_proposal_idx.npy"), proposals_idx.cpu().numpy())
 
             # # visual
-            # visual_tree(coords, overseg, batch_offsets, overseg_centers, overseg_batch_idxs, adajency_matrix_list, sample_idx_list)
-            # visual_tree(coords, overseg, batch_offsets, overseg_centers, overseg_batch_idxs, [connect_map], sample_idx_list, suffix="connect")
+            # visual_tree(coords, overseg, batch_offsets, overseg_centers, overseg_batch_idxs, adajency_matrix_list, scene_list)
+            # visual_tree(coords, overseg, batch_offsets, overseg_centers, overseg_batch_idxs, [connect_map], scene_list, suffix="connect")
 
             if len(object_idx_filter) > 0:
                 batch_idxs_ = batch_idxs[object_idx_filter]
@@ -490,12 +475,9 @@ class PointGroup(nn.Module):
         return ret
 
 
-def model_fn_decorator(test=False):
-    #### config
-    from util.config import cfg
-
+def model_fn_decorator(cfg, test=False):
     #### criterion
-    semantic_criterion = nn.CrossEntropyLoss(ignore_index=cfg.ignore_label).cuda()
+    semantic_criterion = nn.CrossEntropyLoss(ignore_index=cfg.data.ignore_label).cuda()
     score_criterion = nn.BCELoss(reduction="none").cuda()
 
     def test_model_fn(batch, model, epoch, semantic_only=False):
@@ -509,7 +491,7 @@ def model_fn_decorator(test=False):
         feats = batch["feats"].cuda()              # (N, C), float32, cuda
 
         batch_offsets = batch["offsets"].cuda()    # (B + 1), int, cuda
-        sample_idx_list = batch["sample_idx_list"]
+        scene_list = batch["scene_list"]
         semantic_preds = batch["semantic_preds"].cuda()  # (N), long, cuda
         overseg = batch["overseg"].cuda() # (N), long, cuda
         _, overseg = torch.unique(overseg, return_inverse=True)  # (N), long, cuda
@@ -523,16 +505,16 @@ def model_fn_decorator(test=False):
 
         spatial_shape = batch["spatial_shape"]
 
-        if cfg.use_coords:
+        if cfg.model.use_coords:
             feats = torch.cat((feats, coords_float), 1)
-        voxel_feats = pointgroup_ops.voxelization(feats, v2p_map, cfg.mode)  # (M, C), float, cuda
+        voxel_feats = pointgroup_ops.voxelization(feats, v2p_map, cfg.model.mode)  # (M, C), float, cuda
 
-        input_ = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, cfg.batch_size)
+        input_ = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, cfg.data.batch_size)
 
-        ret = model(input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets, coords_offsets, sample_idx_list, epoch, extra_data, mode="test", semantic_only=semantic_only)
+        ret = model(input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets, coords_offsets, scene_list, epoch, extra_data, mode="test", semantic_only=semantic_only)
         semantic_scores = ret["semantic_scores"]  # (N, nClass) float32, cuda
         pt_offsets = ret["pt_offsets"]            # (N, 3), float32, cuda
-        if (epoch > cfg.prepare_epochs) and not semantic_only:
+        if (epoch > cfg.model.prepare_epochs) and not semantic_only:
             scores, proposals_idx, proposals_offset = ret["proposal_scores"]
 
             # instance_labels = batch["instance_labels"].cuda()      # (N), long, cuda, 0~total_nInst, -100
@@ -548,7 +530,7 @@ def model_fn_decorator(test=False):
             preds = {}
             preds["semantic"] = semantic_scores
             preds["pt_offsets"] = pt_offsets
-            if (epoch > cfg.prepare_epochs) and not semantic_only:
+            if (epoch > cfg.model.prepare_epochs) and not semantic_only:
                 preds["score"] = scores
                 preds["proposals"] = (proposals_idx, proposals_offset)
 
@@ -581,23 +563,18 @@ def model_fn_decorator(test=False):
 
         extra_data = {
             "overseg": overseg,
-            # "connect_map": overseg_connect_map_list
         }
 
-        # bboxes = batch["bboxes"].cuda()                        # (B, 35, 8), float cuda
-        # syms = batch["syms"].cuda()                            # (B, 35), int cuda
-        # angle_classes = batch["angle_classes"].cuda()          # (B, 35), long, cuda
-        # angle_residuals = batch["angle_residuals"].cuda()      # (B, 35), float, cuda
-        sample_idx_list = batch["sample_idx_list"]
-
+        prepare_flag = (epoch > cfg.model.prepare_epochs)
+        scene_list = batch["scene_list"]
         spatial_shape = batch["spatial_shape"]
 
-        if cfg.use_coords:
+        if cfg.model.use_coords:
             feats = torch.cat((feats, coords_float), 1)
-        voxel_feats = pointgroup_ops.voxelization(feats, v2p_map, cfg.mode)  # (M, C), float, cuda
+        voxel_feats = pointgroup_ops.voxelization(feats, v2p_map, cfg.data.mode)  # (M, C), float, cuda
 
-        input_ = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, cfg.batch_size)
-        ret = model(input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets, coords_offsets, sample_idx_list, epoch, extra_data)
+        input_ = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, cfg.data.batch_size)
+        ret = model(input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets, coords_offsets, scene_list, epoch, extra_data)
 
         semantic_scores = ret["semantic_scores"] # (N, nClass) float32, cuda
         pt_offsets = ret["pt_offsets"]           # (N, 3), float32, cuda
@@ -611,7 +588,7 @@ def model_fn_decorator(test=False):
         overseg_instance_labels = align_overseg_semantic_label(instance_labels, overseg, int(instance_labels.max() + 1)) # (num_overseg)
 
 
-        if(epoch > cfg.prepare_epochs):
+        if prepare_flag:
             scores, proposals_idx, proposals_offset = ret["proposal_scores"]
             # scores: (nProposal, 1) float, cuda
             # proposals_idx: (sumNPoint, 2), int, cpu, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
@@ -621,7 +598,7 @@ def model_fn_decorator(test=False):
         loss_inp["batch_idxs"] = coords[:, 0].int()
         loss_inp["overseg"] = overseg
         loss_inp["feats"] = feats
-        loss_inp["sample_idx_list"] = sample_idx_list
+        loss_inp["scene_list"] = scene_list
         loss_inp["batch_offsets"] = batch_offsets
 
         loss_inp["semantic_scores"] = (semantic_scores, labels)
@@ -630,7 +607,7 @@ def model_fn_decorator(test=False):
         loss_inp["overseg_semantic_scores"] = (overseg_semantic_scores, overseg_labels)
         loss_inp["overseg_pt_offsets"] = (overseg_centers, overseg_pt_offsets, overseg_instance_labels)
 
-        if(epoch > cfg.prepare_epochs):
+        if prepare_flag:
             loss_inp["proposal_scores"] = (scores, proposals_idx, proposals_offset, instance_pointnum)
 
         loss, loss_out, infos = loss_fn(loss_inp, epoch)
@@ -640,7 +617,7 @@ def model_fn_decorator(test=False):
             preds = {}
             preds["semantic"] = semantic_scores
             preds["pt_offsets"] = pt_offsets
-            if(epoch > cfg.prepare_epochs):
+            if prepare_flag:
                 preds["score"] = scores
                 preds["proposals"] = (proposals_idx, proposals_offset)
 
@@ -680,7 +657,7 @@ def model_fn_decorator(test=False):
         gt_offsets = instance_info[:, 0:3] - coords   # (N, 3)
         pt_diff = pt_offsets - gt_offsets   # (N, 3)
         pt_dist = torch.sum(torch.abs(pt_diff), dim=-1)   # (N)
-        valid = (instance_labels != cfg.ignore_label).float()
+        valid = (instance_labels != cfg.data.ignore_label).float()
 
         offset_norm_loss = torch.sum(pt_dist * valid) / (torch.sum(valid) + 1e-6)
 
@@ -707,13 +684,13 @@ def model_fn_decorator(test=False):
         # overseg_centers: (num_overseg, 3), float32, cuda
         # overseg_pt_offsets: (num_overseg, 3), float32, cuda
         # overseg_instance_labels: (num_overseg), long, cuda
-        valid = (overseg_instance_labels != cfg.ignore_label).float()  # (num_overseg)
+        valid = (overseg_instance_labels != cfg.data.ignore_label).float()  # (num_overseg)
         
         # build instance_label to instance center map
         convert_instance_labels = instance_labels
-        convert_instance_labels[instance_labels == cfg.ignore_label] = instance_labels.max() + 1
+        convert_instance_labels[instance_labels == cfg.data.ignore_label] = instance_labels.max() + 1
         instance_center_map = scatter_mean(instance_info[:, 0:3], convert_instance_labels, dim=0)  # (num_instance + 1, 3)
-        overseg_instance_labels[overseg_instance_labels == cfg.ignore_label] = instance_labels.max()
+        overseg_instance_labels[overseg_instance_labels == cfg.data.ignore_label] = instance_labels.max()
         gt_overseg_centers = instance_center_map[overseg_instance_labels]  # (num_overseg, 3)
         overseg_gt_offsets = gt_overseg_centers - overseg_centers  # (num_overseg, 3)
 
@@ -732,52 +709,9 @@ def model_fn_decorator(test=False):
         loss_out["overseg_offset_norm_loss"] = (overseg_offset_norm_loss, valid.sum())
         loss_out["overseg_offset_dir_loss"] = (overseg_offset_dir_loss, valid.sum())
 
-        # ## visual
-        # import open3d as o3d
-        # batch_idxs = loss_inp["batch_idxs"]
-        # overseg = loss_inp["overseg"]
-        # overseg_batch_idxs = scatter_mean(batch_idxs, overseg)
-        # for batch_idx in torch.unique(batch_idxs):
-        #     import ipdb; ipdb.set_trace()
-        #     ids = (batch_idxs == batch_idx)
-        #     batch_coords = coords[ids] # (num_batch, 3)
-        #     batch_overseg = overseg[ids]  # (num_batch)
-        #     overseg_batch_ids = (overseg_batch_idxs == batch_idx)
-        #     batch_overseg_centers = overseg_centers[overseg_batch_ids] # (num_overseg, 3)
-        #     batch_overseg_offsets = overseg_gt_offsets[overseg_batch_ids] # (num_overseg, 3)
-        #     # visual offset
-            
-        #     points = []
-        #     lines = []
-        #     bias = 0
-        #     for c, o in zip(batch_overseg_centers, batch_overseg_offsets):
-        #         if o.sum() < -100:
-        #             continue
-        #         points.extend([c.tolist(), (c+o).tolist()])
-        #         lines.append([bias, bias + 1])
-        #         bias += 2
-        #     points = np.array(points)
-        #     lines = np.array(lines)
-        #     line_set = o3d.geometry.LineSet()
-        #     line_set.points = o3d.utility.Vector3dVector(points)
-        #     line_set.lines = o3d.utility.Vector2iVector(lines)
-        #     o3d.io.write_line_set("temp_lines.ply", line_set)
 
-        #     # visual point cloud
-        #     temp_pc = o3d.geometry.PointCloud()
-        #     for overseg_id in torch.unique(batch_overseg):
-        #         overseg_ids = (batch_overseg == overseg_id)
-        #         overseg_coords = batch_coords[overseg_ids] # (num_overseg, 3)
-        #         overseg_pc = o3d.geometry.PointCloud()
-        #         points = overseg_coords.cpu().numpy()
-        #         colors = np.zeros_like(points)
-        #         colors[:] = np.random.random(3)
-        #         overseg_pc.points = o3d.utility.Vector3dVector(points)
-        #         overseg_pc.colors = o3d.utility.Vector3dVector(colors)
-        #         temp_pc += overseg_pc
-        #     o3d.io.write_point_cloud("temp_pc.ply", temp_pc)
-
-        if (epoch > cfg.prepare_epochs):
+        prepare_flag = (epoch > cfg.model.prepare_epochs)
+        if prepare_flag:
             """score loss"""
             scores, proposals_idx, proposals_offset, instance_pointnum = loss_inp["proposal_scores"]
             # scores: (nProposal, 1), float32
@@ -787,7 +721,7 @@ def model_fn_decorator(test=False):
 
             ious = pointgroup_ops.get_iou(proposals_idx[:, 1].cuda(), proposals_offset.cuda(), instance_labels, instance_pointnum) # (nProposal, nInstance), float
             gt_ious, gt_instance_idxs = ious.max(1)  # (nProposal) float, long
-            gt_scores = get_segmented_scores(gt_ious, cfg.fg_thresh, cfg.bg_thresh)
+            gt_scores = get_segmented_scores(gt_ious, cfg.model.fg_thresh, cfg.model.bg_thresh)
 
             score_loss = score_criterion(torch.sigmoid(scores.view(-1)), gt_scores)
             score_loss = score_loss.mean()
@@ -796,10 +730,11 @@ def model_fn_decorator(test=False):
 
 
         """total loss"""
-        loss = cfg.loss_weight[0] * semantic_loss + cfg.loss_weight[1] * offset_norm_loss + cfg.loss_weight[2] * offset_dir_loss
-        loss += cfg.loss_weight[4] * overseg_semantic_loss + cfg.loss_weight[5] * overseg_offset_norm_loss + cfg.loss_weight[6] * overseg_offset_dir_loss
-        if(epoch > cfg.prepare_epochs):
-            loss += (cfg.loss_weight[3] * score_loss)
+        loss_weight = cfg.model.loss_weight
+        loss = loss_weight[0] * semantic_loss + loss_weight[1] * offset_norm_loss + loss_weight[2] * offset_dir_loss
+        loss += loss_weight[4] * overseg_semantic_loss + loss_weight[5] * overseg_offset_norm_loss + loss_weight[6] * overseg_offset_dir_loss
+        if prepare_flag:
+            loss += (loss_weight[3] * score_loss)
 
         return loss, loss_out, infos
 

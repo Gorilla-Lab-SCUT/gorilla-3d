@@ -10,6 +10,7 @@ import json
 import glob
 import math
 import pickle
+from numpy.lib.financial import ipmt
 
 import trimesh
 import numpy as np
@@ -20,36 +21,33 @@ from torch.utils.data import DataLoader
 
 sys.path.append("../")
 
-from ..lib import pointgroup_ops
-# from lib.pointgroup_ops.functions import pointgroup_ops
+from pointgroup import pointgroup_ops
 
 
 class Dataset:
     def __init__(self, cfg=None, logger=None, test=False):
         self.logger = logger
-        self.data_root = cfg.data_root
+        self.data_root = cfg.data.data_root
         self.dataset = "scannetv2"
-        with open(osp.join(self.data_root, self.dataset, self.pose_file), "rb") as f:
-            self.all_pose_dict = pickle.load(f)
-        self.filename_suffix = cfg.filename_suffix
+        self.filename_suffix = cfg.data.filename_suffix
 
-        self.batch_size = cfg.batch_size
-        self.train_workers = cfg.train_workers
-        self.val_workers = cfg.train_workers
+        self.batch_size = cfg.data.batch_size
+        self.train_workers = cfg.data.train_workers
+        self.val_workers = cfg.data.train_workers
 
-        self.full_scale = cfg.full_scale
-        self.scale = cfg.scale
-        self.max_npoint = cfg.max_npoint
-        self.mode = cfg.mode
+        self.full_scale = cfg.data.full_scale
+        self.scale = cfg.data.scale
+        self.max_npoint = cfg.data.max_npoint
+        self.mode = cfg.data.mode
 
-        self.train_mini = cfg.train_mini 
+        self.train_mini = cfg.data.train_mini 
         self.task = cfg.task
-        self.with_elastic = cfg.with_elastic
+        self.with_elastic = cfg.data.with_elastic
 
         if test:
-            self.test_split = cfg.split  # val or test
-            self.test_workers = cfg.test_workers
-            cfg.batch_size = 1
+            self.test_split = cfg.data.split  # val or test
+            self.test_workers = cfg.data.test_workers
+            cfg.data.batch_size = 1
 
         self.semantic_map = np.ones(40) * -1
         valid_class = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39]
@@ -215,19 +213,18 @@ class Dataset:
         instance_pointnum = []  # (total_nInst), int
 
         batch_offsets = [0]
-        sample_idx_list = []
+        scene_list = []
         xyz_offset_list = []
         overseg_list = []
         overseg_bias = 0
 
         total_inst_num = 0
         for i, idx in enumerate(id):
-            xyz_origin, rgb, faces, label, instance_label, coords_shift, sample_idx = self.train_files[idx]
-            scene = sample_idx.split("/")[1]
-            sample_idx_list.append(scene)
+            xyz_origin, rgb, faces, label, instance_label, coords_shift, scene = self.train_files[idx]
+            scene_list.append(scene)
 
             # read overseg
-            with open(osp.join(".", "dataset", "scannetv2", "scans", scene, scene+"_vh_clean_2.0.010000.segs.json"), "r") as f:
+            with open(osp.join(self.data_root, self.dataset, "scans", scene, scene+"_vh_clean_2.0.010000.segs.json"), "r") as f:
                 overseg = json.load(f)
             overseg = np.array(overseg["segIndices"])
 
@@ -303,7 +300,7 @@ class Dataset:
         voxel_locs, p2v_map, v2p_map = pointgroup_ops.voxelization_idx(locs, self.batch_size, self.mode)
 
         return {"locs": locs, "locs_offset": locs_offset, "voxel_locs": voxel_locs,
-                "sample_idx_list": sample_idx_list, "p2v_map": p2v_map, "v2p_map": v2p_map,
+                "scene_list": scene_list, "p2v_map": p2v_map, "v2p_map": v2p_map,
                 "locs_float": locs_float, "feats": feats, "labels": labels, "instance_labels": instance_labels,
                 "instance_info": instance_infos, "instance_pointnum": instance_pointnum,
                 "id": id, "offsets": batch_offsets, "spatial_shape": spatial_shape, "overseg": overseg}
@@ -322,16 +319,15 @@ class Dataset:
         instance_pointnum = []  # (total_nInst), int
 
         batch_offsets = [0]
-        sample_idx_list = []
+        scene_list = []
         xyz_offset_list = []
 
         total_inst_num = 0
         for i, idx in enumerate(id):
-            xyz_origin, rgb, faces, label, instance_label, coords_shift, sample_idx = self.val_files[idx]
-            scene = sample_idx.split("/")[1]
-            sample_idx_list.append(scene)
+            xyz_origin, rgb, faces, label, instance_label, coords_shift, scene = self.val_files[idx]
+            scene_list.append(scene)
 
-            with open(osp.join(".", "dataset", "scannetv2", "scans", scene, scene+"_vh_clean_2.0.010000.segs.json"), "r") as f:
+            with open(osp.join(self.data_root, self.dataset, "scans", scene, scene+"_vh_clean_2.0.010000.segs.json"), "r") as f:
                 overseg = json.load(f)
 
             overseg = np.array(overseg["segIndices"])
@@ -403,7 +399,7 @@ class Dataset:
 
 
         return {"locs": locs, "locs_offset": locs_offset, "voxel_locs": voxel_locs,
-                "sample_idx_list": sample_idx_list, "p2v_map": p2v_map, "v2p_map": v2p_map,
+                "scene_list": scene_list, "p2v_map": p2v_map, "v2p_map": v2p_map,
                 "locs_float": locs_float, "feats": feats, "labels": labels, "instance_labels": instance_labels,
                 "instance_info": instance_infos, "instance_pointnum": instance_pointnum,
                 "id": id, "offsets": batch_offsets, "spatial_shape": spatial_shape, "overseg": overseg}
@@ -415,7 +411,7 @@ class Dataset:
         feats = []
 
         batch_offsets = [0]
-        sample_idx_list = []
+        scene_list = []
         xyz_offset_list = []
         overseg_list = []
         connect_map_list = []
@@ -426,27 +422,25 @@ class Dataset:
 
         for i, idx in enumerate(id):
             if "val" in self.test_split:
-                xyz_origin, rgb, faces, label, instance_label, coords_shift, sample_idx = self.test_files[idx]
+                xyz_origin, rgb, faces, label, instance_label, coords_shift, scene = self.test_files[idx]
                 split = "scans"
             elif self.test_split == "train":
-                xyz_origin, rgb, faces, label, instance_label, coords_shift, sample_idx = self.test_files[idx]
+                xyz_origin, rgb, faces, label, instance_label, coords_shift, scene = self.test_files[idx]
                 split = "scans"
             elif self.test_split == "test":
-                xyz_origin, rgb, faces, sample_idx = self.test_files[idx]
+                xyz_origin, rgb, faces, scene = self.test_files[idx]
                 split = "scans_test"
             elif self.test_split == "test_bathtub":
-                xyz_origin, rgb, faces, sample_idx = self.test_files[idx]
+                xyz_origin, rgb, faces, scene = self.test_files[idx]
                 split = "scans_test"
             else:
                 print("Wrong test split: {}!".format(self.test_split))
                 exit(0)
                 
-
-            scene = sample_idx.split("/")[1]
-            sample_idx_list.append(scene)
+            scene_list.append(scene)
 
             # read overseg
-            with open(osp.join(".", "dataset", "scannetv2", split, scene, scene+"_vh_clean_2.0.010000.segs.json"), "r") as f:
+            with open(osp.join(self.data_root, self.dataset, split, scene, scene+"_vh_clean_2.0.010000.segs.json"), "r") as f:
                 overseg = json.load(f)
             overseg = np.array(overseg["segIndices"])
             _, overseg = np.unique(overseg, return_inverse=True)
@@ -513,14 +507,14 @@ class Dataset:
 
         if self.test_split == "val":
             return {"locs": locs, "locs_offset": locs_offset, "voxel_locs": voxel_locs,
-                    "sample_idx_list": sample_idx_list, "p2v_map": p2v_map, "v2p_map": v2p_map,
+                    "scene_list": scene_list, "p2v_map": p2v_map, "v2p_map": v2p_map,
                     "locs_float": locs_float, "feats": feats,
                     "instance_labels": instance_labels, "instance_info": instance_infos, "instance_pointnum": instance_pointnum,
                     "id": id, "offsets": batch_offsets, "spatial_shape": spatial_shape,
                     "overseg": overseg, "connect_map": connect_map_list}
         else:
             return {"locs": locs, "locs_offset": locs_offset, "voxel_locs": voxel_locs,
-                    "sample_idx_list": sample_idx_list, "p2v_map": p2v_map, "v2p_map": v2p_map,
+                    "scene_list": scene_list, "p2v_map": p2v_map, "v2p_map": v2p_map,
                     "locs_float": locs_float, "feats": feats,
                     "id": id, "offsets": batch_offsets, "spatial_shape": spatial_shape,
                     "overseg": overseg, "connect_map": connect_map_list}

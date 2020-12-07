@@ -19,18 +19,18 @@ from .pointgroup import (model_fn_decorator, Dataset, PointGroup as Network)
 
 
 def get_parser():
-    parser = argparse.ArgumentParser(description='Point Cloud Segmentation')
-    parser.add_argument('--config',
+    parser = argparse.ArgumentParser(description="Point Cloud Segmentation")
+    parser.add_argument("--config",
                         type=str,
-                        default='config/pointgroup_default_scannet.yaml',
-                        help='path to config file')
+                        default="config/pointgroup_default_scannet.yaml",
+                        help="path to config file")
     ### pretrain
-    parser.add_argument('--pretrain',
+    parser.add_argument("--pretrain",
                         type=str,
-                        default='',
-                        help='path to pretrain model')
+                        default="",
+                        help="path to pretrain model")
     ### semantic only
-    parser.add_argument('--semantic',
+    parser.add_argument("--semantic",
                         action="store_true",
                         help="only evaluate semantic segmentation")
 
@@ -54,7 +54,7 @@ def init():
     log_file = get_log_file(cfg)
     logger = gorilla.get_root_logger(log_file)
     logger.info(
-        '************************ Start Logging ************************')
+        "************************ Start Logging ************************")
 
     # log the config
     logger.info(cfg)
@@ -91,9 +91,8 @@ def test(model, model_fn, cfg, logger):
         model = model.eval()
         start = time.time()
 
-        semantic_dataset_root = osp.join(cfg.data_root, cfg.dataset, "scans")
-        instance_dataset_root = osp.join(cfg.data_root, cfg.dataset,
-                                         cfg.split + "_gt")
+        semantic_dataset_root = osp.join("data", "scannetv2", "scans")
+        instance_dataset_root = osp.join("data", "scannetv2", cfg.split + "_gt")
         evaluator = gorilla3d.ScanNetSemanticEvaluator(semantic_dataset_root,
                                                        logger=logger)
         inst_evaluator = gorilla3d.ScanNetInstanceEvaluator(
@@ -281,7 +280,7 @@ if __name__ == "__main__":
 
     ##### model
     logger.info("=> creating model ...")
-    logger.info("Classes: {}".format(cfg.classes))
+    logger.info("Classes: {}".format(cfg.model.classes))
 
     model = Network(cfg)
 
@@ -295,7 +294,7 @@ if __name__ == "__main__":
         sum([x.nelement() for x in model.parameters()])))
 
     ##### model_fn (criterion)
-    model_fn = model_fn_decorator(test=True)
+    model_fn = model_fn_decorator(cfg, test=True)
 
     ##### load model
     gorilla.load_checkpoint(
