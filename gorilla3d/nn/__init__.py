@@ -8,7 +8,8 @@ from .modules import (
     QueryAndGroup, gather_points, PointFPModule, PointSAModuleMSG,
     PointSAModule, PointNet2SASSG,
     # sparse conv
-    single_conv, double_conv, triple_conv, stride_conv, ResidualBlock,
-    VGGBlock, UBlock, UBlockBottom)
+    single_conv, double_conv, triple_conv, down_conv, up_conv,
+    residual_block, ResidualBlock, VGGBlock, UBlock, UBlockBottom,
+    TransformerSparse3D, PositionEmbeddingSine3d)
 
 __all__ = [k for k in globals().keys() if not k.startswith("_")]

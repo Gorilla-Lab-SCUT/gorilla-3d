@@ -1,4 +1,6 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
+import functools
+
 import torch
 import torch.nn as nn
 
@@ -18,7 +20,7 @@ def single_conv(in_channels, out_channels, indice_key=None):
                           1,
                           bias=False,
                           indice_key=indice_key),
-        nn.BatchNorm1d(out_channels, eps=1e-3, momentum=0.01),
+        nn.BatchNorm1d(out_channels, eps=1e-4, momentum=0.01),
         nn.ReLU(),
     )
 
@@ -30,14 +32,14 @@ def double_conv(in_channels, out_channels, indice_key=None):
                           3,
                           bias=False,
                           indice_key=indice_key),
-        nn.BatchNorm1d(out_channels, eps=1e-3, momentum=0.01),
+        nn.BatchNorm1d(out_channels, eps=1e-4, momentum=0.01),
         nn.ReLU(),
         spconv.SubMConv3d(out_channels,
                           out_channels,
                           3,
                           bias=False,
                           indice_key=indice_key),
-        nn.BatchNorm1d(out_channels, eps=1e-3, momentum=0.01),
+        nn.BatchNorm1d(out_channels, eps=1e-4, momentum=0.01),
         nn.ReLU(),
     )
 
@@ -49,34 +51,53 @@ def triple_conv(in_channels, out_channels, indice_key=None):
                           3,
                           bias=False,
                           indice_key=indice_key),
-        nn.BatchNorm1d(out_channels, eps=1e-3, momentum=0.01),
+        nn.BatchNorm1d(out_channels, eps=1e-4, momentum=0.01),
         nn.ReLU(),
         spconv.SubMConv3d(out_channels,
                           out_channels,
                           3,
                           bias=False,
                           indice_key=indice_key),
-        nn.BatchNorm1d(out_channels, eps=1e-3, momentum=0.01),
+        nn.BatchNorm1d(out_channels, eps=1e-4, momentum=0.01),
         nn.ReLU(),
         spconv.SubMConv3d(out_channels,
                           out_channels,
                           3,
                           bias=False,
                           indice_key=indice_key),
-        nn.BatchNorm1d(out_channels, eps=1e-3, momentum=0.01),
+        nn.BatchNorm1d(out_channels, eps=1e-4, momentum=0.01),
         nn.ReLU(),
     )
 
 
-def stride_conv(in_channels, out_channels, indice_key=None):
+def down_conv(in_channels, out_channels, indice_key=None):
     return spconv.SparseSequential(
         spconv.SparseConv3d(in_channels,
                             out_channels,
-                            3, (2, 2, 2),
+                            kernel_size=3,
+                            stride=2,
                             padding=1,
                             bias=False,
                             indice_key=indice_key),
-        nn.BatchNorm1d(out_channels, eps=1e-3, momentum=0.01), nn.ReLU())
+        nn.BatchNorm1d(out_channels, eps=1e-4, momentum=0.01),
+        nn.ReLU()
+    )
+
+def up_conv(in_channels, out_channels, indice_key=None):
+    return spconv.SparseSequential(
+        spconv.SparseInverseConv3d(in_channels,
+                                   out_channels,
+                                   kernel_size=2,
+                                   bias=False,
+                                   indice_key=indice_key),
+        nn.BatchNorm1d(out_channels, eps=1e-4, momentum=0.01),
+        nn.ReLU()
+    )
+
+
+def residual_block(in_channels, out_channels, indice_key=None):
+    norm_fn = functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1)
+    return ResidualBlock(in_channels, out_channels, norm_fn, indice_key)
 
 
 class ResidualBlock(MODULE):
