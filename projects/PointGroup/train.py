@@ -12,12 +12,12 @@ import torch
 import gorilla
 import gorilla3d
 
-from pointgroup import (get_log_file, get_checkpoint, model_fn_decorator,
+from pointgroup import (get_checkpoint, model_fn_decorator,
                         PointGroup as Network)
 
 
 def get_parser():
-    parser = argparse.ArgumentParser(description="Point Cloud Segmentation")
+    parser = argparse.ArgumentParser(description="Point Cloud Instance Segmentation")
     parser.add_argument("--config",
                         type=str,
                         default="config/pointgroup_default_scannet.yaml",
@@ -47,14 +47,18 @@ def init():
     cfg.exp_path = osp.join("exp", exp_name)
 
     #### get logger file
-    log_file = get_log_file(cfg)
+    log_file = osp.join(
+        cfg.exp_path,
+        "{}-{}.log".format(cfg.task, time.strftime("%Y%m%d_%H%M%S", time.localtime()))
+    )
+    if not gorilla.is_filepath(osp.dirname(log_file)):
+        gorilla.mkdir_or_exist(log_file)
     logger = gorilla.get_root_logger(log_file)
     logger.info(
         "************************ Start Logging ************************")
 
     # log the config
     logger.info(cfg)
-    gorilla.set_cuda_visible_devices()
 
     return logger, cfg
 
@@ -207,6 +211,7 @@ if __name__ == "__main__":
     ##### dataset
     train_dataset = gorilla3d.ScanNetV2InstTrainVal(cfg, logger)
     train_dataloader = train_dataset.dataloader
+    cfg.task = "val" # change task
     val_dataset = gorilla3d.ScanNetV2InstTrainVal(cfg, logger)
     val_dataloader = val_dataset.dataloader
 

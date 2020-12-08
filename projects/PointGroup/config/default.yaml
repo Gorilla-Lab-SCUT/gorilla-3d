@@ -1,4 +1,4 @@
-task: val  # train, test
+task: train  # train, test
 seed: 123
 
 data:
@@ -18,12 +18,6 @@ data:
 
   # train mode
   epochs: 384
-  optim: Adam # Adam or SGD
-  lr: 0.001
-  step_epoch: 384
-  multiplier: 0.1
-  momentum: 0.9
-  weight_decay: 0.0001
   save_freq: 16  # also eval_freq
   train_aug: [True, True, True]
 
@@ -31,6 +25,7 @@ data:
   split: val
   test_epoch: 384
   test_seed: 567
+  test_workers: 8 # data loader workers
 
   TEST_NMS_THRESH: 0.3
   TEST_SCORE_THRESH: 0.09

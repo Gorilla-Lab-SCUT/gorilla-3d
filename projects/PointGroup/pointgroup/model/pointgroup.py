@@ -341,10 +341,6 @@ class PointGroup(nn.Module):
         #### analysis extra_data
         overseg = extra_data["overseg"]
 
-        if mode == "test":
-            connect_map = extra_data["connect_map"][0]
-            connect_map = connect_map.to(overseg.device)
-
         overseg_centers = scatter_mean(coords, overseg, dim=0)  # (num_overseg, 3)
         overseg_batch_idxs = scatter_mean(batch_idxs, overseg, dim=0).long()  # (num_overseg)
 
@@ -386,18 +382,6 @@ class PointGroup(nn.Module):
 
             proposals_idx, proposals_offset = overseg_graph_fusion(overseg, batch_idxs, overseg_semantic_preds, overseg_batch_idxs, adajency_matrix_list)
             _, proposals_idx[:, 0] = torch.unique(proposals_idx[:, 0], return_inverse=True)
-            
-            # if mode == "test":
-            #     semantic_connect_map = semantic_connect_map_list[0]
-            #     connect_map = connect_map * semantic_connect_map
-            #     proposals_idx_origin, proposals_offset_origin = overseg_graph_fusion(overseg, batch_idxs, overseg_semantic_preds, overseg_batch_idxs, [connect_map])
-
-            #     proposals_idx_origin[:, 0] += (proposals_offset.size(0) - 1)
-            #     proposals_offset_origin += proposals_offset[-1]
-            #     proposals_idx = torch.cat((proposals_idx, proposals_idx_origin), dim=0)
-            #     proposals_offset = torch.cat((proposals_offset, proposals_offset_origin[1:]))
-            #     # proposals_idx: (sumNPoint, 2), int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
-            #     # proposals_offset: (nProposal + 1), int
 
             # import os.path as osp
             # np.save(osp.join("visual", "data", scene_list[0] + "_coords.npy"), coords.cpu().numpy())
@@ -464,10 +448,6 @@ class PointGroup(nn.Module):
                 score_feats = score.features[inp_map.long()]  # (sumNPoint, C)
                 score_feats = scatter_max(score_feats, proposals_idx[:, 0].cuda().long(), dim=0)[0] # (nProposal, C)
                 scores = self.score_linear(score_feats) # (nProposal, 1)
-                # semantic_scores = F.softmax(semantic_scores, dim=-1) # (N, nClass)
-                # semantic_scores = semantic_scores.max(dim=1)[0] # (N)
-                # semantic_scores = semantic_scores[inp_map.long()] # (sumNPoint)
-                # scores = scatter_mean(semantic_scores, proposals_idx[:, 0].long().cuda(), dim=0).view(-1, 1) # (nProposal, 1)
 
             ret["proposal_scores"] = (scores, proposals_idx, proposals_offset)
                 
@@ -492,22 +472,18 @@ def model_fn_decorator(cfg, test=False):
 
         batch_offsets = batch["offsets"].cuda()    # (B + 1), int, cuda
         scene_list = batch["scene_list"]
-        semantic_preds = batch["semantic_preds"].cuda()  # (N), long, cuda
         overseg = batch["overseg"].cuda() # (N), long, cuda
         _, overseg = torch.unique(overseg, return_inverse=True)  # (N), long, cuda
-        overseg_connect_map_list = batch["connect_map"]
 
         extra_data = {
-            "semantic_preds": semantic_preds,
-            "overseg": overseg,
-            "connect_map": overseg_connect_map_list
+            "overseg": overseg
         }
 
         spatial_shape = batch["spatial_shape"]
 
         if cfg.model.use_coords:
             feats = torch.cat((feats, coords_float), 1)
-        voxel_feats = pointgroup_ops.voxelization(feats, v2p_map, cfg.model.mode)  # (M, C), float, cuda
+        voxel_feats = pointgroup_ops.voxelization(feats, v2p_map, cfg.data.mode)  # (M, C), float, cuda
 
         input_ = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, cfg.data.batch_size)
 
@@ -516,14 +492,6 @@ def model_fn_decorator(cfg, test=False):
         pt_offsets = ret["pt_offsets"]            # (N, 3), float32, cuda
         if (epoch > cfg.model.prepare_epochs) and not semantic_only:
             scores, proposals_idx, proposals_offset = ret["proposal_scores"]
-
-            # instance_labels = batch["instance_labels"].cuda()      # (N), long, cuda, 0~total_nInst, -100
-            # instance_info = batch["instance_info"].cuda()          # (N, 9), float32, cuda, (meanxyz, minxyz, maxxyz)
-            # instance_pointnum = batch["instance_pointnum"].cuda()  # (total_nInst), int, cuda
-
-            # ious = pointgroup_ops.get_iou(proposals_idx[:, 1].cuda(), proposals_offset.cuda(), instance_labels, instance_pointnum) # (nProposal, nInstance), float
-            # _, gt_instance_idxs = ious.max(1)  # (nProposal) float, long
-            # proposals_idx, proposals_offset, scores = bisegmentation(proposals_idx, scores, instance_labels, gt_instance_idxs)
 
         ##### preds
         with torch.no_grad():
@@ -539,10 +507,6 @@ def model_fn_decorator(cfg, test=False):
 
     def model_fn(batch, model, epoch):
         ##### prepare input and forward
-        # batch {"locs": locs, "voxel_locs": voxel_locs, "p2v_map": p2v_map, "v2p_map": v2p_map,
-        # "locs_float": locs_float, "feats": feats, "labels": labels, "instance_labels": instance_labels,
-        # "instance_info": instance_infos, "instance_pointnum": instance_pointnum,
-        # "id": tbl, "offsets": batch_offsets, "spatial_shape": spatial_shape}
         coords = batch["locs"].cuda()                          # (N, 1 + 3), long, cuda, dimension 0 for batch_idx
         coords_offsets = batch["locs_offset"].cuda()           # (B, 3), long, cuda
         voxel_coords = batch["voxel_locs"].cuda()              # (M, 1 + 3), long, cuda

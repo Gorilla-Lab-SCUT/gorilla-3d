@@ -255,25 +255,25 @@ class ScanNetV2InstTrainVal(ScanNetV2Inst):
                 "scene_list": scene_list, "p2v_map": p2v_map, "v2p_map": v2p_map,
                 "locs_float": locs_float, "feats": feats, "labels": labels, "instance_labels": instance_labels,
                 "instance_info": instance_infos, "instance_pointnum": instance_pointnum,
-                "id": id, "offsets": batch_offsets, "spatial_shape": spatial_shape, "overseg": overseg}
+                "offsets": batch_offsets, "spatial_shape": spatial_shape, "overseg": overseg}
 
 
 class ScanNetV2InstTest(ScanNetV2Inst):
     def __init__(self, cfg=None, logger=None):
         ScanNetV2Inst.__init__(self, cfg, logger)
-        self.task = cfg.data.split  # val or test
         self.batch_size = 1
+        self.workers = cfg.data.test_workers
 
     def getitem(self, index):
         if "val" in self.task or "train" in self.task:
             xyz_origin, rgb, faces, label, instance_label, coords_shift, scene = self.files[index]
-            split = "scans"
-        elif self.test_split == "train":
+            sub_dir = "scans"
+        elif self.task == "test":
             xyz_origin, rgb, faces, scene = self.files[index]
-            split = "scans_test"
+            sub_dir = "scans_test"
 
         # read overseg
-        with open(osp.join(self.data_root, self.dataset, split, scene, scene+"_vh_clean_2.0.010000.segs.json"), "r") as f:
+        with open(osp.join(self.data_root, self.dataset, sub_dir, scene, scene+"_vh_clean_2.0.010000.segs.json"), "r") as f:
             overseg = json.load(f)
         overseg = np.array(overseg["segIndices"])
         
@@ -281,12 +281,6 @@ class ScanNetV2InstTest(ScanNetV2Inst):
         edges = np.concatenate([faces[:, :2], faces[:, 1:], faces[:, [0, 2]]]) # (nEdges, 2)
         overseg_edges = overseg[edges]
         overseg_edges = overseg_edges[overseg_edges[:, 0] != overseg_edges[:, 1]]
-        num_overseg = overseg.max() + 1
-        # save the overseg connection as connect_map
-        connect_map = np.eye(num_overseg, dtype=np.bool) # (num_overseg)
-        connect_map[overseg_edges[:, 0], overseg_edges[:, 1]] = True
-        connect_map[overseg_edges[:, 1], overseg_edges[:, 0]] = True
-        connect_map = torch.Tensor(connect_map)
 
         xyz_middle = pc_aug(xyz_origin, False, False, False)
 
@@ -317,9 +311,9 @@ class ScanNetV2InstTest(ScanNetV2Inst):
             inst_info = torch.from_numpy(inst_info)
 
         if "val" in self.task or "train" in self.task:
-            return scene, loc, loc_offset, loc_float, feat, label, instance_label, overseg, connect_map, inst_num, inst_info, inst_pointnum
+            return scene, loc, loc_offset, loc_float, feat, label, instance_label, overseg, inst_num, inst_info, inst_pointnum
         else:
-            return scene, loc, loc_offset, loc_float, feat, overseg, connect_map
+            return scene, loc, loc_offset, loc_float, feat, overseg
 
     def merge(self, batch):
         locs = []
@@ -331,7 +325,6 @@ class ScanNetV2InstTest(ScanNetV2Inst):
         scene_list = []
         overseg_list = []
         overseg_bias = 0
-        connect_map_list = []
 
         # with gt
         total_inst_num = 0
@@ -342,9 +335,9 @@ class ScanNetV2InstTest(ScanNetV2Inst):
 
         for i, data in enumerate(batch):
             if "val" in self.task or "train" in self.task:
-                scene, loc, loc_offset, loc_float, feat, label, instance_label, overseg, connect_map, inst_num, inst_info, inst_pointnum = data
+                scene, loc, loc_offset, loc_float, feat, label, instance_label, overseg, inst_num, inst_info, inst_pointnum = data
             else:
-                scene, loc, loc_offset, loc_float, feat, overseg, connect_map = data
+                scene, loc, loc_offset, loc_float, feat, overseg = data
             
             scene_list.append(scene)
             overseg += overseg_bias
@@ -358,7 +351,6 @@ class ScanNetV2InstTest(ScanNetV2Inst):
             locs_float.append(loc_float)
             feats.append(feat)
             overseg_list.append(overseg)
-            connect_map_list.append(connect_map)
 
             if "val" in self.task or "train" in self.task:
                 instance_label[np.where(instance_label != -100)] += total_inst_num
@@ -392,13 +384,13 @@ class ScanNetV2InstTest(ScanNetV2Inst):
                     "scene_list": scene_list, "p2v_map": p2v_map, "v2p_map": v2p_map,
                     "locs_float": locs_float, "feats": feats,
                     "instance_labels": instance_labels, "instance_info": instance_infos, "instance_pointnum": instance_pointnum,
-                    "id": id, "offsets": batch_offsets, "spatial_shape": spatial_shape,
-                    "overseg": overseg, "connect_map": connect_map_list}
+                    "offsets": batch_offsets, "spatial_shape": spatial_shape,
+                    "overseg": overseg}
         else:
             return {"locs": locs, "locs_offset": locs_offset, "voxel_locs": voxel_locs,
                     "scene_list": scene_list, "p2v_map": p2v_map, "v2p_map": v2p_map,
                     "locs_float": locs_float, "feats": feats,
-                    "id": id, "offsets": batch_offsets, "spatial_shape": spatial_shape,
-                    "overseg": overseg, "connect_map": connect_map_list}
+                    "offsets": batch_offsets, "spatial_shape": spatial_shape,
+                    "overseg": overseg}
 
 

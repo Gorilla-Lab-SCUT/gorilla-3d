@@ -1,5 +1,4 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
-from .log import get_log_file
 from .utils import *
 from .visualize import *
 

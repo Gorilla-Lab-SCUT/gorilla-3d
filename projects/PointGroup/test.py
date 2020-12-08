@@ -6,7 +6,6 @@ import open3d as o3d
 import argparse
 import time
 import numpy as np
-import random
 import os
 import os.path as osp
 
@@ -15,11 +14,11 @@ import gorilla
 import gorilla3d
 import scipy.stats as stats
 
-from .pointgroup import (model_fn_decorator, Dataset, PointGroup as Network)
+from pointgroup import (model_fn_decorator, PointGroup as Network)
 
 
 def get_parser():
-    parser = argparse.ArgumentParser(description="Point Cloud Segmentation")
+    parser = argparse.ArgumentParser(description="Point Cloud Instance Segmentation")
     parser.add_argument("--config",
                         type=str,
                         default="config/pointgroup_default_scannet.yaml",
@@ -46,12 +45,23 @@ def init():
     cfg.pretrain = args.pretrain
     cfg.semantic = args.semantic
     cfg.exp_path = osp.join("exp", exp_name)
-    cfg.task = "test"
+    cfg.task = cfg.data.split # the task of test is defined in as data.split
 
-    gorilla.set_random_seed(cfg.test_seed)
+    gorilla.set_random_seed(cfg.data.test_seed)
 
     #### get logger file
-    log_file = get_log_file(cfg)
+    if cfg.data.split == "test":
+        log_file = os.path.join(
+            cfg.exp_path, "result", "epoch{}_nmst{}_scoret{}_npointt{}".format(cfg.data.test_epoch, cfg.data.TEST_NMS_THRESH, cfg.data.TEST_SCORE_THRESH, cfg.data.TEST_NPOINT_THRESH),
+            cfg.data.split, "test-{}.log".format(time.strftime("%Y%m%d_%H%M%S", time.localtime()))
+        )
+    else:
+        log_file = osp.join(
+            cfg.exp_path,
+            "{}-{}.log".format(cfg.data.split, time.strftime("%Y%m%d_%H%M%S", time.localtime()))
+        )
+    if not gorilla.is_filepath(osp.dirname(log_file)):
+        gorilla.mkdir_or_exist(log_file)
     logger = gorilla.get_root_logger(log_file)
     logger.info(
         "************************ Start Logging ************************")
@@ -62,14 +72,15 @@ def init():
     global result_dir
     result_dir = osp.join(
         cfg.exp_path, "result",
-        "epoch{}_nmst{}_scoret{}_npointt{}".format(cfg.test_epoch,
-                                                   cfg.TEST_NMS_THRESH,
-                                                   cfg.TEST_SCORE_THRESH,
-                                                   cfg.TEST_NPOINT_THRESH),
-        cfg.split)
+        "epoch{}_nmst{}_scoret{}_npointt{}".format(cfg.data.test_epoch,
+                                                   cfg.data.TEST_NMS_THRESH,
+                                                   cfg.data.TEST_SCORE_THRESH,
+                                                   cfg.data.TEST_NPOINT_THRESH),
+        cfg.data.split)
     os.makedirs(osp.join(result_dir, "predicted_masks"), exist_ok=True)
 
     global semantic_label_idx
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
     semantic_label_idx = torch.tensor([
         1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39
     ]).cuda()
@@ -80,31 +91,29 @@ def init():
 def test(model, model_fn, cfg, logger):
     logger.info(">>>>>>>>>>>>>>>> Start Evaluation >>>>>>>>>>>>>>>>")
 
-    epoch = cfg.test_epoch
-    semantic_only = cfg.semantic_only
+    epoch = cfg.data.test_epoch
+    semantic = cfg.semantic
 
-    dataset = Dataset(cfg, logger, test=True)
-    dataset.testLoader()
-    dataloader = dataset.test_data_loader
+    test_dataset = gorilla3d.ScanNetV2InstTest(cfg, logger)
+    test_dataloader = test_dataset.dataloader
 
     with torch.no_grad():
         model = model.eval()
         start = time.time()
 
-        semantic_dataset_root = osp.join("data", "scannetv2", "scans")
-        instance_dataset_root = osp.join("data", "scannetv2", cfg.split + "_gt")
+        semantic_dataset_root = osp.join(cfg.data.data_root, "scannetv2", "scans")
+        instance_dataset_root = osp.join(cfg.data.data_root, "scannetv2", cfg.data.split + "_gt")
         evaluator = gorilla3d.ScanNetSemanticEvaluator(semantic_dataset_root,
                                                        logger=logger)
         inst_evaluator = gorilla3d.ScanNetInstanceEvaluator(
             instance_dataset_root, logger=logger)
 
-        for i, batch in enumerate(dataloader):
+        for i, batch in enumerate(test_dataloader):
             N = batch["feats"].shape[0]
-            test_scene_name = dataset.test_file_names[int(
-                batch["id"][0])].split("/")[-1][:12]
+            test_scene_name = batch["scene_list"][0]
 
             start1 = time.time()
-            preds = model_fn(batch, model, epoch, semantic_only)
+            preds = model_fn(batch, model, epoch, semantic)
             end1 = time.time() - start1
 
             ##### get predictions (#1 semantic_pred, pt_offsets; #2 scores, proposals_pred)
@@ -114,12 +123,13 @@ def test(model, model_fn, cfg, logger):
             pt_offsets = preds["pt_offsets"]  # (N, 3), float32, cuda
 
             ##### semantic segmentation evaluation
-            if cfg.eval:
+            if cfg.data.eval:
                 inputs = [{"scene_name": test_scene_name}]
                 outputs = [{"semantic_pred": semantic_pred}]
                 evaluator.process(inputs, outputs)
-
-            if (epoch > cfg.prepare_epochs) and not semantic_only:
+            
+            prepare_flag = (epoch > cfg.model.prepare_epochs)
+            if prepare_flag and not semantic:
                 scores = preds["score"]  # (nProposal, 1) float, cuda
                 scores_pred = torch.sigmoid(scores.view(-1))
 
@@ -145,14 +155,14 @@ def test(model, model_fn, cfg, logger):
                 # semantic_id = semantic_label_idx[semantic_pred[proposals_idx[:, 1][proposals_offset[:-1].long()].long()]] # (nProposal), long
 
                 ##### score threshold
-                score_mask = (scores_pred > cfg.TEST_SCORE_THRESH)
+                score_mask = (scores_pred > cfg.data.TEST_SCORE_THRESH)
                 scores_pred = scores_pred[score_mask]
                 proposals_pred = proposals_pred[score_mask]
                 semantic_id = semantic_id[score_mask]
 
                 ##### npoint threshold
                 proposals_pointnum = proposals_pred.sum(1)
-                npoint_mask = (proposals_pointnum > cfg.TEST_NPOINT_THRESH)
+                npoint_mask = (proposals_pointnum > cfg.data.TEST_NPOINT_THRESH)
                 scores_pred = scores_pred[npoint_mask]
                 proposals_pred = proposals_pred[npoint_mask]
                 semantic_id = semantic_id[npoint_mask]
@@ -177,7 +187,7 @@ def test(model, model_fn, cfg, logger):
                     pick_idxs = non_max_suppression(
                         cross_ious.cpu().numpy(),
                         scores_pred.cpu().numpy(),
-                        cfg.TEST_NMS_THRESH)  # int, (nCluster, N)
+                        cfg.data.TEST_NMS_THRESH)  # int, (nCluster, N)
                 clusters = proposals_pred[pick_idxs]
                 cluster_scores = scores_pred[pick_idxs]
                 cluster_semantic_id = semantic_id[pick_idxs]
@@ -185,7 +195,7 @@ def test(model, model_fn, cfg, logger):
                 nclusters = clusters.shape[0]
 
                 ##### prepare for evaluation
-                if cfg.eval:
+                if cfg.data.eval:
                     pred_info = {}
                     pred_info["scene_name"] = test_scene_name
                     pred_info["conf"] = cluster_scores.cpu().numpy()
@@ -195,14 +205,14 @@ def test(model, model_fn, cfg, logger):
 
             ##### save files
             start3 = time.time()
-            if cfg.save_semantic:
+            if cfg.data.save_semantic:
                 os.makedirs(osp.join(result_dir, "semantic"), exist_ok=True)
                 semantic_np = semantic_pred.cpu().numpy()
                 np.save(
                     osp.join(result_dir, "semantic", test_scene_name + ".npy"),
                     semantic_np)
 
-            if cfg.save_pt_offsets:
+            if cfg.data.save_pt_offsets:
                 os.makedirs(osp.join(result_dir, "coords_offsets"),
                             exist_ok=True)
                 pt_offsets_np = pt_offsets.cpu().numpy()
@@ -213,7 +223,7 @@ def test(model, model_fn, cfg, logger):
                     osp.join(result_dir, "coords_offsets",
                              test_scene_name + ".npy"), coords_offsets)
 
-            if (epoch > cfg.prepare_epochs and cfg.save_instance):
+            if (prepare_flag and cfg.data.save_instance):
                 f = open(osp.join(result_dir, test_scene_name + ".txt"), "w")
                 for proposal_id in range(nclusters):
                     clusters_i = clusters[proposal_id].cpu().numpy()  # (N)
@@ -241,20 +251,18 @@ def test(model, model_fn, cfg, logger):
             start = time.time()
 
             ##### print
-            if semantic_only:
+            if semantic:
                 logger.info(
-                    "instance iter: {}/{} point_num: {} time: total {:.2f}s inference {:.2f}s save {:.2f}s"
-                    .format(batch["id"][0] + 1, len(dataset.test_files), N,
-                            end, end1, end3))
+                    "instance iter: {}/{} point_num: {} time: total {:.2f}s inference {:.2f}s save {:.2f}s".format(
+                        i + 1, len(test_dataset), N, end, end1, end3))
             else:
                 logger.info(
-                    "instance iter: {}/{} point_num: {} ncluster: {} time: total {:.2f}s inference {:.2f}s save {:.2f}s"
-                    .format(batch["id"][0] + 1, len(dataset.test_files), N,
-                            nclusters, end, end1, end3))
+                    "instance iter: {}/{} point_num: {} ncluster: {} time: total {:.2f}s inference {:.2f}s save {:.2f}s".format(
+                        i + 1, len(test_dataset), N, nclusters, end, end1, end3))
 
         ##### evaluation
-        if cfg.eval:
-            if not semantic_only:
+        if cfg.data.eval:
+            if not semantic:
                 inst_evaluator.evaluate()
             evaluator.evaluate()
 
@@ -274,9 +282,6 @@ def non_max_suppression(ious, scores, threshold):
 
 if __name__ == "__main__":
     logger, cfg = init()
-
-    ##### get model version and data version
-    exp_name = cfg.config.split("/")[-1][:-5]
 
     ##### model
     logger.info("=> creating model ...")
