@@ -1,5 +1,5 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
-from .pointgroup import PointGroup, model_fn_decorator
+from .pointgroup import PointGroup
 from .losses import PointGroupLoss
 from .func_helper import *
 

@@ -200,13 +200,14 @@ class PointGroupSolver(gorilla.BaseSolver):
         iter_time = gorilla.HistoryBuffer()
         data_time = gorilla.HistoryBuffer()
         model.train()
-        start_epoch = time.time()
-        end = time.time()
+
+        epoch_timer = gorilla.Timer()
+        iter_timer = gorilla.Timer()
 
         ##### adjust learning rate
         for i, batch in enumerate(self.train_data_loader):
             # calculate data loading time
-            data_time.update(time.time() - end)
+            data_time.update(iter_timer.since_last())
             # model step forward and return loss
             loss = self.step(batch)
 
@@ -223,8 +224,10 @@ class PointGroupSolver(gorilla.BaseSolver):
             max_iter = self.cfg.data.epochs * len(self.train_data_loader)
             remain_iter = max_iter - current_iter
 
-            iter_time.update(time.time() - end)
-            end = time.time()
+            iter_time.update(iter_timer.since_start())
+
+            # reset_timer
+            iter_timer.reset()
 
             remain_time = remain_iter * iter_time.avg
             t_m, t_s = divmod(remain_time, 60)
@@ -247,13 +250,14 @@ class PointGroupSolver(gorilla.BaseSolver):
                         iter_time.latest,
                         iter_time.avg,
                         remain_time=remain_time))
+                
             if (i == len(self.train_data_loader) - 1): print()
 
         max_mem = self.get_max_memory()
         logger.info(
             "epoch: {}/{}, train loss: {:.4f}, time: {}s, max_mem: {}M".format(
                 self.epoch, self.cfg.data.epochs, loss_buffer.avg,
-                time.time() - start_epoch, max_mem))
+                epoch_timer.since_start(), max_mem))
 
         meta = {"epoch": self.epoch}
         filename = osp.join(self.cfg.exp_path,
@@ -270,7 +274,7 @@ class PointGroupSolver(gorilla.BaseSolver):
 
         with torch.no_grad():
             model.eval()
-            start_epoch = time.time()
+            epoch_timer = gorilla.Timer()
             for i, batch in enumerate(self.val_data_loader):
 
                 loss = self.step(batch, mode="eval")
@@ -284,7 +288,7 @@ class PointGroupSolver(gorilla.BaseSolver):
 
             logger.info("epoch: {}/{}, val loss: {:.4f}, time: {}s".format(
                 self.epoch, self.cfg.data.epochs, loss_buffer.avg,
-                time.time() - start_epoch))
+                epoch_timer.since_start()))
 
             self.write()
 

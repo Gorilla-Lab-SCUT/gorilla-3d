@@ -6,32 +6,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from scipy.sparse import coo_matrix
-from scipy.spatial import cKDTree
-from torch_scatter import scatter_min, scatter_max, scatter_mean
+from torch_scatter import scatter_max, scatter_mean
 from numba import jit
-
-def square_distance(src, dst=None):
-    r"""Calculate Euclid distance between each two points.
-        src^T * dst = xn * xm + yn * ym + zn * zm；
-        sum(src^2, dim=-1) = xn*xn + yn*yn + zn*zn;
-        sum(dst^2, dim=-1) = xm*xm + ym*ym + zm*zm;
-        dist = (xn - xm)^2 + (yn - ym)^2 + (zn - zm)^2
-            = sum(src**2,dim=-1)+sum(dst**2,dim=-1)-2*src^T*dst
-        Input:
-            src: source points, [N, C]
-            dst: target points, [M, C]
-        Output:
-            dist: per-point square distance, [N, M]
-    """
-    if dst is None:
-        dst = src
-    N = src.shape[0]
-    M = dst.shape[0]
-    dst_t = dst.T # [C, M]
-    dist  = -2 * (src @ dst_t) # [N, M]
-    dist += (src ** 2).sum(-1).reshape(N, 1)
-    dist += (dst ** 2).sum(-1).reshape(1, M)
-    return dist
 
 
 def overseg_pooling(feats, overseg, mode="max"):
@@ -181,55 +157,6 @@ def overseg_fusion(proposals_idx, proposals_offset, overseg, thr_filter=0.4, thr
     return proposals_idx_fusion, proposals_offset_fusion
 
 
-def overseg_fusion_from_overseg(proposals_idx, proposals_offset, overseg):
-    r"""use overseg to refine box_idxs_of_pts
-
-    Args:
-        proposals_idx: (sumNPoint, 2), int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
-        proposals_offset: (nProposal + 1), int
-    """
-    proposals_idx_fusion = []
-    proposals_offset_fusion = [0]
-    cluster_id = 0
-    bias = 0
-    overseg = overseg.cpu().numpy()
-    _, overseg = np.unique(overseg, return_inverse=True)
-
-    proposals_idx_temp = proposals_idx.cpu().numpy()
-    num_ins = proposals_idx_temp[:, 0].max() + 1
-    instance_mask = np.ones_like(overseg) * num_ins
-
-    instance_mask[proposals_idx_temp[:, 1]] = proposals_idx_temp[:, 0]
-    # for cluster_id, (start, end) in enumerate(zip(proposals_offset[:-1], proposals_offset[1:])):
-    #     point_ids = proposals_idx_temp[start:end, 1]
-    #     instance_mask[point_ids] = cluster_id
-
-    _, row = np.unique(overseg, return_inverse=True) # (N)
-    col = instance_mask
-    data = np.ones(len(overseg))
-    shape = (len(np.unique(row)), num_ins + 1)
-    instance_map = coo_matrix((data, (row, col)), shape=shape).toarray()  # (num_overseg, num_ins+1)
-    instance_map = np.argmax(instance_map, axis=1) # (num_overseg)
-    replace_instance = instance_map[row.astype(np.int64)] # (N)
-
-    cluster_bias = 0
-    offset_bias = 0
-    for ins_id in np.unique(replace_instance):
-        if ins_id == num_ins:
-            continue
-        point_ids = np.where(replace_instance == ins_id)[0]
-        cluster_ids = np.ones_like(point_ids) * cluster_bias
-        cluster_bias += 1
-        temp_proposals_idx = torch.Tensor(np.stack([cluster_ids, point_ids], axis=1)).int() # (n, 2)
-        proposals_idx_fusion.append(temp_proposals_idx)
-        offset_bias += len(point_ids)
-        proposals_offset_fusion.append(deepcopy(offset_bias))
-
-    proposals_idx_fusion = torch.cat(proposals_idx_fusion).int()
-    proposals_offset_fusion = torch.Tensor(proposals_offset_fusion).int()
-    return proposals_idx_fusion, proposals_offset_fusion
-
-
 def align_overseg_semantic_label(semantic_labels, overseg, num_semantic=20):
     """refine semantic segmentation by overseg
 
@@ -274,102 +201,6 @@ def refine_semantic_segmentation(semantic_preds, overseg, num_semantic=20):
     return replace_semantic
 
 
-def bisegmentation(proposals_idx, scores, instance_labels, gt_instance_id):
-    r"""filter out the ignore cluster(bg_thresh<iou<fg_thresh)
-
-    Args:
-        proposals_idx (torch.Tensor): idxs of proposals
-        iou (torch.Tensor): gt iou of each proposals
-        fg_thresh (float): foreground threshold
-        bg_thresh (float): background threshold
-    """
-    filter_proposals_idx = []
-    filter_proposals_offsets = [0]
-    filter_scores = []
-    bias = 0
-    cluster_id = 0
-    for i, ins_id in enumerate(gt_instance_id):
-        ids = (proposals_idx[:, 0] == i)
-        points_id = proposals_idx[ids, 1].cpu().numpy()
-        gt_points_id = torch.where(instance_labels == ins_id)[0].cpu().numpy()
-        filter_points_id = torch.Tensor(np.intersect1d(points_id, gt_points_id)).to(proposals_idx.device)
-        if len(filter_points_id) < 50:
-            continue
-        cluster_ids = filter_points_id.new_ones(filter_points_id.shape) * cluster_id # (n)
-        cluster_id += 1
-        proposal_idx = torch.stack([cluster_ids, filter_points_id], dim=1) # (n, 2)
-        filter_proposals_idx.append(proposal_idx)
-        bias += len(filter_points_id)
-        filter_proposals_offsets.append(bias)
-        filter_scores.append(scores[i])
-
-    proposals_idx = torch.cat(filter_proposals_idx).int()  # (N, 2)
-    proposals_offsets = torch.Tensor(filter_proposals_offsets).to(proposals_idx.device).int()
-    scores = torch.Tensor(filter_scores).to(scores.device)
-
-    return proposals_idx, proposals_offsets, scores
-
-
-def refine_mask(proposals_idx, scores, mask_scores):
-    r"""filter out the ignore cluster(bg_thresh<iou<fg_thresh)
-
-    Args:
-        proposals_idx (torch.Tensor): idxs of proposals
-        iou (torch.Tensor): gt iou of each proposals
-        fg_thresh (float): foreground threshold
-        bg_thresh (float): background threshold
-    """
-    # refine mask use mask scores
-    filter_ids = torch.sigmoid(mask_scores.view(-1)) > 0.5
-    proposals_idx = proposals_idx[filter_ids.to(proposals_idx.device)]
-
-    count_map = torch.bincount(proposals_idx[:, 0])
-    # filter out small instance
-    scores = scores[torch.unique(proposals_idx[:, 0]).long(), :]#[scores_mask]
-    _, proposals_idx[:, 0] = torch.unique(proposals_idx[:, 0], return_inverse=True)
-    proposals_offset = [0]
-    bias = 0
-    for count in torch.bincount(proposals_idx[:, 0]):
-        bias += count
-        proposals_offset.append(deepcopy(bias))
-    proposals_offset = torch.tensor(proposals_offset).to(proposals_idx.device)
-    return scores, proposals_idx, proposals_offset
-
-
-def sparse_mx_to_torch_sparse_tensor(sparse_mx):
-    """Convert a scipy sparse matrix to a torch sparse tensor."""
-    sparse_mx = sparse_mx.tocoo().astype(np.float32)
-    indices = torch.from_numpy(
-        np.vstack((sparse_mx.row, sparse_mx.col)).astype(np.int64))
-    values = torch.from_numpy(sparse_mx.data)
-    shape = torch.Size(sparse_mx.shape)
-    return torch.sparse.FloatTensor(indices, values, shape)
-
-
-def get_gt_mask(proposals_idx, instance_labels, gt_instance_id):
-    r"""get the mask of each proposal for mask supervision
-
-    Args:
-        proposals_idx (torch.Tensor): idxs of proposals
-        iou (torch.Tensor): gt iou of each proposals
-        fg_thresh (float): foreground threshold
-        bg_thresh (float): background threshold
-    """
-    mask_list = []
-    filter_proposals_offsets = [0]
-    bias = 0
-    cluster_id = 0
-    for i, ins_id in enumerate(gt_instance_id):
-        ids = (proposals_idx[:, 0] == i)
-        points_id = proposals_idx[ids, 1].cpu().numpy()
-        gt_points_id = torch.where(instance_labels == ins_id)[0].cpu().numpy()
-        binary_mask = torch.Tensor(np.isin(points_id, gt_points_id))
-        mask_list.append(binary_mask)
-
-    mask = torch.cat(mask_list).float() # (N)
-    return mask
-
-
 def visual_tree(coords, overseg, batch_offsets, overseg_centers, overseg_batch_idxs, adajency_matrix_list, scene_list, save_dir="visual", suffix="lines"):
     r"""visualize the tree build from overseg
 
@@ -411,28 +242,4 @@ def visual_tree(coords, overseg, batch_offsets, overseg_centers, overseg_batch_i
         line_set.points = o3d.utility.Vector3dVector(batch_overseg_center)
         line_set.lines = o3d.utility.Vector2iVector(lines)
         o3d.io.write_line_set(osp.join(save_dir, scene + "_{}.ply".format(suffix)), line_set)
-
-
-# transformer helper
-class NestedTensor(object):
-    def __init__(self, tensors, mask):
-        self.tensors = tensors
-        self.mask = mask
-
-    def to(self, device):
-        # type: (Device) -> NestedTensor # noqa
-        cast_tensor = self.tensors.to(device)
-        mask = self.mask
-        if mask is not None:
-            assert mask is not None
-            cast_mask = mask.to(device)
-        else:
-            cast_mask = None
-        return NestedTensor(cast_tensor, cast_mask)
-
-    def decompose(self):
-        return self.tensors, self.mask
-
-    def __repr__(self):
-        return str(self.tensors)
 
