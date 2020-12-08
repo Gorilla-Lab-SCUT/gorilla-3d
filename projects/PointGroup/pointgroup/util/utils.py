@@ -47,6 +47,9 @@ def get_checkpoint(exp_path, exp_name, epoch=0, f=""):
             f = sorted(glob.glob(osp.join(exp_path, exp_name + "-*.pth")))
             if len(f) > 0:
                 f = f[-1]
+                epoch = int(f.split("-")[-1].split(".")[0])
+                # epoch = int(f[len(exp_path) + len(exp_name) + 2 : -4])
+
     return f, epoch + 1
 
 
@@ -65,9 +68,8 @@ def get_batch_offsets(batch_idxs, bs):
     :param bs: int
     :return: batch_offsets: (bs + 1)
     """
-    batch_offsets = torch.zeros(bs + 1).int().cuda()
-    for i in range(bs):
-        batch_offsets[i + 1] = batch_offsets[i] + (batch_idxs == i).sum()
-    assert batch_offsets[-1] == batch_idxs.shape[0]
+    batch_idxs_np = batch_idxs.cpu().numpy()
+    batch_offsets = np.append(np.searchsorted(batch_idxs_np, range(bs)), len(batch_idxs_np))
+    batch_offsets = torch.Tensor(batch_offsets).to(batch_idxs.device)
     return batch_offsets
 

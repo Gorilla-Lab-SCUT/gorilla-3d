@@ -13,7 +13,7 @@ import gorilla
 import gorilla3d
 
 from pointgroup import (get_log_file, get_checkpoint, model_fn_decorator,
-                        Dataset, PointGroup as Network)
+                        PointGroup as Network)
 
 
 def get_parser():
@@ -143,7 +143,7 @@ class PointGroupSolver(gorilla.BaseSolver):
                 self.epoch, self.cfg.data.epochs, loss_buffer.avg,
                 time.time() - start_epoch, max_mem))
 
-        meta = {"epoch": epoch}
+        meta = {"epoch": self.epoch}
         filename = osp.join(self.cfg.exp_path,
                             self.cfg.exp_name + "-%09d" % self.epoch + ".pth")
         gorilla.save_checkpoint(self.model, filename, self.optimizer,
@@ -209,10 +209,6 @@ if __name__ == "__main__":
     train_dataloader = train_dataset.dataloader
     val_dataset = gorilla3d.ScanNetV2InstTrainVal(cfg, logger)
     val_dataloader = val_dataset.dataloader
-
-    # dataset = gorilla3d.ScanNetV2Inst(cfg, logger)
-    # dataset.trainLoader()
-    # dataset.valLoader()
 
     cfg.log = cfg.exp_path
     Trainer = PointGroupSolver(model, [train_dataloader, val_dataloader], cfg, logger)
