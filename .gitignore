@@ -5,8 +5,8 @@ build
 *egg*
 dist
 work_dirs
-data
 .ipynb_checkpoints
+exp
 
 # file
 *.so
