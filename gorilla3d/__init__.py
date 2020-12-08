@@ -6,4 +6,5 @@ from .utils import *
 from .nn import *
 from .losses import *
 from .evaluation import *
+from .datasets import *
 from .post import *

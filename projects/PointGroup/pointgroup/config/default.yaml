@@ -8,6 +8,7 @@ data:
   ignore_label: -100
   with_elastic: False
   train_mini: False
+  workers: 16 # data loader workers
 
   scale: 50   # voxel_size = 1 / scale, scale 50(2cm)
   batch_size: 4
@@ -17,7 +18,6 @@ data:
 
   # train mode
   epochs: 384
-  train_workers: 16 # data loader workers
   optim: Adam # Adam or SGD
   lr: 0.001
   step_epoch: 384
@@ -25,11 +25,11 @@ data:
   momentum: 0.9
   weight_decay: 0.0001
   save_freq: 16  # also eval_freq
+  train_aug: [True, True, True]
 
   # test mode
   split: val
   test_epoch: 384
-  test_workers: 16
   test_seed: 567
 
   TEST_NMS_THRESH: 0.3

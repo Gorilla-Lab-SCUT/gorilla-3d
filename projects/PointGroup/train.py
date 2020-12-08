@@ -2,16 +2,15 @@
 PointGroup train.py
 Written by Li Jiang
 """
-
 import open3d as o3d
-import os
-import os.path as osp
 import sys
 import time
 import argparse
+import os.path as osp
 
 import torch
 import gorilla
+import gorilla3d
 
 from pointgroup import (get_log_file, get_checkpoint, model_fn_decorator,
                         Dataset, PointGroup as Network)
@@ -64,7 +63,8 @@ class PointGroupSolver(gorilla.BaseSolver):
     @property
     def val_flag(self):
         return gorilla.is_multiple(
-            self.epoch, self.cfg.data.save_freq) or gorilla.is_power2(self.epoch)
+            self.epoch, self.cfg.data.save_freq) or gorilla.is_power2(
+                self.epoch)
 
     def solve(self, model_fn):
         self.model_fn = model_fn
@@ -90,8 +90,7 @@ class PointGroupSolver(gorilla.BaseSolver):
             data_time.update(time.time() - end)
 
             ##### prepare input and forward
-            loss, meter_dict = self.model_fn(
-                batch, self.model, self.epoch)
+            loss, meter_dict = self.model_fn(batch, self.model, self.epoch)
 
             ##### meter_dict
             train_meter_dict = {}
@@ -138,9 +137,11 @@ class PointGroupSolver(gorilla.BaseSolver):
                         remain_time=remain_time))
             if (i == len(self.train_data_loader) - 1): print()
 
-        logger.info("epoch: {}/{}, train loss: {:.4f}, time: {}s".format(
-            self.epoch, self.cfg.data.epochs, loss_buffer.avg,
-            time.time() - start_epoch))
+        max_mem = self.get_max_memory()
+        logger.info(
+            "epoch: {}/{}, train loss: {:.4f}, time: {}s, max_mem: {}M".format(
+                self.epoch, self.cfg.data.epochs, loss_buffer.avg,
+                time.time() - start_epoch, max_mem))
 
         meta = {"epoch": epoch}
         filename = osp.join(self.cfg.exp_path,
@@ -161,8 +162,7 @@ class PointGroupSolver(gorilla.BaseSolver):
             for i, batch in enumerate(self.val_data_loader):
 
                 ##### prepare input and forward
-                loss, meter_dict = self.model_fn(
-                    batch, self.model, self.epoch)
+                loss, meter_dict = self.model_fn(batch, self.model, self.epoch)
 
                 ##### meter_dict
                 eval_meter_dict = {}
@@ -205,14 +205,17 @@ if __name__ == "__main__":
     model_fn = model_fn_decorator(cfg)
 
     ##### dataset
-    dataset = Dataset(cfg, logger)
-    dataset.trainLoader()
-    dataset.valLoader()
+    train_dataset = gorilla3d.ScanNetV2InstTrainVal(cfg, logger)
+    train_dataloader = train_dataset.dataloader
+    val_dataset = gorilla3d.ScanNetV2InstTrainVal(cfg, logger)
+    val_dataloader = val_dataset.dataloader
+
+    # dataset = gorilla3d.ScanNetV2Inst(cfg, logger)
+    # dataset.trainLoader()
+    # dataset.valLoader()
 
     cfg.log = cfg.exp_path
-    Trainer = PointGroupSolver(
-        model, [dataset.train_data_loader, dataset.val_data_loader], cfg,
-        logger)
+    Trainer = PointGroupSolver(model, [train_dataloader, val_dataloader], cfg, logger)
     checkpoint, epoch = get_checkpoint(cfg.exp_path, cfg.exp_name)
     Trainer.set_epoch(epoch)
     if gorilla.is_filepath(checkpoint):

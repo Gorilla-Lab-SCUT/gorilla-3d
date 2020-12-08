@@ -1,2 +1,4 @@
 torch>=1.1
+transforms3d
 gorilla-core
+
