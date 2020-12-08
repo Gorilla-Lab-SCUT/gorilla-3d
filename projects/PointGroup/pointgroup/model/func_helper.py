@@ -10,8 +10,6 @@ from scipy.spatial import cKDTree
 from torch_scatter import scatter_min, scatter_max, scatter_mean
 from numba import jit
 
-import spconv
-
 def square_distance(src, dst=None):
     r"""Calculate Euclid distance between each two points.
         src^T * dst = xn * xm + yn * ym + zn * zm；

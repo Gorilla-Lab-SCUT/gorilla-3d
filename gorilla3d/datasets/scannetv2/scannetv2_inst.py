@@ -3,14 +3,14 @@ ScanNet v2 Dataloader (Modified from SparseConvNet Dataloader)
 Written by Li Jiang
 """
 
-from abc import ABCMeta, abstractmethod
 import json
 import glob
 import os.path as osp
-import ipdb
-from numpy.lib.financial import ipmt
+from abc import ABCMeta, abstractmethod
 
+import gorilla
 import numpy as np
+from numpy.lib.financial import ipmt
 import torch
 from torch.utils.data import (Dataset, DataLoader)
 
@@ -49,8 +49,7 @@ class ScanNetV2Inst(Dataset, metaclass=ABCMeta):
     
     def load_files(self):
         file_names = sorted(glob.glob(osp.join(self.data_root, self.dataset, self.task, "*" + self.filename_suffix)))
-        self.files = [torch.load(i) for i in file_names]
-
+        self.files = [torch.load(i) for i in gorilla.track(file_names)]
         self.logger.info("{} samples: {}".format(self.task, len(self.files)))
 
     def __len__(self):
