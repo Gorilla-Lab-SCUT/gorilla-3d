@@ -10,7 +10,6 @@
 # example usage: evaluate_semantic_label.py --scan_path [path to scan data] --output_file [output file]
 
 # python imports
-import math
 import os, sys, argparse
 import inspect
 import numpy as np

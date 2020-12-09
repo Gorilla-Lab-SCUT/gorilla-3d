@@ -230,7 +230,8 @@ def test(model, cfg, logger):
                         proposals_pointnum.shape[0], 1)
                     cross_ious = intersection / (proposals_pn_h +
                                                  proposals_pn_v - intersection)
-                    pick_idxs = non_max_suppression(
+                                                 
+                    pick_idxs = gorilla3d.non_max_suppression(
                         cross_ious.cpu().numpy(),
                         scores_pred.cpu().numpy(),
                         cfg.data.TEST_NMS_THRESH)  # int, (nCluster, N)
@@ -312,19 +313,6 @@ def test(model, cfg, logger):
             if not semantic:
                 inst_evaluator.evaluate()
             evaluator.evaluate()
-
-
-def non_max_suppression(ious, scores, threshold):
-    ixs = scores.argsort()[::-1]
-    pick = []
-    while len(ixs) > 0:
-        i = ixs[0]
-        pick.append(i)
-        iou = ious[i, ixs[1:]]
-        remove_ixs = np.where(iou > threshold)[0] + 1
-        ixs = np.delete(ixs, remove_ixs)
-        ixs = np.delete(ixs, 0)
-    return np.array(pick, dtype=np.int32)
 
 
 if __name__ == "__main__":
