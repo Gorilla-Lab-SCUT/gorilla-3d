@@ -104,8 +104,10 @@ def test(model, cfg, logger):
         timer = gorilla.Timer()
 
         # define evaluator
-        semantic_dataset_root = osp.join(cfg.data.data_root, "scannetv2", "scans")
-        instance_dataset_root = osp.join(cfg.data.data_root, "scannetv2", cfg.data.split + "_gt")
+        # get the real data root
+        data_root = osp.join(osp.dirname(__file__), cfg.data.data_root)
+        semantic_dataset_root = osp.join(data_root, "scannetv2", "scans")
+        instance_dataset_root = osp.join(data_root, "scannetv2", cfg.data.split + "_gt")
         evaluator = gorilla3d.ScanNetSemanticEvaluator(semantic_dataset_root,
                                                        logger=logger)
         inst_evaluator = gorilla3d.ScanNetInstanceEvaluator(

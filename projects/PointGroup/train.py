@@ -311,6 +311,8 @@ if __name__ == "__main__":
     logger.info("#classifier parameters new: {}".format(count_parameters))
 
     ##### dataset
+    # get the real data root
+    cfg.data.data_root = osp.join(osp.dirname(__file__), cfg.data.data_root)
     train_dataset = gorilla3d.ScanNetV2InstTrainVal(cfg, logger)
     train_dataloader = train_dataset.dataloader
     cfg.task = "val"  # change task
