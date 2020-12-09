@@ -15,4 +15,5 @@ exp
 *.pyc
 *ninja*
 *cache*
+*.pth
 

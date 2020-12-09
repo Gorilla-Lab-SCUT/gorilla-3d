@@ -1,6 +1,4 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
-import math
-
 import numpy as np
 import scipy.ndimage as ndimage
 import scipy.interpolate as interpolate
@@ -50,7 +48,7 @@ def pc_flipper(xyz, dim="x"):
     return xyz
 
 def pc_rotator(xyz):
-    theta = np.random.rand() * 2 * math.pi
+    theta = np.random.rand() * 2 * np.pi
     rot_mat = euler.euler2mat(0, 0, theta, "syxz")
     xyz = xyz @ rot_mat.T
     return xyz

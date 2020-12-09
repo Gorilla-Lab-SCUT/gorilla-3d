@@ -10,12 +10,12 @@ import os
 import os.path as osp
 
 import torch
+import spconv
 import gorilla
 import gorilla3d
 import scipy.stats as stats
 
-from pointgroup import (model_fn_decorator, PointGroup as Network)
-
+from pointgroup import (pointgroup_ops, PointGroup)
 
 def get_parser():
     parser = argparse.ArgumentParser(description="Point Cloud Instance Segmentation")
@@ -88,7 +88,7 @@ def init():
     return logger, cfg
 
 
-def test(model, model_fn, cfg, logger):
+def test(model, cfg, logger):
     logger.info(">>>>>>>>>>>>>>>> Start Evaluation >>>>>>>>>>>>>>>>")
 
     epoch = cfg.data.test_epoch
@@ -99,22 +99,68 @@ def test(model, model_fn, cfg, logger):
 
     with torch.no_grad():
         model = model.eval()
-        start = time.time()
 
-        semantic_dataset_root = osp.join(cfg.data.data_root, "scannetv2", "scans")
-        instance_dataset_root = osp.join(cfg.data.data_root, "scannetv2", cfg.data.split + "_gt")
+        # init timer to calculate time
+        timer = gorilla.Timer()
+
+        # define evaluator
+        # get the real data root
+        data_root = osp.join(osp.dirname(__file__), cfg.data.data_root)
+        semantic_dataset_root = osp.join(data_root, "scannetv2", "scans")
+        instance_dataset_root = osp.join(data_root, "scannetv2", cfg.data.split + "_gt")
         evaluator = gorilla3d.ScanNetSemanticEvaluator(semantic_dataset_root,
                                                        logger=logger)
         inst_evaluator = gorilla3d.ScanNetInstanceEvaluator(
             instance_dataset_root, logger=logger)
 
         for i, batch in enumerate(test_dataloader):
+            timer.reset()
             N = batch["feats"].shape[0]
             test_scene_name = batch["scene_list"][0]
 
-            start1 = time.time()
-            preds = model_fn(batch, model, epoch, semantic)
-            end1 = time.time() - start1
+            coords = batch["locs"].cuda()                # (N, 1 + 3), long, cuda, dimension 0 for batch_idx
+            coords_offsets = batch["locs_offset"].cuda() # (B, 3), long, cuda
+            voxel_coords = batch["voxel_locs"].cuda()    # (M, 1 + 3), long, cuda
+            p2v_map = batch["p2v_map"].cuda()            # (N), int, cuda
+            v2p_map = batch["v2p_map"].cuda()            # (M, 1 + maxActive), int, cuda
+
+            coords_float = batch["locs_float"].cuda()  # (N, 3), float32, cuda
+            feats = batch["feats"].cuda()              # (N, C), float32, cuda
+
+            batch_offsets = batch["offsets"].cuda()    # (B + 1), int, cuda
+            scene_list = batch["scene_list"]
+            overseg = batch["overseg"].cuda() # (N), long, cuda
+            _, overseg = torch.unique(overseg, return_inverse=True)  # (N), long, cuda
+
+            extra_data = {
+                "overseg": overseg
+            }
+
+            spatial_shape = batch["spatial_shape"]
+
+            if cfg.model.use_coords:
+                feats = torch.cat((feats, coords_float), 1)
+            voxel_feats = pointgroup_ops.voxelization(feats, v2p_map, cfg.data.mode)  # (M, C), float, cuda
+
+            input_ = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, cfg.data.batch_size)
+
+            data_time = timer.since_last()
+
+            ret = model(input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets, coords_offsets, scene_list, epoch, extra_data, mode="test", semantic_only=semantic)
+            semantic_scores = ret["semantic_scores"]  # (N, nClass) float32, cuda
+            pt_offsets = ret["pt_offsets"]            # (N, 3), float32, cuda
+            if (epoch > cfg.model.prepare_epochs) and not semantic:
+                scores, proposals_idx, proposals_offset = ret["proposal_scores"]
+
+            ##### preds
+            with torch.no_grad():
+                preds = {}
+                preds["semantic"] = semantic_scores
+                preds["pt_offsets"] = pt_offsets
+                if (epoch > cfg.model.prepare_epochs) and not semantic:
+                    preds["score"] = scores
+                    preds["proposals"] = (proposals_idx, proposals_offset)
+
 
             ##### get predictions (#1 semantic_pred, pt_offsets; #2 scores, proposals_pred)
             semantic_scores = preds["semantic"]  # (N, nClass=20) float32, cuda
@@ -184,7 +230,8 @@ def test(model, model_fn, cfg, logger):
                         proposals_pointnum.shape[0], 1)
                     cross_ious = intersection / (proposals_pn_h +
                                                  proposals_pn_v - intersection)
-                    pick_idxs = non_max_suppression(
+                                                 
+                    pick_idxs = gorilla3d.non_max_suppression(
                         cross_ious.cpu().numpy(),
                         scores_pred.cpu().numpy(),
                         cfg.data.TEST_NMS_THRESH)  # int, (nCluster, N)
@@ -203,8 +250,9 @@ def test(model, model_fn, cfg, logger):
                     pred_info["mask"] = clusters.cpu().numpy()
                     inst_evaluator.process(inputs, [pred_info])
 
+            inference_time = timer.since_last()
+
             ##### save files
-            start3 = time.time()
             if cfg.data.save_semantic:
                 os.makedirs(osp.join(result_dir, "semantic"), exist_ok=True)
                 semantic_np = semantic_pred.cpu().numpy()
@@ -246,38 +294,25 @@ def test(model, model_fn, cfg, logger):
                         cf.write(content)
                     # np.savetxt(osp.join(result_dir, "predicted_masks", test_scene_name + "_%03d.txt" % (proposal_id)), clusters_i, fmt="%d")
                 f.close()
-            end3 = time.time() - start3
-            end = time.time() - start
-            start = time.time()
+
+            save_time = timer.since_last()
+            total_time = timer.since_start()
 
             ##### print
             if semantic:
                 logger.info(
-                    "instance iter: {}/{} point_num: {} time: total {:.2f}s inference {:.2f}s save {:.2f}s".format(
-                        i + 1, len(test_dataset), N, end, end1, end3))
+                    "instance iter: {}/{} point_num: {} time: total {:.2f}s data: {:.2f}s inference {:.2f}s save {:.2f}s".format(
+                        i + 1, len(test_dataset), N, total_time, data_time, inference_time, save_time))
             else:
                 logger.info(
-                    "instance iter: {}/{} point_num: {} ncluster: {} time: total {:.2f}s inference {:.2f}s save {:.2f}s".format(
-                        i + 1, len(test_dataset), N, nclusters, end, end1, end3))
+                    "instance iter: {}/{} point_num: {} ncluster: {} time: total {:.2f}s data: {:.2f}s inference {:.2f}s save {:.2f}s".format(
+                        i + 1, len(test_dataset), N, nclusters, total_time, data_time, inference_time, save_time))
 
         ##### evaluation
         if cfg.data.eval:
             if not semantic:
                 inst_evaluator.evaluate()
             evaluator.evaluate()
-
-
-def non_max_suppression(ious, scores, threshold):
-    ixs = scores.argsort()[::-1]
-    pick = []
-    while len(ixs) > 0:
-        i = ixs[0]
-        pick.append(i)
-        iou = ious[i, ixs[1:]]
-        remove_ixs = np.where(iou > threshold)[0] + 1
-        ixs = np.delete(ixs, remove_ixs)
-        ixs = np.delete(ixs, 0)
-    return np.array(pick, dtype=np.int32)
 
 
 if __name__ == "__main__":
@@ -287,7 +322,7 @@ if __name__ == "__main__":
     logger.info("=> creating model ...")
     logger.info("Classes: {}".format(cfg.model.classes))
 
-    model = Network(cfg)
+    model = PointGroup(cfg)
 
     use_cuda = torch.cuda.is_available()
     logger.info("cuda available: {}".format(use_cuda))
@@ -298,13 +333,10 @@ if __name__ == "__main__":
     logger.info("#classifier parameters (model): {}".format(
         sum([x.nelement() for x in model.parameters()])))
 
-    ##### model_fn (criterion)
-    model_fn = model_fn_decorator(cfg, test=True)
-
     ##### load model
     gorilla.load_checkpoint(
         model, cfg.pretrain
     )  # resume from the latest epoch, or specify the epoch to restore
 
     ##### evaluate
-    test(model, model_fn, cfg, logger)
+    test(model, cfg, logger)

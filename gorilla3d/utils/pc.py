@@ -1,6 +1,7 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
 import math
 
+import torch
 import numpy as np
 import scipy.ndimage as ndimage
 import scipy.interpolate as interpolate
@@ -78,5 +79,30 @@ def pc_aug(xyz, jitter=False, flip=False, rot=False):
         xyz = pc_rotator(xyz)
 
     return xyz
+
+
+def square_distance(src, dst=None):
+    r"""Calculate Euclid distance between each two points.
+        src^T * dst = xn * xm + yn * ym + zn * zm；
+        sum(src^2, dim=-1) = xn*xn + yn*yn + zn*zn;
+        sum(dst^2, dim=-1) = xm*xm + ym*ym + zm*zm;
+        dist = (xn - xm)^2 + (yn - ym)^2 + (zn - zm)^2
+            = sum(src**2,dim=-1)+sum(dst**2,dim=-1)-2*src^T*dst
+        Input:
+            src: source points, [N, C]
+            dst: target points, [M, C]
+        Output:
+            dist: per-point square distance, [N, M]
+    """
+    if dst is None:
+        dst = src
+    N = src.shape[0]
+    M = dst.shape[0]
+    dst_t = dst.T # [C, M]
+    dist  = -2 * (src @ dst_t) # [N, M]
+    dist += (src ** 2).sum(-1).reshape(N, 1)
+    dist += (dst ** 2).sum(-1).reshape(1, M)
+    return dist
+
 
 

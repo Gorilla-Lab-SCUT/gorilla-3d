@@ -1,16 +1,13 @@
-"""
-ScanNet v2 Dataloader (Modified from SparseConvNet Dataloader)
-Written by Li Jiang
-"""
+# Copyright (c) Gorilla-Lab. All rights reserved.
 
-from abc import ABCMeta, abstractmethod
 import json
 import glob
 import os.path as osp
-import ipdb
-from numpy.lib.financial import ipmt
+from abc import ABCMeta, abstractmethod
 
+import gorilla
 import numpy as np
+from numpy.lib.financial import ipmt
 import torch
 from torch.utils.data import (Dataset, DataLoader)
 
@@ -49,8 +46,7 @@ class ScanNetV2Inst(Dataset, metaclass=ABCMeta):
     
     def load_files(self):
         file_names = sorted(glob.glob(osp.join(self.data_root, self.dataset, self.task, "*" + self.filename_suffix)))
-        self.files = [torch.load(i) for i in file_names]
-
+        self.files = [torch.load(i) for i in gorilla.track(file_names)]
         self.logger.info("{} samples: {}".format(self.task, len(self.files)))
 
     def __len__(self):
@@ -71,6 +67,28 @@ class ScanNetV2Inst(Dataset, metaclass=ABCMeta):
     def dataloader(self):
         return DataLoader(self, batch_size=self.batch_size, collate_fn=self.merge, num_workers=self.workers,
                           shuffle=True, sampler=None, drop_last=True, pin_memory=True)
+
+
+    def data_aug(self, xyz, scale=False, flip=False, rot=False):
+        if scale:
+            scale = np.random.uniform(0.8, 1.2)
+            xyz = xyz * scale
+        if flip:
+            # m[0][0] *= np.random.randint(0, 2) * 2 - 1  # flip x randomly
+            flag = np.random.randint(0, 2)
+            if flag:
+                xyz[:, 0] = -xyz[:, 0]
+        if rot:
+            theta = np.random.uniform() * np.pi
+            rot_mat = np.eye(3)
+            c, s = np.cos(theta), np.sin(theta)
+            rot_mat[0, 0] = c
+            rot_mat[0, 1] = -s
+            rot_mat[1, 1] = c
+            rot_mat[1, 0] = s
+            xyz = xyz @ rot_mat.T
+            
+        return xyz
 
     def crop(self, xyz):
         """
@@ -145,9 +163,9 @@ class ScanNetV2InstTrainVal(ScanNetV2Inst):
 
         ### jitter / flip x / rotation
         if self.split=="train":
-            xyz_middle = pc_aug(xyz_origin, True, True, True)
+            xyz_middle = self.data_aug(xyz_origin, True, True, True)
         else:
-            xyz_middle = pc_aug(xyz_origin, False, False, False)
+            xyz_middle = self.data_aug(xyz_origin, False, False, False)
 
         ### scale
         xyz = xyz_middle * self.scale
@@ -282,7 +300,7 @@ class ScanNetV2InstTest(ScanNetV2Inst):
         overseg_edges = overseg[edges]
         overseg_edges = overseg_edges[overseg_edges[:, 0] != overseg_edges[:, 1]]
 
-        xyz_middle = pc_aug(xyz_origin, False, False, False)
+        xyz_middle = self.data_aug(xyz_origin, False, False, False)
 
         ### scale
         xyz = xyz_middle * self.scale
