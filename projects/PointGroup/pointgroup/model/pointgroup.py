@@ -7,6 +7,7 @@ import functools
 import ipdb
 
 import spconv
+import gorilla
 import gorilla3d
 import torch
 import torch.nn as nn
@@ -92,6 +93,7 @@ class PointGroup(nn.Module):
         self.score_linear = nn.Linear(m, 1)
 
         #### dynamic conv
+        self.param_generator = gorilla3d.UBlock([m, 2*m], norm_fn, 2, block, indice_key_id=1)
         self.dynamic_conv = DynamicConv(m, 1)
 
         self.apply(self.set_bn_init)
@@ -210,7 +212,8 @@ class PointGroup(nn.Module):
         :param coords_offsets: (B, 3), int, cuda
         """
         ret = {}
-            
+        timer = gorilla.Timer()
+
         for m in self.fix_module:
             # self.module_map[m].eval()
             mod = self.module_map[m]
@@ -238,6 +241,8 @@ class PointGroup(nn.Module):
         pt_offsets = self.offset_linear(pt_offsets_feats) # (N, 3), float32
         ret["pt_offsets"] = pt_offsets
 
+        # print("backbone: {}s".format(timer.since_last()))
+
         # if True:
         if (epoch > self.prepare_epochs) and not semantic_only:
             #### get prooposal clusters
@@ -256,13 +261,7 @@ class PointGroup(nn.Module):
                 shifted_coords = coords_ + pt_offsets_
                 semantic_preds_cpu = semantic_preds_filter[object_idx_filter].int().cpu()
 
-                idx, start_len = pointgroup_ops.ballquery_batch_p(coords_, batch_idxs_, batch_offsets_, self.cluster_radius, self.cluster_meanActive)
-                proposals_idx_origin, proposals_offset_origin = pointgroup_ops.bfs_cluster(semantic_preds_cpu, idx.cpu(), start_len.cpu(), self.cluster_npoint_thre)
-                proposals_idx_origin[:, 1] = object_idx_filter[proposals_idx_origin[:, 1].long()].int()
-                # proposals_idx_origin, proposals_offset_origin = overseg_fusion(proposals_idx_origin, proposals_offset_origin, overseg, thr_filter=0.4, thr_fusion=0.4)
-                # proposals_idx_origin: (sumNPoint, 2), int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
-                # proposals_offset_origin: (nProposal + 1), int
-
+                #### shift coordinates region grow
                 idx_shift, start_len_shift = pointgroup_ops.ballquery_batch_p(shifted_coords, batch_idxs_, batch_offsets_, self.cluster_radius_shift, int(self.cluster_shift_meanActive/2))
                 proposals_idx_shift, proposals_offset_shift = pointgroup_ops.bfs_cluster(semantic_preds_cpu, idx_shift.cpu(), start_len_shift.cpu(), self.cluster_npoint_thre)
                 proposals_idx_shift[:, 1] = object_idx_filter[proposals_idx_shift[:, 1].long()].int()
@@ -273,6 +272,14 @@ class PointGroup(nn.Module):
                 proposals_idx = proposals_idx_shift
                 proposals_offset = proposals_offset_shift
 
+                #### origin coordinates region grow
+                idx, start_len = pointgroup_ops.ballquery_batch_p(coords_, batch_idxs_, batch_offsets_, self.cluster_radius, self.cluster_meanActive)
+                proposals_idx_origin, proposals_offset_origin = pointgroup_ops.bfs_cluster(semantic_preds_cpu, idx.cpu(), start_len.cpu(), self.cluster_npoint_thre)
+                proposals_idx_origin[:, 1] = object_idx_filter[proposals_idx_origin[:, 1].long()].int()
+                # proposals_idx_origin, proposals_offset_origin = overseg_fusion(proposals_idx_origin, proposals_offset_origin, overseg, thr_filter=0.4, thr_fusion=0.4)
+                # proposals_idx_origin: (sumNPoint, 2), int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
+                # proposals_offset_origin: (nProposal + 1), int
+
                 proposals_idx_origin[:, 0] += (proposals_offset.size(0) - 1)
                 proposals_offset_origin += proposals_offset[-1]
                 proposals_idx = torch.cat((proposals_idx, proposals_idx_origin), dim=0)
@@ -280,17 +287,31 @@ class PointGroup(nn.Module):
                 # proposals_idx: (sumNPoint, 2), int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
                 # proposals_offset: (nProposal + 1), int
 
+            # print("region growing: {}s".format(timer.since_last()))
 
             #### proposals voxelization again
             input_feats, inp_map = self.clusters_voxelization(proposals_idx, output_feats, coords, self.score_fullscale, self.score_scale, self.mode)
 
-            # #### aggregate and dynamic conv
+            # print("voxelization: {}s".format(timer.since_last()))
+
+            #### aggregate and dynamic conv
+            aggre_feats = self.param_generator(input_feats) 
+            aggre_feats = aggre_feats.features[inp_map.long()] # (N, C)
+            aggre_feats = scatter_max(aggre_feats, proposals_idx[:, 0].cuda().long(), dim=0)[0] # (nProposal, C)
+            shifted_coords = coords + pt_offsets # (N, 3)
+            output_features = output.features[input_map.long()] # (N, C)
+            all_features = torch.cat([output_features, shifted_coords], dim=1) # (N, C + 3)
+            mask_pred = self.dynamic_conv(aggre_feats, all_features) # (nProposal, N, 1)
+            mask_pred = torch.sigmoid(mask_pred).squeeze() # (nProposal, N)
+
             # output_features = output.features[input_map.long()] # (N, C)
             # aggre_feats = self.aggregate_features(proposals_idx, output_features) # (nProposal, C)
             # shifted_coords = coords + pt_offsets # (N, 3)
             # all_features = torch.cat([output_features, shifted_coords], dim=1) # (N, C + 3)
             # mask_pred = self.dynamic_conv(aggre_feats, all_features) # (nProposal, N, 1)
             # mask_pred = torch.sigmoid(mask_pred).squeeze() # (nProposal, N)
+
+            # print("dynamic conv: {}s".format(timer.since_last()))
 
             #### score
             score = self.score_unet(input_feats)
@@ -300,6 +321,10 @@ class PointGroup(nn.Module):
             scores = self.score_linear(score_feats) # (nProposal, 1)
 
             ret["proposal_scores"] = (scores, proposals_idx, proposals_offset)
+
+            # print("score net: {}s".format(timer.since_last()))
+
+            # print("forward: {}s".format(timer.since_start()))
                 
 
         return ret

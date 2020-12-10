@@ -114,6 +114,7 @@ def test(model, cfg, logger):
                                                             logger=logger)
 
         for i, batch in enumerate(test_dataloader):
+            torch.cuda.empty_cache()
             timer.reset()
             N = batch["feats"].shape[0]
             test_scene_name = batch["scene_list"][0]
