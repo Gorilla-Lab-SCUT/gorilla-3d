@@ -119,7 +119,7 @@ def test(model, cfg, logger):
             test_scene_name = batch["scene_list"][0]
 
             coords = batch["locs"].cuda()                # (N, 1 + 3), long, cuda, dimension 0 for batch_idx
-            coords_offsets = batch["locs_offset"].cuda() # (B, 3), long, cuda
+            locs_offset = batch["locs_offset"].cuda() # (B, 3), long, cuda
             voxel_coords = batch["voxel_locs"].cuda()    # (M, 1 + 3), long, cuda
             p2v_map = batch["p2v_map"].cuda()            # (N), int, cuda
             v2p_map = batch["v2p_map"].cuda()            # (M, 1 + maxActive), int, cuda
@@ -132,9 +132,8 @@ def test(model, cfg, logger):
             overseg = batch["overseg"].cuda() # (N), long, cuda
             _, overseg = torch.unique(overseg, return_inverse=True)  # (N), long, cuda
 
-            extra_data = {
-                "overseg": overseg
-            }
+            extra_data = {"overseg": overseg,
+                          "locs_offset": locs_offset}
 
             spatial_shape = batch["spatial_shape"]
 
@@ -146,7 +145,7 @@ def test(model, cfg, logger):
 
             data_time = timer.since_last()
 
-            ret = model(input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets, coords_offsets, scene_list, epoch, extra_data, mode="test", semantic_only=semantic)
+            ret = model(input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets, scene_list, epoch, extra_data, mode="test", semantic_only=semantic)
             semantic_scores = ret["semantic_scores"]  # (N, nClass) float32, cuda
             pt_offsets = ret["pt_offsets"]            # (N, 3), float32, cuda
             if (epoch > cfg.model.prepare_epochs) and not semantic:

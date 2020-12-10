@@ -11,13 +11,12 @@ import gorilla3d
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-from scipy.spatial import cKDTree
 from torch_scatter import scatter_min, scatter_mean, scatter_max
 
 from ..lib.pointgroup_ops.functions import pointgroup_ops
 from ..util import get_batch_offsets
 from .func_helper import *
+from .dynamic_conv import DynamicConv
 
 
 class PointGroup(nn.Module):
@@ -92,6 +91,9 @@ class PointGroup(nn.Module):
         )
         self.score_linear = nn.Linear(m, 1)
 
+        #### dynamic conv
+        self.dynamic_conv = DynamicConv(m, 1)
+
         self.apply(self.set_bn_init)
 
         #### fix parameter
@@ -143,7 +145,8 @@ class PointGroup(nn.Module):
             clusters_feats = scatter_mean(clusters_feats, clusters_idx[:, 0].cuda().long(), dim=0) # (nCluster, C)
         else:
             raise ValueError("mode must be '0' or '1', but got {}".format(mode))
-        return
+
+        return clusters_feats
 
 
     def clusters_voxelization(self, clusters_idx, feats, coords, fullscale, scale, mode):
@@ -198,7 +201,7 @@ class PointGroup(nn.Module):
         return voxelization_feats, inp_map
 
 
-    def forward(self, input, input_map, coords, batch_idxs, batch_offsets, coords_offsets, scene_list, epoch, extra_data=None, mode="train", semantic_only=False):
+    def forward(self, input, input_map, coords, batch_idxs, batch_offsets, scene_list, epoch, extra_data=None, mode="train", semantic_only=False):
         """
         :param input_map: (N), int, cuda
         :param coords: (N, 3), float, cuda
@@ -277,24 +280,24 @@ class PointGroup(nn.Module):
                 # proposals_idx: (sumNPoint, 2), int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
                 # proposals_offset: (nProposal + 1), int
 
+
             #### proposals voxelization again
             input_feats, inp_map = self.clusters_voxelization(proposals_idx, output_feats, coords, self.score_fullscale, self.score_scale, self.mode)
 
-            #### score (without voxelization to save time)
-            if self.aggregate_feat:
-                score_media = self.score_unet(output)
-                score_media = self.score_outputlayer(score_media)
-                score_media = score_media.features[input_map.long()] # (N, C)
-                # max-pooling according to cluster proposals idx(without voxelization again to save time)
-                score_feats = self.aggregate_features(proposals_idx, score_media) # (nProposal, C)
-                scores = self.score_linear(score_feats) # (nProposal, 1)
-            else:
-                #### score
-                score = self.score_unet(input_feats)
-                score = self.score_outputlayer(score)
-                score_feats = score.features[inp_map.long()]  # (sumNPoint, C)
-                score_feats = scatter_max(score_feats, proposals_idx[:, 0].cuda().long(), dim=0)[0] # (nProposal, C)
-                scores = self.score_linear(score_feats) # (nProposal, 1)
+            # #### aggregate and dynamic conv
+            # output_features = output.features[input_map.long()] # (N, C)
+            # aggre_feats = self.aggregate_features(proposals_idx, output_features) # (nProposal, C)
+            # shifted_coords = coords + pt_offsets # (N, 3)
+            # all_features = torch.cat([output_features, shifted_coords], dim=1) # (N, C + 3)
+            # mask_pred = self.dynamic_conv(aggre_feats, all_features) # (nProposal, N, 1)
+            # mask_pred = torch.sigmoid(mask_pred).squeeze() # (nProposal, N)
+
+            #### score
+            score = self.score_unet(input_feats)
+            score = self.score_outputlayer(score)
+            score_feats = score.features[inp_map.long()]  # (sumNPoint, C)
+            score_feats = scatter_max(score_feats, proposals_idx[:, 0].cuda().long(), dim=0)[0] # (nProposal, C)
+            scores = self.score_linear(score_feats) # (nProposal, 1)
 
             ret["proposal_scores"] = (scores, proposals_idx, proposals_offset)
                 

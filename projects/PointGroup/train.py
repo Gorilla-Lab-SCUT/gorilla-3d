@@ -82,7 +82,7 @@ class PointGroupSolver(gorilla.BaseSolver):
         ##### prepare input and forward
         coords = batch["locs"].cuda(
         )  # (N, 1 + 3), long, cuda, dimension 0 for batch_idx
-        coords_offsets = batch["locs_offset"].cuda()  # (B, 3), long, cuda
+        locs_offset = batch["locs_offset"].cuda()  # (B, 3), long, cuda
         voxel_coords = batch["voxel_locs"].cuda()  # (M, 1 + 3), long, cuda
         p2v_map = batch["p2v_map"].cuda()  # (N), int, cuda
         v2p_map = batch["v2p_map"].cuda()  # (M, 1 + maxActive), int, cuda
@@ -102,7 +102,8 @@ class PointGroupSolver(gorilla.BaseSolver):
         overseg = batch["overseg"].cuda()  # (N), long, cuda
         _, overseg = torch.unique(overseg, return_inverse=True)  # (N), long, cuda
 
-        extra_data = {"overseg": overseg,}
+        extra_data = {"overseg": overseg,
+                      "locs_offset": locs_offset}
 
         prepare_flag = (self.epoch > cfg.model.prepare_epochs)
         scene_list = batch["scene_list"]
@@ -123,7 +124,6 @@ class PointGroupSolver(gorilla.BaseSolver):
                          coords_float,
                          coords[:, 0].int(),
                          batch_offsets,
-                         coords_offsets,
                          scene_list,
                          epoch,
                          extra_data)
