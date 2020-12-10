@@ -80,6 +80,7 @@ class ScanNetV2Inst(Dataset, metaclass=ABCMeta):
                 xyz[:, 0] = -xyz[:, 0]
         if rot:
             theta = np.random.uniform() * np.pi
+            # theta = np.random.randn() * np.pi
             rot_mat = np.eye(3)
             c, s = np.cos(theta), np.sin(theta)
             rot_mat[0, 0] = c

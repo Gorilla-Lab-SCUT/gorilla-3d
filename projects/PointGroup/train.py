@@ -16,7 +16,7 @@ import spconv
 from torch_scatter import scatter_mean
 
 from pointgroup import (get_checkpoint, pointgroup_ops, PointGroupLoss,
-                        align_overseg_semantic_label, PointGroup)
+                        align_overseg_semantic_label, PointGroup, loss_fn)
 
 
 def get_parser():
@@ -131,17 +131,6 @@ class PointGroupSolver(gorilla.BaseSolver):
         semantic_scores = ret["semantic_scores"]  # (N, nClass) float32, cuda
         pt_offsets = ret["pt_offsets"]  # (N, 3), float32, cuda
 
-        # overseg semantic align
-        overseg_semantic_scores = ret["overseg_semantic_scores"]  # (num_overseg, nClass)
-        overseg_labels = align_overseg_semantic_label(labels,
-                                                      overseg,
-                                                      21)  # (num_overseg)
-
-        overseg_pt_offsets = ret["overseg_pt_offsets"]  # (num_overseg, 3)
-        overseg_centers = scatter_mean(coords_float, overseg, dim=0)  # (num_overseg, 3)
-        overseg_instance_labels = align_overseg_semantic_label(instance_labels,
-                                                               overseg,
-                                                               int(instance_labels.max() + 1))  # (num_overseg)
 
         if prepare_flag:
             scores, proposals_idx, proposals_offset = ret["proposal_scores"]
@@ -160,17 +149,13 @@ class PointGroupSolver(gorilla.BaseSolver):
         loss_inp["pt_offsets"] = (pt_offsets, coords_float, instance_info,
                                   instance_labels)
 
-        loss_inp["overseg_semantic_scores"] = (overseg_semantic_scores, overseg_labels)
-        loss_inp["overseg_pt_offsets"] = (overseg_centers,
-                                          overseg_pt_offsets,
-                                          overseg_instance_labels)
-
         if prepare_flag:
             loss_inp["proposal_scores"] = (scores,
                                            proposals_idx,
                                            proposals_offset,
                                            instance_pointnum)
 
+        # loss, loss_out = loss_fn(loss_inp, self.cfg, self.epoch)
         loss, loss_out = self.criterion(loss_inp, self.epoch)
 
         ##### accuracy / meter_dict
