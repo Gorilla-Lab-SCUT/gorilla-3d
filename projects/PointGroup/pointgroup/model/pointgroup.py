@@ -69,6 +69,9 @@ class PointGroup(nn.Module):
         block_list = [m * (i + 1) for i in range(blocks)]
         self.unet = gorilla3d.UBlockBottom(block_list, norm_fn, block_reps, block, indice_key_id=1)
 
+        #### self attention module
+        # self.self_attn = nn.MultiheadAttention(m * blocks, 8)
+
         self.output_layer = spconv.SparseSequential(
             norm_fn(m),
             nn.ReLU()

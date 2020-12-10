@@ -110,8 +110,8 @@ def test(model, cfg, logger):
         instance_dataset_root = osp.join(data_root, "scannetv2", cfg.data.split + "_gt")
         evaluator = gorilla3d.ScanNetSemanticEvaluator(semantic_dataset_root,
                                                        logger=logger)
-        inst_evaluator = gorilla3d.ScanNetInstanceEvaluator(
-            instance_dataset_root, logger=logger)
+        inst_evaluator = gorilla3d.ScanNetInstanceEvaluator(instance_dataset_root,
+                                                            logger=logger)
 
         for i, batch in enumerate(test_dataloader):
             timer.reset()
