@@ -1,6 +1,6 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
 from .pointgroup import PointGroup
-from .losses import PointGroupLoss, loss_fn
+from .losses import PointGroupLoss
 from .dynamic_conv import DynamicConv
 from .func_helper import *
 

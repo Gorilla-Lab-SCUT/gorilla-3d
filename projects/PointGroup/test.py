@@ -134,7 +134,8 @@ def test(model, cfg, logger):
             _, overseg = torch.unique(overseg, return_inverse=True)  # (N), long, cuda
 
             extra_data = {"overseg": overseg,
-                          "locs_offset": locs_offset}
+                          "locs_offset": locs_offset,
+                          "scene_list": scene_list}
 
             spatial_shape = batch["spatial_shape"]
 
@@ -146,7 +147,7 @@ def test(model, cfg, logger):
 
             data_time = timer.since_last()
 
-            ret = model(input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets, scene_list, epoch, extra_data, mode="test", semantic_only=semantic)
+            ret = model(input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets, epoch, extra_data, mode="test", semantic_only=semantic)
             semantic_scores = ret["semantic_scores"]  # (N, nClass) float32, cuda
             pt_offsets = ret["pt_offsets"]            # (N, 3), float32, cuda
             if (epoch > cfg.model.prepare_epochs) and not semantic:

@@ -92,9 +92,9 @@ class PointGroup(nn.Module):
         )
         self.score_linear = nn.Linear(m, 1)
 
-        #### dynamic conv
-        self.param_generator = gorilla3d.UBlock([m, 2*m], norm_fn, 2, block, indice_key_id=1)
-        self.dynamic_conv = DynamicConv(m, 1)
+        # #### dynamic conv
+        # self.param_generator = gorilla3d.UBlock([m, 2*m], norm_fn, 2, block, indice_key_id=1)
+        # self.dynamic_conv = DynamicConv(m, 1)
 
         self.apply(self.set_bn_init)
 
@@ -202,8 +202,28 @@ class PointGroup(nn.Module):
 
         return voxelization_feats, inp_map
 
+    def filter_mask_by_batch_idx(self, mask, proposals_batch_idx, batch_offsets):
+        """convert the binary mask of each point into the proposals
 
-    def forward(self, input, input_map, coords, batch_idxs, batch_offsets, scene_list, epoch, extra_data=None, mode="train", semantic_only=False):
+        Args:
+            mask (torch.Tensor): (num_prop, N), binary mask of each point
+            proposals_batch_idx (torch.Tensor): (num_prop), batch idx of each proposals_batch_idx
+            batch_offsets (torch.Tensor): (B + 1), start and end offset of batch ids
+        
+        Return:
+            torch.Tensor: (num_prop, N)
+        """
+        batch_mask = mask.new_zeros(mask.shape).bool() # (num_prop, N)
+        for b_idx, (start, end) in enumerate(zip(batch_offsets[:-1], batch_offsets[1:])):
+            ids = (proposals_batch_idx == b_idx) # (num_prop)
+            batch_mask[ids, start: end] = True
+
+        # mask filter
+        mask = mask * batch_mask
+        return mask
+
+
+    def forward(self, input, input_map, coords, batch_idxs, batch_offsets, epoch, extra_data=None, mode="train", semantic_only=False):
         """
         :param input_map: (N), int, cuda
         :param coords: (N, 3), float, cuda
@@ -221,11 +241,6 @@ class PointGroup(nn.Module):
 
         output = self.input_conv(input)
         output, bottom = self.unet(output)
-
-        # #### use bottom of U-Net to self attention
-        # feats = gorilla3d.conver_sparse_to_batch_dense(bottom) # (B, max_length, C)
-        # feats = feats.permute(1, 0, 2) # (max_length, B, C)
-        # hs = self.self_attn(feats, feats, feats)[0] # (max_length, B, C)
 
         output = self.output_layer(output)
         output_feats = output.features[input_map.long()] # (N, m)
@@ -272,6 +287,7 @@ class PointGroup(nn.Module):
                 proposals_idx = proposals_idx_shift
                 proposals_offset = proposals_offset_shift
 
+                """
                 #### origin coordinates region grow
                 idx, start_len = pointgroup_ops.ballquery_batch_p(coords_, batch_idxs_, batch_offsets_, self.cluster_radius, self.cluster_meanActive)
                 proposals_idx_origin, proposals_offset_origin = pointgroup_ops.bfs_cluster(semantic_preds_cpu, idx.cpu(), start_len.cpu(), self.cluster_npoint_thre)
@@ -286,6 +302,7 @@ class PointGroup(nn.Module):
                 proposals_offset = torch.cat((proposals_offset, proposals_offset_origin[1:]))
                 # proposals_idx: (sumNPoint, 2), int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
                 # proposals_offset: (nProposal + 1), int
+                """
 
             # print("region growing: {}s".format(timer.since_last()))
 
@@ -298,18 +315,24 @@ class PointGroup(nn.Module):
             aggre_feats = self.param_generator(input_feats) 
             aggre_feats = aggre_feats.features[inp_map.long()] # (N, C)
             aggre_feats = scatter_max(aggre_feats, proposals_idx[:, 0].cuda().long(), dim=0)[0] # (nProposal, C)
+
             shifted_coords = coords + pt_offsets # (N, 3)
             output_features = output.features[input_map.long()] # (N, C)
             all_features = torch.cat([output_features, shifted_coords], dim=1) # (N, C + 3)
             mask_pred = self.dynamic_conv(aggre_feats, all_features) # (nProposal, N, 1)
             mask_pred = torch.sigmoid(mask_pred).squeeze() # (nProposal, N)
+            # binary segmentation
+            mask = (mask_pred > 0.5) # (nProposal, N)
 
-            # output_features = output.features[input_map.long()] # (N, C)
-            # aggre_feats = self.aggregate_features(proposals_idx, output_features) # (nProposal, C)
-            # shifted_coords = coords + pt_offsets # (N, 3)
-            # all_features = torch.cat([output_features, shifted_coords], dim=1) # (N, C + 3)
-            # mask_pred = self.dynamic_conv(aggre_feats, all_features) # (nProposal, N, 1)
-            # mask_pred = torch.sigmoid(mask_pred).squeeze() # (nProposal, N)
+            # get the proposals' batch_idx
+            point_ids_min = scatter_min(proposals_idx[:, 1].cuda().long(), proposals_idx[:, 0].cuda().long(), dim=0)[0] # (nProposal)
+            proposals_batch_idx = point_ids_min.new_zeros(point_ids_min.shape).bool() # (nProposal)
+            for start, end in zip(batch_offsets[:-1], batch_offsets[1:]):
+                proposals_batch_idx += (start <= point_ids_min & point_ids_min < end)
+
+            mask = self.filter_mask_by_batch_idx(mask, proposals_batch_idx, batch_offsets) # (nProposal, N)
+            proposals_idx_refine = torch.stack(torch.where(mask), dim=1) # (sumPoint, 2)
+
 
             # print("dynamic conv: {}s".format(timer.since_last()))
 
