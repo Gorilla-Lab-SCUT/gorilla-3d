@@ -50,12 +50,18 @@ class DynamicConv(nn.Module):
         self.out_layer = nn.Linear(hid_channel, out_channel)
         
 
-    def forward(self, prop_feats: torch.Tensor, all_features: torch.Tensor) -> torch.Tensor:
+    def forward(self,
+                prop_feats: torch.Tensor,
+                features: torch.Tensor,
+                coords: torch.Tensor,
+                cluster_centers: torch.Tensor) -> torch.Tensor:
         """dynamic convolution forward
 
         Args:
-            pro_features (torch.Tensor): proposals features (num_prop, in_channel)
-            roi_features (torch.Tensor): all region features (num_all, in_channel)
+            prop_feats (torch.Tensor): proposals features (num_prop, in_channel)
+            features (torch.Tensor): features of point cloud (num_all, in_channel)
+            coords (torch.Tensor): coordinates of point cloud (num_all, 3) 
+            cluster_centers (torch.Tensor): centers of proposals (num_prop, 3)
 
         Returns:
             torch.Tensor: (num_prop, num_all, out_channel), the match score
@@ -66,11 +72,14 @@ class DynamicConv(nn.Module):
         parameters = self.dynamic_layer(prop_feats) # (num_prop, parameters_count)
 
         num_prop = prop_feats.shape[0]
-        num_all = all_features.shape[0]
+        num_all = features.shape[0]
         channel = self.in_channel
         if self.use_coords:
             channel += 3
-        features = all_features.expand(num_prop, num_all, channel) # (num_prop, num_all, in_channel)
+        features = features.expand(num_prop, num_all, channel) # (num_prop, num_all, in_channel)
+        coords = coords.expand(num_prop, num_all, 3) # (num_prop, num_all, 3)
+        coords = coords - cluster_centers.view(-1, 1, 3) # (num_prop, num_all, 3)
+        features = torch.cat([features, coords], dim=1) # (num_prop, num_all, in_channel + 3)
 
         for i in range(self.n_kernels):
             # get the conv parameters (the bmm matrix)

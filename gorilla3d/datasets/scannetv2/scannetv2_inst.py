@@ -234,7 +234,8 @@ class ScanNetV2InstTrainVal(ScanNetV2Inst):
             overseg += overseg_bias
             overseg_bias += (overseg.max() + 1)
 
-            instance_label[np.where(instance_label != -100)] += total_inst_num
+            invalid_ids = np.where(instance_label != -100)
+            instance_label[invalid_ids] += total_inst_num
             total_inst_num += inst_num
 
             ### merge the scene to the batch

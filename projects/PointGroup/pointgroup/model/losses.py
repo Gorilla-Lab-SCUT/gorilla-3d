@@ -1,6 +1,7 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import gorilla
 from torch_scatter import scatter_mean
 
@@ -14,6 +15,7 @@ class PointGroupLoss(nn.Module):
         self.fg_thresh = cfg.model.fg_thresh
         self.bg_thresh = cfg.model.bg_thresh
         self.loss_weight = cfg.model.loss_weight
+        self.dynamic = cfg.model.dynamic
 
         #### criterion
         self.semantic_criterion = nn.CrossEntropyLoss(ignore_index=self.ignore_label)
@@ -59,27 +61,47 @@ class PointGroupLoss(nn.Module):
         if prepare_flag:
             """score loss"""
             scores, proposals_idx, proposals_offset, instance_pointnum = loss_inp["proposal_scores"]
-            # scores: (nProposal, 1), float32
-            # proposals_idx: (sumNPoint, 2), int, cpu, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
-            # proposals_offset: (nProposal + 1), int, cpu
-            # instance_pointnum: (total_nInst), int
+            # scores: (num_prop, 1), float32
+            # proposals_idx: (sum_points, 2), int, cpu, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
+            # proposals_offset: (num_prop + 1), int, cpu
+            # instance_pointnum: (total_num_inst), int
 
             ious = pointgroup_ops.get_iou(proposals_idx[:, 1].cuda(),
                                           proposals_offset.cuda(),
                                           instance_labels,
-                                          instance_pointnum) # (nProposal, nInstance), float
+                                          instance_pointnum) # (num_prop, num_inst), float
 
-            gt_ious, gt_instance_idxs = ious.max(1)  # (nProposal) float, long
+            gt_ious, gt_inst_idxs = ious.max(1)  # (num_prop) float, long
             score_loss = gorilla.iou_guided_loss(scores.view(-1), gt_ious, self.fg_thresh, self.bg_thresh)
             score_loss = score_loss.mean()
 
             loss_out["score_loss"] = (score_loss, gt_ious.shape[0])
 
+            if self.dynamic:
+                mask_pred, batch_mask, proposals_idx_dynamic, proposals_offset_dynamic = loss_inp["proposal_dynamic"]
+                # mask_pred: (num_prop, N), float, gpu, sigmoid value of each proposal mask
+                # batch_mask: (num_prop, N), bool, gpu, filter out the batch outside
+                # proposals_idx: (sum_points, 2), int, cpu, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
+                # proposals_offset: (num_prop + 1), int, cpu
+                
+                # get the gt_mask using gt_instance_idxs (TODO: not elegant and slow)
+                mask_gt = mask_pred.new_zeros(mask_pred.shape) # (num_prop, N)
+                for mask_i, inst_idx in enumerate(gt_inst_idxs):
+                    mask_gt[mask_i, :] = (instance_labels == inst_idx).float()
+
+                mask_loss = F.binary_cross_entropy(mask_pred, mask_gt, reduction="none") # (num_prop, N)
+                mask_loss = torch.sum(mask_loss[batch_mask]) / (torch.sum(batch_mask) + 1e-6)
+
+                loss_out["mask_loss"] = (mask_loss, torch.sum(batch_mask))
+                print("mask_loss: ", mask_loss)
 
         """total loss"""
+        # loss = mask_loss
         loss = self.loss_weight[0] * semantic_loss + self.loss_weight[1] * offset_norm_loss + self.loss_weight[2] * offset_dir_loss
         if prepare_flag:
             loss += (self.loss_weight[3] * score_loss)
+            if self.dynamic:
+                loss += (self.loss_weight[4] * mask_loss)
 
         return loss, loss_out
 
