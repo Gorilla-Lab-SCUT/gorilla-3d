@@ -16,7 +16,7 @@ import spconv
 from torch_scatter import scatter_mean
 
 from pointgroup import (get_checkpoint, pointgroup_ops, PointGroupLoss,
-                        align_overseg_semantic_label, PointGroup, loss_fn)
+                        align_overseg_semantic_label, PointGroup)
 
 
 def get_parser():
@@ -102,12 +102,13 @@ class PointGroupSolver(gorilla.BaseSolver):
         overseg = batch["overseg"].cuda()  # (N), long, cuda
         _, overseg = torch.unique(overseg, return_inverse=True)  # (N), long, cuda
 
-        extra_data = {"overseg": overseg,
-                      "locs_offset": locs_offset}
-
         prepare_flag = (self.epoch > cfg.model.prepare_epochs)
         scene_list = batch["scene_list"]
         spatial_shape = batch["spatial_shape"]
+
+        extra_data = {"overseg": overseg,
+                      "locs_offset": locs_offset,
+                      "scene_list": scene_list}
 
         if self.cfg.model.use_coords:
             feats = torch.cat((feats, coords_float), 1)
@@ -124,8 +125,7 @@ class PointGroupSolver(gorilla.BaseSolver):
                          coords_float,
                          coords[:, 0].int(),
                          batch_offsets,
-                         scene_list,
-                         epoch,
+                         self.epoch,
                          extra_data)
 
         semantic_scores = ret["semantic_scores"]  # (N, nClass) float32, cuda
@@ -155,7 +155,6 @@ class PointGroupSolver(gorilla.BaseSolver):
                                            proposals_offset,
                                            instance_pointnum)
 
-        # loss, loss_out = loss_fn(loss_inp, self.cfg, self.epoch)
         loss, loss_out = self.criterion(loss_inp, self.epoch)
 
         ##### accuracy / meter_dict
