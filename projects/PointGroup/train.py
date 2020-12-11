@@ -15,8 +15,7 @@ import gorilla3d
 import spconv
 from torch_scatter import scatter_mean
 
-from pointgroup import (get_checkpoint, pointgroup_ops, PointGroupLoss,
-                        align_overseg_semantic_label, PointGroup)
+from pointgroup import (get_checkpoint, pointgroup_ops, PointGroupLoss, PointGroup)
 
 
 def get_parser():
@@ -131,13 +130,6 @@ class PointGroupSolver(gorilla.BaseSolver):
         semantic_scores = ret["semantic_scores"]  # (N, nClass) float32, cuda
         pt_offsets = ret["pt_offsets"]  # (N, 3), float32, cuda
 
-
-        if prepare_flag:
-            scores, proposals_idx, proposals_offset = ret["proposal_scores"]
-            # scores: (nProposal, 1) float, cuda
-            # proposals_idx: (sumNPoint, 2), int, cpu, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
-            # proposals_offset: (nProposal + 1), int, cpu
-
         loss_inp = {}
         loss_inp["batch_idxs"] = coords[:, 0].int()
         loss_inp["overseg"] = overseg
@@ -146,14 +138,30 @@ class PointGroupSolver(gorilla.BaseSolver):
         loss_inp["batch_offsets"] = batch_offsets
 
         loss_inp["semantic_scores"] = (semantic_scores, labels)
-        loss_inp["pt_offsets"] = (pt_offsets, coords_float, instance_info,
+        loss_inp["pt_offsets"] = (pt_offsets,
+                                  coords_float,
+                                  instance_info,
                                   instance_labels)
 
+
         if prepare_flag:
+            scores, proposals_idx, proposals_offset = ret["proposal_scores"]
+            # scores: (num_prop, 1) float, cuda
+            # proposals_idx: (sum_points, 2), int, cpu, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
+            # proposals_offset: (num_prop + 1), int, cpu
+
             loss_inp["proposal_scores"] = (scores,
                                            proposals_idx,
                                            proposals_offset,
                                            instance_pointnum)
+
+            if self.cfg.model.dynamic:
+                ## dynamic conv
+                mask_pred, batch_mask, proposals_idx_dynamic, proposals_offset_dynamic = ret["proposal_dynamic"]
+                loss_inp["proposal_dynamic"] = (mask_pred,
+                                                batch_mask,
+                                                proposals_idx_dynamic,
+                                                proposals_offset_dynamic)
 
         loss, loss_out = self.criterion(loss_inp, self.epoch)
 
@@ -180,7 +188,6 @@ class PointGroupSolver(gorilla.BaseSolver):
 
     def train(self):
         self.clear()
-        torch.cuda.empty_cache()
         iter_time = gorilla.HistoryBuffer()
         data_time = gorilla.HistoryBuffer()
         model.train()
@@ -188,8 +195,8 @@ class PointGroupSolver(gorilla.BaseSolver):
         epoch_timer = gorilla.Timer()
         iter_timer = gorilla.Timer()
 
-        ##### adjust learning rate
         for i, batch in enumerate(self.train_data_loader):
+            torch.cuda.empty_cache()
             # calculate data loading time
             data_time.update(iter_timer.since_last())
             # model step forward and return loss
@@ -237,11 +244,10 @@ class PointGroupSolver(gorilla.BaseSolver):
                 
             if (i == len(self.train_data_loader) - 1): print()
 
-        max_mem = self.get_max_memory()
         logger.info(
-            "epoch: {}/{}, train loss: {:.4f}, time: {}s, max_mem: {}M".format(
+            "epoch: {}/{}, train loss: {:.4f}, time: {}s".format(
                 self.epoch, self.cfg.data.epochs, loss_buffer.avg,
-                epoch_timer.since_start(), max_mem))
+                epoch_timer.since_start()))
 
         meta = {"epoch": self.epoch}
         filename = osp.join(self.cfg.exp_path,
@@ -306,8 +312,9 @@ if __name__ == "__main__":
     cfg.log = cfg.exp_path
     Trainer = PointGroupSolver(model, [train_dataloader, val_dataloader], cfg,
                                logger)
+
     checkpoint, epoch = get_checkpoint(cfg.exp_path, cfg.exp_name)
-    Trainer.set_epoch(epoch)
+    Trainer.epoch = epoch
     if gorilla.is_filepath(checkpoint):
-        Trainer.resume(checkpoint)
+        Trainer.resume(checkpoint, strict=False)
     Trainer.solve()

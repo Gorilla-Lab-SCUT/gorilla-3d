@@ -177,16 +177,16 @@ def test(model, cfg, logger):
             
             prepare_flag = (epoch > cfg.model.prepare_epochs)
             if prepare_flag and not semantic:
-                scores = preds["score"]  # (nProposal, 1) float, cuda
+                scores = preds["score"]  # (num_prop, 1) float, cuda
                 scores_pred = torch.sigmoid(scores.view(-1))
 
                 proposals_idx, proposals_offset = preds["proposals"]
                 # proposals_idx: (sumNPoint, 2), int, cpu, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
-                # proposals_offset: (nProposal + 1), int, cpu
+                # proposals_offset: (num_prop + 1), int, cpu
                 proposals_pred = torch.zeros(
                     (proposals_offset.shape[0] - 1, N),
                     dtype=torch.int,
-                    device=scores_pred.device)  # (nProposal, N), int, cuda
+                    device=scores_pred.device)  # (num_prop, N), int, cuda
                 proposals_pred[proposals_idx[:, 0].long(),
                                proposals_idx[:, 1].long()] = 1
                 semantic_pred_list = []
@@ -199,7 +199,7 @@ def test(model, cfg, logger):
                     semantic_pred_list.append(semantic_label)
 
                 semantic_id = semantic_label_idx[semantic_pred_list]
-                # semantic_id = semantic_label_idx[semantic_pred[proposals_idx[:, 1][proposals_offset[:-1].long()].long()]] # (nProposal), long
+                # semantic_id = semantic_label_idx[semantic_pred[proposals_idx[:, 1][proposals_offset[:-1].long()].long()]] # (num_prop), long
 
                 ##### score threshold
                 score_mask = (scores_pred > cfg.data.TEST_SCORE_THRESH)
@@ -219,12 +219,12 @@ def test(model, cfg, logger):
                     pick_idxs = np.empty(0)
                 else:
                     proposals_pred_f = proposals_pred.float(
-                    )  # (nProposal, N), float, cuda
+                    )  # (num_prop, N), float, cuda
                     intersection = torch.mm(
                         proposals_pred_f, proposals_pred_f.t(
-                        ))  # (nProposal, nProposal), float, cuda
+                        ))  # (num_prop, num_prop), float, cuda
                     proposals_pointnum = proposals_pred_f.sum(
-                        1)  # (nProposal), float, cuda
+                        1)  # (num_prop), float, cuda
                     proposals_pn_h = proposals_pointnum.unsqueeze(-1).repeat(
                         1, proposals_pointnum.shape[0])
                     proposals_pn_v = proposals_pointnum.unsqueeze(0).repeat(
