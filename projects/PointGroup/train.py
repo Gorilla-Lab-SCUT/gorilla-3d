@@ -1,7 +1,4 @@
-"""
-PointGroup train.py
-Written by Li Jiang
-"""
+# Copyright (c) Gorilla-Lab. All rights reserved.
 import ipdb
 import open3d as o3d
 import sys
@@ -157,11 +154,8 @@ class PointGroupSolver(gorilla.BaseSolver):
 
             if self.cfg.model.dynamic:
                 ## dynamic conv
-                mask_pred, batch_mask, proposals_idx_dynamic, proposals_offset_dynamic = ret["proposal_dynamic"]
-                loss_inp["proposal_dynamic"] = (mask_pred,
-                                                batch_mask,
-                                                proposals_idx_dynamic,
-                                                proposals_offset_dynamic)
+                mask_pred_list, batch_proposals_ids = ret["proposal_dynamic"]
+                loss_inp["proposal_dynamic"] = (mask_pred_list, batch_proposals_ids)
 
         loss, loss_out = self.criterion(loss_inp, self.epoch)
 
@@ -310,7 +304,9 @@ if __name__ == "__main__":
     val_dataloader = val_dataset.dataloader
 
     cfg.log = cfg.exp_path
-    Trainer = PointGroupSolver(model, [train_dataloader, val_dataloader], cfg,
+    Trainer = PointGroupSolver(model,
+                               [train_dataloader, val_dataloader],
+                               cfg,
                                logger)
 
     checkpoint, epoch = get_checkpoint(cfg.exp_path, cfg.exp_name)

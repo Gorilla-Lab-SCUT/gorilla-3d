@@ -198,30 +198,6 @@ class PointGroup(nn.Module):
 
         return voxelization_feats, inp_map
 
-    def filter_mask_by_batch_idx(self, mask, proposals_idx, batch_offsets):
-        """convert the binary mask of each point into the proposals
-
-        Args:
-            mask (torch.Tensor): (num_prop, N), binary mask of each point
-            proposals_idx (torch.Tensor): (sum_points, 2), dim 0 for cluster_id, dim 1 for corresponding point idxs in N
-            batch_offsets (torch.Tensor): (B + 1), start and end offset of batch ids
-        
-        Return:
-            torch.Tensor: (num_prop, N)
-            batch_mask: (num_prop, N)
-        """
-        # get the proposals' batch_idx
-        point_ids_min = scatter_min(proposals_idx[:, 1].cuda().long(), proposals_idx[:, 0].cuda().long(), dim=0)[0] # (num_prop)
-        batch_mask = mask.new_zeros(mask.shape).bool() # (num_prop, N)
-
-        for start, end in zip(batch_offsets[:-1], batch_offsets[1:]):
-            ids = ((start <= point_ids_min) & (point_ids_min < end)) # (num_prop)
-            batch_mask[ids, start: end] = True
-
-        # mask filter
-        mask = mask * batch_mask
-        return mask, batch_mask
-
 
     def forward(self, input, input_map, coords, batch_idxs, batch_offsets, epoch, extra_data=None, mode="train", semantic_only=False):
         """
@@ -322,17 +298,17 @@ class PointGroup(nn.Module):
 
                 shifted_coords = coords + pt_offsets # (N, 3)
                 output_features = output.features[input_map.long()] # (N, C)
-                mask_pred = self.dynamic_conv(aggre_feats, output_features, coords, cluster_centers) # (num_prop, N, 1)
-                mask_pred = torch.sigmoid(mask_pred).squeeze() # (num_prop, N)
-                # binary segmentation
-                mask = (mask_pred > 0.5) # (num_prop, N)
-                # filter out the mask no belong to its batch
-                mask, batch_mask = self.filter_mask_by_batch_idx(mask, proposals_idx, batch_offsets) # (num_prop, N)
-                num_prop = mask.shape[0]
-                proposals_idx_dynamic = torch.stack(torch.where(mask), dim=1).cpu() # (sumPoint, 2)
-                proposals_offset_dynamic = get_batch_offsets(proposals_idx_dynamic[:, 0], num_prop) # (num_prop + 1)
+                batch_features_list, batch_proposals_ids = \
+                    self.dynamic_conv(aggre_feats,
+                                      output_features,
+                                      coords,
+                                      cluster_centers,
+                                      proposals_idx,
+                                      batch_offsets) # (num_prop, N, 1)
 
-                ret["proposal_dynamic"] = (mask_pred, batch_mask, proposals_idx_dynamic, proposals_offset_dynamic)
+                mask_pred_list = [torch.sigmoid(feat).squeeze() for feat in batch_features_list]
+
+                ret["proposal_dynamic"] = (mask_pred_list, batch_proposals_ids)
 
             #### score
             score = self.score_unet(input_feats)
