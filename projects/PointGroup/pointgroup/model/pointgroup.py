@@ -129,18 +129,18 @@ class PointGroup(nn.Module):
 
     def aggregate_features(self, clusters_idx, feats, mode=0):
         """
-        :param clusters_idx: (SumNPoint, 2), int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N, cpu
-        :param feats: (N, C), float, cuda
-        :mode: int (0:max-pooling 1:mean-pooling)
+        :param clusters_idx: [SumNPoint, 2], int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N, cpu
+        :param feats: [N, C], float, cuda
+        :mode: int [0:max-pooling 1:mean-pooling]
         :return:
-        :cluster_feats: (nCluster, C)
+        :cluster_feats: [nCluster, C]
         """
-        c_idxs = clusters_idx[:, 1].cuda() # (sum_points)
-        clusters_feats = feats[c_idxs.long()] # (sum_points, C)
+        c_idxs = clusters_idx[:, 1].cuda() # [sum_points]
+        clusters_feats = feats[c_idxs.long()] # [sum_points, C]
         if mode == 0:  # max-pooling
-            clusters_feats = scatter_max(clusters_feats, clusters_idx[:, 0].cuda().long(), dim=0)[0] # (nCluster, C)
+            clusters_feats = scatter_max(clusters_feats, clusters_idx[:, 0].cuda().long(), dim=0)[0] # [nCluster, C]
         elif mode == 1: # mean-pooling
-            clusters_feats = scatter_mean(clusters_feats, clusters_idx[:, 0].cuda().long(), dim=0) # (nCluster, C)
+            clusters_feats = scatter_mean(clusters_feats, clusters_idx[:, 0].cuda().long(), dim=0) # [nCluster, C]
         else:
             raise ValueError("mode must be '0' or '1', but got {}".format(mode))
 
@@ -149,27 +149,27 @@ class PointGroup(nn.Module):
 
     def clusters_voxelization(self, clusters_idx, feats, coords, fullscale, scale, mode):
         """
-        :param clusters_idx: (SumNPoint, 2), int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N, cpu
-        :param feats: (N, C), float, cuda
-        :param coords: (N, 3), float, cuda
+        :param clusters_idx: [SumNPoint, 2], int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N, cpu
+        :param feats: [N, C], float, cuda
+        :param coords: [N, 3], float, cuda
         :return:
         """
         c_idxs = clusters_idx[:, 1].cuda()
         clusters_feats = feats[c_idxs.long()]
         clusters_coords = coords[c_idxs.long()]
 
-        clusters_coords_mean = scatter_mean(clusters_coords, clusters_idx[:, 0].cuda().long(), dim=0) # (nCluster, 3), float
+        clusters_coords_mean = scatter_mean(clusters_coords, clusters_idx[:, 0].cuda().long(), dim=0) # [nCluster, 3], float
 
-        clusters_coords_mean = torch.index_select(clusters_coords_mean, 0, clusters_idx[:, 0].cuda().long())  # (sum_points, 3), float
+        clusters_coords_mean = torch.index_select(clusters_coords_mean, 0, clusters_idx[:, 0].cuda().long())  # [sum_points, 3], float
         clusters_coords -= clusters_coords_mean
 
-        clusters_coords_min = scatter_min(clusters_coords, clusters_idx[:, 0].cuda().long(), dim=0)[0] # (nCluster, 3), float
-        clusters_coords_max = scatter_max(clusters_coords, clusters_idx[:, 0].cuda().long(), dim=0)[0] # (nCluster, 3), float
+        clusters_coords_min = scatter_min(clusters_coords, clusters_idx[:, 0].cuda().long(), dim=0)[0] # [nCluster, 3], float
+        clusters_coords_max = scatter_max(clusters_coords, clusters_idx[:, 0].cuda().long(), dim=0)[0] # [nCluster, 3], float
 
-        clusters_scale = 1 / ((clusters_coords_max - clusters_coords_min) / fullscale).max(1)[0] - 0.01  # (nCluster), float
+        clusters_scale = 1 / ((clusters_coords_max - clusters_coords_min) / fullscale).max(1)[0] - 0.01  # [nCluster], float
         clusters_scale = torch.clamp(clusters_scale, min=None, max=scale)
 
-        min_xyz = clusters_coords_min * clusters_scale.unsqueeze(-1)  # (nCluster, 3), float
+        min_xyz = clusters_coords_min * clusters_scale.unsqueeze(-1)  # [nCluster, 3], float
         max_xyz = clusters_coords_max * clusters_scale.unsqueeze(-1)
 
         clusters_scale = torch.index_select(clusters_scale, 0, clusters_idx[:, 0].cuda().long())
@@ -177,21 +177,20 @@ class PointGroup(nn.Module):
         clusters_coords = clusters_coords * clusters_scale.unsqueeze(-1)
 
         range = max_xyz - min_xyz
-        # offset = - min_xyz + torch.clamp(fullscale - range - 0.001, min=0) * torch.rand(3).cuda() + torch.clamp(fullscale - range + 0.001, max=0) * torch.rand(3).cuda()
         offset = - min_xyz
         offset = torch.index_select(offset, 0, clusters_idx[:, 0].cuda().long())
         clusters_coords += offset
         assert clusters_coords.shape.numel() == ((clusters_coords >= 0) * (clusters_coords < fullscale)).sum()
 
         clusters_coords = clusters_coords.long()
-        clusters_coords = torch.cat([clusters_idx[:, 0].view(-1, 1).long(), clusters_coords.cpu()], 1)  # (sum_points, 1 + 3)
+        clusters_coords = torch.cat([clusters_idx[:, 0].view(-1, 1).long(), clusters_coords.cpu()], 1)  # [sum_points, 1 + 3]
 
         out_coords, inp_map, out_map = pointgroup_ops.voxelization_idx(clusters_coords, int(clusters_idx[-1, 0]) + 1, mode)
-        # output_coords: M * (1 + 3) long
+        # output_coords: M * [1 + 3] long
         # input_map: sum_points int
-        # output_map: M * (maxActive + 1) int
+        # output_map: M * [maxActive + 1] int
 
-        out_feats = pointgroup_ops.voxelization(clusters_feats, out_map.cuda(), mode)  # (M, C), float, cuda
+        out_feats = pointgroup_ops.voxelization(clusters_feats, out_map.cuda(), mode)  # [M, C], float, cuda
 
         spatial_shape = [fullscale] * 3
         voxelization_feats = spconv.SparseConvTensor(out_feats, out_coords.int().cuda(), spatial_shape, int(clusters_idx[-1, 0]) + 1)
@@ -201,11 +200,11 @@ class PointGroup(nn.Module):
 
     def forward(self, input, input_map, coords, batch_idxs, batch_offsets, epoch, extra_data=None, mode="train", semantic_only=False):
         """
-        :param input_map: (N), int, cuda
-        :param coords: (N, 3), float, cuda
-        :param batch_idxs: (N), int, cuda
-        :param batch_offsets: (B + 1), int, cuda
-        :param coords_offsets: (B, 3), int, cuda
+        :param input_map: [N], int, cuda
+        :param coords: [N, 3], float, cuda
+        :param batch_idxs: [N], int, cuda
+        :param batch_offsets: [B + 1], int, cuda
+        :param coords_offsets: [B, 3], int, cuda
         """
         ret = {}
         timer = gorilla.Timer()
@@ -219,17 +218,17 @@ class PointGroup(nn.Module):
         output, bottom = self.unet(output)
 
         output = self.output_layer(output)
-        output_feats = output.features[input_map.long()] # (N, m)
+        output_feats = output.features[input_map.long()] # [N, m]
 
         #### semantic segmentation
-        semantic_scores = self.linear(output_feats)   # (N, nClass), float
-        semantic_preds = semantic_scores.max(1)[1]  # (N), long
+        semantic_scores = self.linear(output_feats)   # [N, nClass], float
+        semantic_preds = semantic_scores.max(1)[1]  # [N], long
 
         ret["semantic_scores"] = semantic_scores
 
         #### offset
         pt_offsets_feats = self.offset(output_feats)
-        pt_offsets = self.offset_linear(pt_offsets_feats) # (N, 3), float32
+        pt_offsets = self.offset_linear(pt_offsets_feats) # [N, 3], float32
         ret["pt_offsets"] = pt_offsets
 
         # print("backbone: {}s".format(timer.since_last()))
@@ -257,8 +256,8 @@ class PointGroup(nn.Module):
                 proposals_idx_shift, proposals_offset_shift = pointgroup_ops.bfs_cluster(semantic_preds_cpu, idx_shift.cpu(), start_len_shift.cpu(), self.cluster_npoint_thre)
                 proposals_idx_shift[:, 1] = object_idx_filter[proposals_idx_shift[:, 1].long()].int()
                 # proposals_idx_shift, proposals_offset_shift = overseg_fusion(proposals_idx_shift, proposals_offset_shift, overseg, thr_filter=0.25, thr_fusion=0.25)
-                # proposals_idx_shift: (sum_points, 2), int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
-                # proposals_offset_shift: (num_prop + 1), int
+                # proposals_idx_shift: [sum_points, 2], int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
+                # proposals_offset_shift: [num_prop + 1], int
 
                 proposals_idx = proposals_idx_shift
                 proposals_offset = proposals_offset_shift
@@ -269,15 +268,15 @@ class PointGroup(nn.Module):
                 proposals_idx_origin, proposals_offset_origin = pointgroup_ops.bfs_cluster(semantic_preds_cpu, idx.cpu(), start_len.cpu(), self.cluster_npoint_thre)
                 proposals_idx_origin[:, 1] = object_idx_filter[proposals_idx_origin[:, 1].long()].int()
                 # proposals_idx_origin, proposals_offset_origin = overseg_fusion(proposals_idx_origin, proposals_offset_origin, overseg, thr_filter=0.4, thr_fusion=0.4)
-                # proposals_idx_origin: (sum_points, 2), int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
-                # proposals_offset_origin: (num_prop + 1), int
+                # proposals_idx_origin, [sum_points, 2], int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
+                # proposals_offset_origin, [num_prop + 1], int
 
                 proposals_idx_origin[:, 0] += (proposals_offset.size(0) - 1)
                 proposals_offset_origin += proposals_offset[-1]
                 proposals_idx = torch.cat((proposals_idx, proposals_idx_origin), dim=0)
                 proposals_offset = torch.cat((proposals_offset, proposals_offset_origin[1:]))
-                # proposals_idx: (sum_points, 2), int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
-                # proposals_offset: (num_prop + 1), int
+                # proposals_idx, [sum_points, 2]: int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
+                # proposals_offset, [num_prop + 1]: int
                 """
 
             # print("region growing: {}s".format(timer.since_last()))
@@ -290,21 +289,21 @@ class PointGroup(nn.Module):
             #### aggregate and dynamic conv
             if self.dynamic:
                 aggre_feats = self.param_generator(input_feats) 
-                aggre_feats = aggre_feats.features[inp_map.long()] # (sum_points, C)
-                aggre_feats = scatter_max(aggre_feats, proposals_idx[:, 0].cuda().long(), dim=0)[0] # (num_prop, C)
+                aggre_feats = aggre_feats.features[inp_map.long()] # [sum_points, C]
+                aggre_feats = scatter_max(aggre_feats, proposals_idx[:, 0].cuda().long(), dim=0)[0] # [num_prop, C]
 
-                aggre_coords = coords[inp_map.long()] # (sum_points, 3)
-                cluster_centers = scatter_mean(aggre_coords, proposals_idx[:, 0].cuda().long(), dim=0) # (num_prop, 3)
+                aggre_coords = coords[inp_map.long()] # [sum_points, 3]
+                cluster_centers = scatter_mean(aggre_coords, proposals_idx[:, 0].cuda().long(), dim=0) # [num_prop, 3]
 
-                shifted_coords = coords + pt_offsets # (N, 3)
-                output_features = output.features[input_map.long()] # (N, C)
+                shifted_coords = coords + pt_offsets # [N, 3]
+                output_features = output.features[input_map.long()] # [N, C]
                 batch_features_list, batch_proposals_ids = \
                     self.dynamic_conv(aggre_feats,
                                       output_features,
                                       coords,
                                       cluster_centers,
                                       proposals_idx,
-                                      batch_offsets) # (num_prop, N, 1)
+                                      batch_offsets) # [num_prop, N, 1]
 
                 mask_pred_list = [torch.sigmoid(feat).squeeze() for feat in batch_features_list]
 
@@ -313,9 +312,9 @@ class PointGroup(nn.Module):
             #### score
             score = self.score_unet(input_feats)
             score = self.score_outputlayer(score)
-            score_feats = score.features[inp_map.long()]  # (sum_points, C)
-            score_feats = scatter_max(score_feats, proposals_idx[:, 0].cuda().long(), dim=0)[0] # (num_prop, C)
-            scores = self.score_linear(score_feats) # (num_prop, 1)
+            score_feats = score.features[inp_map.long()]  # [sum_points, C]
+            score_feats = scatter_max(score_feats, proposals_idx[:, 0].cuda().long(), dim=0)[0] # [num_prop, C]
+            scores = self.score_linear(score_feats) # [num_prop, 1]
 
             ret["proposal_scores"] = (scores, proposals_idx, proposals_offset)
 

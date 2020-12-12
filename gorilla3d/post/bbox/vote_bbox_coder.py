@@ -424,7 +424,7 @@ class PartialBinBasedBBoxCoder(object):
 
         # decode center
         end += 3
-        # (batch_size, num_proposal, 3)
+        # [batch_size, num_proposal, 3]
         results["center"] = base_xyz + preds_trans[..., start:end]
         start = end
 

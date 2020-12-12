@@ -63,7 +63,7 @@ class PointFPModule(nn.Module):
 
         if target_feats is not None:
             new_features = torch.cat([interpolated_feats, target_feats],
-                                     dim=1)  # (B, C2 + C1, n)
+                                     dim=1)  # [B, C2 + C1, n]
         else:
             new_features = interpolated_feats
 

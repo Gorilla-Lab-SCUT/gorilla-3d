@@ -22,9 +22,9 @@ def overseg_pooling(feats, overseg, mode="max"):
         overseg_feats (torch.Tensor): (num_overseg)
     """
     if mode == "max": # max-pooling
-        overseg_feats = scatter_max(feats, overseg, dim=0)[0] # (num_overseg, C)
+        overseg_feats = scatter_max(feats, overseg, dim=0)[0] # [num_overseg, C]
     elif mode == "mean": # mean-pooling
-        overseg_feats = scatter_mean(feats, overseg, dim=0) # (num_overseg, C)
+        overseg_feats = scatter_mean(feats, overseg, dim=0) # [num_overseg, C]
     else:
         raise ValueError("mode must be 'max' or 'mean', but got {}".format(mode))
     
@@ -48,18 +48,18 @@ def overseg_graph_fusion(overseg, batch_idxs, overseg_semantic_preds, overseg_ba
         batch_clusters = bfs_cluster(adajency_matrix, batch_overseg_semantic_preds)
         clusters.extend(batch_clusters)
         for cluster in batch_clusters:
-            proposals_idx = torch.Tensor(np.where(np.isin(batch_overseg, np.array(cluster)))[0]) # (n')
+            proposals_idx = torch.Tensor(np.where(np.isin(batch_overseg, np.array(cluster)))[0]) # [n']
             if len(proposals_idx) < 50:
                 continue
-            cluster_ids = torch.ones_like(proposals_idx) * cluster_bias # (n')
+            cluster_ids = torch.ones_like(proposals_idx) * cluster_bias # [n']
             cluster_bias += 1
-            temp_proposals_idx = torch.stack([cluster_ids, torch.Tensor(proposals_idx + bias)], dim=1) # (n', 2)
+            temp_proposals_idx = torch.stack([cluster_ids, torch.Tensor(proposals_idx + bias)], dim=1) # [n', 2]
             proposals_idxs.append(temp_proposals_idx)
             offset_bias += len(proposals_idx)
             proposals_offsets.append(deepcopy(offset_bias))
         bias += ids.sum()
-    proposals_idxs = torch.cat(proposals_idxs).int() # (N, 2)
-    proposals_offsets = torch.Tensor(proposals_offsets).int() # (nCluster + 1)
+    proposals_idxs = torch.cat(proposals_idxs).int() # [N, 2]
+    proposals_offsets = torch.Tensor(proposals_offsets).int() # [nCluster + 1]
     return proposals_idxs, proposals_offsets
         
 @jit(nopython=True)
@@ -71,7 +71,7 @@ def bfs_cluster(adajency_matrix, semantic_preds):
     Return:
         clusters (list): list of cluster lists
     """
-    visited = np.zeros(len(adajency_matrix)) # (num_overseg)
+    visited = np.zeros(len(adajency_matrix)) # [num_overseg]
     clusters = []
     for overseg_id in range(len(adajency_matrix)):
         overseg_id = int(overseg_id)
@@ -138,7 +138,7 @@ def overseg_fusion(proposals_idx, proposals_offset, overseg, thr_filter=0.4, thr
         # temp_idxs = (temp_idxs + mask).int()
         proposal = torch.where(temp_idxs)[0]
         cluster_id_proposal = proposal.new_ones(proposal.shape) * cluster_id
-        proposal_idx = torch.stack([cluster_id_proposal, proposal], dim=1).int()  # (length_proposal, 2)
+        proposal_idx = torch.stack([cluster_id_proposal, proposal], dim=1).int()  # [length_proposal, 2]
         if len(proposal_idx) < 50:
             continue
         bias += len(proposal)
@@ -173,8 +173,8 @@ def align_overseg_semantic_label(semantic_labels, overseg, num_semantic=20):
     col[col < 0] = num_semantic
     data = np.ones(len(overseg))
     shape = (len(np.unique(row)), num_semantic + 1)
-    semantic_map = coo_matrix((data, (row, col)), shape=shape).toarray()  # (num_overseg, num_semantic + 1)
-    semantic_map = torch.Tensor(np.argmax(semantic_map, axis=1)).long().to(semantic_labels.device)  # (num_overseg)
+    semantic_map = coo_matrix((data, (row, col)), shape=shape).toarray()  # [num_overseg, num_semantic + 1]
+    semantic_map = torch.Tensor(np.argmax(semantic_map, axis=1)).long().to(semantic_labels.device)  # [num_overseg]
     semantic_map[semantic_map == num_semantic] = -100 # ignore_label
 
     return semantic_map
@@ -194,8 +194,8 @@ def refine_semantic_segmentation(semantic_preds, overseg, num_semantic=20):
     col = semantic_preds.cpu().numpy()
     data = np.ones(len(overseg))
     shape = (len(np.unique(row)), num_semantic)
-    semantic_map = coo_matrix((data, (row, col)), shape=shape).toarray()  # (num_overseg, num_semantic)
-    semantic_map = torch.Tensor(np.argmax(semantic_map, axis=1)).to(semantic_preds.device) # (num_overseg)
+    semantic_map = coo_matrix((data, (row, col)), shape=shape).toarray()  # [num_overseg, num_semantic]
+    semantic_map = torch.Tensor(np.argmax(semantic_map, axis=1)).to(semantic_preds.device) # [num_overseg]
     replace_semantic = semantic_map[torch.Tensor(row).to(semantic_preds.device).long()]
 
     return replace_semantic
@@ -217,13 +217,13 @@ def visual_tree(coords, overseg, batch_offsets, overseg_centers, overseg_batch_i
     import open3d as o3d
     for batch_idx, (start, end, scene) in enumerate(zip(batch_offsets[:-1], batch_offsets[1:], scene_list)):
         # visual overseg point cloud
-        batch_coords = coords[start:end].cpu().numpy() # (N, 3)
-        batch_overseg = overseg[start:end].cpu().numpy() # (N)
+        batch_coords = coords[start:end].cpu().numpy() # [N, 3]
+        batch_overseg = overseg[start:end].cpu().numpy() # [N]
         all_pc = o3d.geometry.PointCloud()
         for overseg_id in np.unique(batch_overseg):
             ids = (batch_overseg == overseg_id)
-            temp_coords = batch_coords[ids] # (n, 3)
-            temp_colors = np.zeros_like(temp_coords) # (n, 3)
+            temp_coords = batch_coords[ids] # [n, 3]
+            temp_colors = np.zeros_like(temp_coords) # [n, 3]
             temp_colors[:] = np.random.random(3)
             temp_pc = o3d.geometry.PointCloud()
             temp_pc.points = o3d.utility.Vector3dVector(temp_coords)
@@ -234,10 +234,10 @@ def visual_tree(coords, overseg, batch_offsets, overseg_centers, overseg_batch_i
         # visual graph
         line_set = o3d.geometry.LineSet()
         overseg_ids = (overseg_batch_idxs == batch_idx)
-        batch_overseg_center = overseg_centers[overseg_ids].cpu().numpy() # (num_overseg, 3)
-        adajency_matrix = adajency_matrix_list[batch_idx].bool().cpu().numpy() # (num_overseg, num_overseg)
-        edges_x, edges_y = np.where(adajency_matrix) # (num_edges), (num_edges)
-        lines = np.stack([edges_x, edges_y], axis=1) # (num_edges, 2)
+        batch_overseg_center = overseg_centers[overseg_ids].cpu().numpy() # [num_overseg, 3]
+        adajency_matrix = adajency_matrix_list[batch_idx].bool().cpu().numpy() # [num_overseg, num_overseg]
+        edges_x, edges_y = np.where(adajency_matrix) # [num_edges], [num_edges]
+        lines = np.stack([edges_x, edges_y], axis=1) # [num_edges, 2]
         line_set = o3d.geometry.LineSet()
         line_set.points = o3d.utility.Vector3dVector(batch_overseg_center)
         line_set.lines = o3d.utility.Vector2iVector(lines)

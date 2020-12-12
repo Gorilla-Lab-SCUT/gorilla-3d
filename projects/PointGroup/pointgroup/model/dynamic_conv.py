@@ -87,10 +87,10 @@ class DynamicConv(nn.Module):
             batch_proposals_ids [torch.Tensor]: [(num_batch_prop)], list contained batches' number of proposals
         """
 
-        point_ids_min = scatter_min(proposals_idx[:, 1].cuda().long(), proposals_idx[:, 0].cuda().long(), dim=0)[0] # (num_prop)
+        point_ids_min = scatter_min(proposals_idx[:, 1].cuda().long(), proposals_idx[:, 0].cuda().long(), dim=0)[0] # [num_prop]
 
         # get the dynamic convolution weight
-        parameters = self.dynamic_layer(prop_feats) # (num_prop, parameters_count)
+        parameters = self.dynamic_layer(prop_feats) # [num_prop, parameters_count]
 
         channel = features.shape[-1]
 
@@ -98,16 +98,16 @@ class DynamicConv(nn.Module):
         batch_proposals_ids = []
 
         for b_idx, (b_start, b_end) in enumerate(zip(batch_offsets[:-1], batch_offsets[1:])):
-            b_ids = ((b_start <= point_ids_min) & (point_ids_min < b_end)) # (num_prop)
+            b_ids = ((b_start <= point_ids_min) & (point_ids_min < b_end)) # [num_prop]
             num_batch = b_end - b_start
             num_batch_prop = b_ids.sum()
-            batch_proposals_ids.append(torch.where(b_ids)[0]) # (num_batch_prop)
+            batch_proposals_ids.append(torch.where(b_ids)[0]) # [num_batch_prop]
 
             batch_features = features[b_start:b_end, :].expand(num_batch_prop, num_batch, channel)
             batch_coords = coords[b_start:b_end, :].expand(num_batch_prop, num_batch, 3)
-            batch_cluster_centers = cluster_centers[b_ids, None, :] # (num_batch_prop, 1, 3)
-            batch_coords = batch_coords - batch_cluster_centers # (num_batch_prop, num_batch, 3)
-            batch_features = torch.cat([batch_features, batch_coords], dim=2) # (num_batch_prop, num_batch, channel + 3)
+            batch_cluster_centers = cluster_centers[b_ids, None, :] # [num_batch_prop, 1, 3]
+            batch_coords = batch_coords - batch_cluster_centers # [num_batch_prop, num_batch, 3]
+            batch_features = torch.cat([batch_features, batch_coords], dim=2) # [num_batch_prop, num_batch, channel + 3]
 
             # the parameters index
             start, end = 0, 0
@@ -118,20 +118,20 @@ class DynamicConv(nn.Module):
                 # conv(bmm)
                 end += in_c * out_c
                 conv_mat = parameters[b_ids, start: end].view(num_batch_prop, in_c, out_c)
-                batch_features = torch.bmm(batch_features, conv_mat) # (num_batch_prop, num_batch, out_c)
+                batch_features = torch.bmm(batch_features, conv_mat) # [num_batch_prop, num_batch, out_c]
                 start = end
                 # add bias
                 if self.with_bias:
                     end += out_c
-                    bias = parameters[b_ids, start: end].view(-1, 1, out_c) # (num_batch_prop, 1, out_c)
-                    batch_features = batch_features + bias # (num_batch_prop, num_batch, out_c)
+                    bias = parameters[b_ids, start: end].view(-1, 1, out_c) # [num_batch_prop, 1, out_c]
+                    batch_features = batch_features + bias # [num_batch_prop, num_batch, out_c]
                     start = end
                 if i != (self.n_kernels - 1): # last layer without norm
                     # activation
-                    batch_features = self.activation(batch_features) # (num_batch_prop, num_batch, out_c)
+                    batch_features = self.activation(batch_features) # [num_batch_prop, num_batch, out_c]
                     # norm
                     if self.with_norm:
-                        batch_features = getattr(self, "norm{}".format(i + 1))(batch_features) # (num_batch_prop, num_batch, out_c)
+                        batch_features = getattr(self, "norm{}".format(i + 1))(batch_features) # [num_batch_prop, num_batch, out_c]
             batch_features_list.append(batch_features)
 
         return batch_features_list, batch_proposals_ids

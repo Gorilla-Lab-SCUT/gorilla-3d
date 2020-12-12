@@ -109,23 +109,23 @@ class PointSAModuleMSG(nn.Module):
             1, 2).contiguous() if self.num_point is not None else None
 
         for i in range(len(self.groupers)):
-            # (B, C, num_point, nsample)
+            # [B, C, num_point, nsample]
             new_features = self.groupers[i](points_xyz, new_xyz, features)
 
-            # (B, mlp[-1], num_point, nsample)
+            # [B, mlp[-1], num_point, nsample]
             new_features = self.mlps[i](new_features)
             if self.pool_mod == "max":
-                # (B, mlp[-1], num_point, 1)
+                # [B, mlp[-1], num_point, 1]
                 new_features = F.max_pool2d(
                     new_features, kernel_size=[1, new_features.size(3)])
             elif self.pool_mod == "avg":
-                # (B, mlp[-1], num_point, 1)
+                # [B, mlp[-1], num_point, 1]
                 new_features = F.avg_pool2d(
                     new_features, kernel_size=[1, new_features.size(3)])
             else:
                 raise NotImplementedError
 
-            new_features = new_features.squeeze(-1)  # (B, mlp[-1], num_point)
+            new_features = new_features.squeeze(-1)  # [B, mlp[-1], num_point]
             new_features_list.append(new_features)
 
         return new_xyz, torch.cat(new_features_list, dim=1), indices
