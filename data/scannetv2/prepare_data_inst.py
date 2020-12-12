@@ -49,7 +49,6 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--data_split", help="data split (train / val / test)", default="test")
 opt = parser.parse_args()
 
-# import ipdb; ipdb.set_trace()
 split = opt.data_split
 os.makedirs(split, exist_ok=True)
 print("data split: {}".format(split))

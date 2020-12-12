@@ -38,6 +38,6 @@ def get_batch_offsets(batch_idxs, bs):
     """
     batch_idxs_np = batch_idxs.cpu().numpy()
     batch_offsets = np.append(np.searchsorted(batch_idxs_np, range(bs)), len(batch_idxs_np))
-    batch_offsets = torch.Tensor(batch_offsets).to(batch_idxs.device)
+    batch_offsets = torch.Tensor(batch_offsets).int().to(batch_idxs.device)
     return batch_offsets
 

@@ -74,7 +74,6 @@ class PartialBinBasedBBoxCoder(object):
                                                                                       pts_instance_mask,
                                                                                       bbox_preds)
 
-            # import ipdb; ipdb.set_trace()
             bbox_result = dict(bbox_preds=bbox_preds,
                                vote_targets=vote_targets,
                                vote_target_masks=vote_target_masks,
