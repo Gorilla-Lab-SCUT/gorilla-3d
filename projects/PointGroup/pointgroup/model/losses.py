@@ -40,18 +40,18 @@ class PointGroupLoss(nn.Module):
         # instance_info: (N, 9), float32 tensor (meanxyz, minxyz, maxxyz)
         # instance_labels: (N), long
 
-        gt_offsets = instance_info[:, 0:3] - coords   # (N, 3)
-        pt_diff = pt_offsets - gt_offsets   # (N, 3)
-        pt_dist = torch.sum(torch.abs(pt_diff), dim=-1)   # (N)
+        gt_offsets = instance_info[:, 0:3] - coords   # [N, 3]
+        pt_diff = pt_offsets - gt_offsets   # [N, 3]
+        pt_dist = torch.sum(torch.abs(pt_diff), dim=-1)   # [N]
         valid = (instance_labels != self.ignore_label).float()
 
         offset_norm_loss = torch.sum(pt_dist * valid) / (torch.sum(valid) + 1e-6)
 
-        gt_offsets_norm = torch.norm(gt_offsets, p=2, dim=1)   # (N), float
+        gt_offsets_norm = torch.norm(gt_offsets, p=2, dim=1)   # [N], float
         gt_offsets_ = gt_offsets / (gt_offsets_norm.unsqueeze(-1) + 1e-8)
         pt_offsets_norm = torch.norm(pt_offsets, p=2, dim=1)
         pt_offsets_ = pt_offsets / (pt_offsets_norm.unsqueeze(-1) + 1e-8)
-        direction_diff = - (gt_offsets_ * pt_offsets_).sum(-1)   # (N)
+        direction_diff = - (gt_offsets_ * pt_offsets_).sum(-1)   # [N]
         offset_dir_loss = torch.sum(direction_diff * valid) / (torch.sum(valid) + 1e-6)
 
         loss_out["offset_norm_loss"] = (offset_norm_loss, valid.sum())
@@ -69,31 +69,39 @@ class PointGroupLoss(nn.Module):
             ious = pointgroup_ops.get_iou(proposals_idx[:, 1].cuda(),
                                           proposals_offset.cuda(),
                                           instance_labels,
-                                          instance_pointnum) # (num_prop, num_inst), float
+                                          instance_pointnum) # [num_prop, num_inst], float
 
-            gt_ious, gt_inst_idxs = ious.max(1)  # (num_prop) float, long
+            gt_ious, gt_inst_idxs = ious.max(1)  # [num_prop] float, long
             score_loss = gorilla.iou_guided_loss(scores.view(-1), gt_ious, self.fg_thresh, self.bg_thresh)
             score_loss = score_loss.mean()
 
             loss_out["score_loss"] = (score_loss, gt_ious.shape[0])
 
             if self.dynamic:
-                mask_pred, batch_mask, proposals_idx_dynamic, proposals_offset_dynamic = loss_inp["proposal_dynamic"]
-                # mask_pred: (num_prop, N), float, gpu, sigmoid value of each proposal mask
-                # batch_mask: (num_prop, N), bool, gpu, filter out the batch outside
-                # proposals_idx: (sum_points, 2), int, cpu, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
-                # proposals_offset: (num_prop + 1), int, cpu
-                
-                # get the gt_mask using gt_instance_idxs (TODO: not elegant and slow)
-                mask_gt = mask_pred.new_zeros(mask_pred.shape) # (num_prop, N)
-                for mask_i, inst_idx in enumerate(gt_inst_idxs):
-                    mask_gt[mask_i, :] = (instance_labels == inst_idx).float()
+                mask_pred_list, batch_proposals_ids = loss_inp["proposal_dynamic"]
+                batch_offsets = loss_inp["batch_offsets"]
+                # mask_pred_list: [(num_batch_prop, num_batch)], mask pred of each proposals in each batch
+                # batch_proposals_ids: [(num_batch_prop)], proposals ids of each batch
+                # batch_offset: (bs + 1)
 
-                mask_loss = F.binary_cross_entropy(mask_pred, mask_gt, reduction="none") # (num_prop, N)
-                mask_loss = torch.sum(mask_loss[batch_mask]) / (torch.sum(batch_mask) + 1e-6)
+                # get the binary mask (TODO: not elegant and slow)
+                mask_loss = 0
+                mask_count = 0
+                for b_idx, (start, end) in enumerate(zip(batch_offsets[:-1], batch_offsets[1:])):
+                    batch_instance_labels = instance_labels[start: end] # [num_batch]
+                    mask_pred = mask_pred_list[b_idx] # [num_batch_prop, num_batch]
+                    proposals_ids = batch_proposals_ids[b_idx] # [num_batch_prop]
+                    # get the match instance mask
+                    batch_gt_inst_idxs = gt_inst_idxs[proposals_ids] # [num_batch_prop]
+                    mask_gt = mask_pred.new_zeros(mask_pred.shape) # [num_batch_prop, num_batch]
+                    for mask_i, inst_idx in enumerate(batch_gt_inst_idxs):
+                        # TODO: fix here
+                        mask_gt[mask_i, :] = (batch_instance_labels == inst_idx).float()
+                    mask_loss += F.binary_cross_entropy(mask_pred, mask_gt, reduction="sum")
+                    mask_count += mask_pred.shape[0] * mask_pred.shape[1]
+                mask_loss = mask_loss / mask_count
 
-                loss_out["mask_loss"] = (mask_loss, torch.sum(batch_mask))
-                print("mask_loss: ", mask_loss)
+                loss_out["mask_loss"] = (mask_loss, mask_count)
 
         """total loss"""
         # loss = mask_loss

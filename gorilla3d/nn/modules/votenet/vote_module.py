@@ -70,25 +70,25 @@ class VoteModule(nn.Module):
         """
         batch_size, feat_channels, num_seed = seed_feats.shape
         num_vote = num_seed * self.vote_per_seed
-        x = self.vote_conv(seed_feats)  # (B, 256, num_seed)
+        x = self.vote_conv(seed_feats)  # [B, 256, num_seed]
 
-        # (B, (3+out_dim)*vote_per_seed, num_seed)
+        # [B, (3+out_dim)*vote_per_seed, num_seed]
         votes = self.conv_out(x)
 
-        # (B, num_seed, vote_per_seed, (3+out_dim))
+        # [B, num_seed, vote_per_seed, (3+out_dim)]
         votes = votes.transpose(2, 1).view(batch_size, num_seed,
                                            self.vote_per_seed, -1)
-        offset = votes[:, :, :, 0:3]  # (B, num_seed, vote_per_seed, 3)
-        res_feats = votes[:, :, :, 3:]  # (B, num_seed, vote_per_seed, in_dim)
+        offset = votes[:, :, :, 0:3]  # [B, num_seed, vote_per_seed, 3]
+        res_feats = votes[:, :, :, 3:]  # [B, num_seed, vote_per_seed, in_dim]
 
         vote_points = (seed_points.unsqueeze(2) +
-                       offset).contiguous()  # (B, num_seed, vote_per_seed, 3)
+                       offset).contiguous()  # [B, num_seed, vote_per_seed, 3]
         vote_points = vote_points.view(batch_size, num_vote,
-                                       3)  # (B, num_vote, 3)
+                                       3)  # [B, num_vote, 3]
         vote_feats = (
             seed_feats.transpose(2, 1).unsqueeze(2) +
-            res_feats).contiguous()  # (B, num_seed, vote_per_seed, in_dim)
-        # (B, in_dim, num_vote)
+            res_feats).contiguous()  # [B, num_seed, vote_per_seed, in_dim]
+        # [B, in_dim, num_vote]
         vote_feats = vote_feats.view(batch_size, num_vote,
                                      feat_channels).transpose(2,
                                                               1).contiguous()
