@@ -49,8 +49,8 @@ def chamfer_distance(src,
     else:
         raise NotImplementedError
 
-    loss_src = (dist_src * src_weight)  # (B, N)
-    loss_dst = (dist_dst * dst_weight)  # (B, M)
+    loss_src = (dist_src * src_weight)  # [B, N]
+    loss_dst = (dist_dst * dst_weight)  # [B, M]
 
     if reduction == "sum":
         loss_src = torch.sum(loss_src)

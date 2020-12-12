@@ -72,7 +72,7 @@ def f_test(scene):
     points = np.array([list(x) for x in f.elements[0]])
     coords = np.ascontiguousarray(points[:, :3] - points[:, :3].mean(0))
     colors = np.ascontiguousarray(points[:, 3:6]) / 127.5 - 1
-    faces = np.array([list(x) for x in f.elements[1]])[:, 0, :] # (nFaces, 3)
+    faces = np.array([list(x) for x in f.elements[1]])[:, 0, :] # [nFaces, 3]
     faces = np.ascontiguousarray(faces)
 
     torch.save((coords, colors, faces, scene), osp.join(split, scene + "_inst_nostuff.pth"))
@@ -91,7 +91,7 @@ def f(scene):
     coords_shift = -points[:, :3].mean(0)
     coords = np.ascontiguousarray(points[:, :3] + coords_shift)
     colors = np.ascontiguousarray(points[:, 3:6]) / 127.5 - 1
-    faces = np.array([list(x) for x in f.elements[1]])[:, 0, :] # (nFaces, 3)
+    faces = np.array([list(x) for x in f.elements[1]])[:, 0, :] # [nFaces, 3]
     faces = np.ascontiguousarray(faces)
 
     f2 = plyfile.PlyData().read(fn2)

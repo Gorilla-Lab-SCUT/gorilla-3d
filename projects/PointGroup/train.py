@@ -1,7 +1,4 @@
-"""
-PointGroup train.py
-Written by Li Jiang
-"""
+# Copyright (c) Gorilla-Lab. All rights reserved.
 import ipdb
 import open3d as o3d
 import sys
@@ -80,26 +77,26 @@ class PointGroupSolver(gorilla.BaseSolver):
         # model_fn defined in PointGroup
         ##### prepare input and forward
         coords = batch["locs"].cuda(
-        )  # (N, 1 + 3), long, cuda, dimension 0 for batch_idx
-        locs_offset = batch["locs_offset"].cuda()  # (B, 3), long, cuda
-        voxel_coords = batch["voxel_locs"].cuda()  # (M, 1 + 3), long, cuda
-        p2v_map = batch["p2v_map"].cuda()  # (N), int, cuda
-        v2p_map = batch["v2p_map"].cuda()  # (M, 1 + maxActive), int, cuda
+        )  ]N, 1 + 3], long, cuda, dimension 0 for batch_idx
+        locs_offset = batch["locs_offset"].cuda()  # [B, 3], long, cuda
+        voxel_coords = batch["voxel_locs"].cuda()  # [M, 1 + 3], long, cuda
+        p2v_map = batch["p2v_map"].cuda()  # [N], int, cuda
+        v2p_map = batch["v2p_map"].cuda()  # [M, 1 + maxActive], int, cuda
 
-        coords_float = batch["locs_float"].cuda()  # (N, 3), float32, cuda
-        feats = batch["feats"].cuda()  # (N, C), float32, cuda
-        labels = batch["labels"].cuda()  # (N), long, cuda
+        coords_float = batch["locs_float"].cuda()  # [N, 3], float32, cuda
+        feats = batch["feats"].cuda()  # [N, C], float32, cuda
+        labels = batch["labels"].cuda()  # [N], long, cuda
         instance_labels = batch["instance_labels"].cuda(
-        )  # (N), long, cuda, 0~total_nInst, -100
+        )  # [N], long, cuda, 0~total_num_inst, -100
 
         instance_info = batch["instance_info"].cuda(
-        )  # (N, 9), float32, cuda, (meanxyz, minxyz, maxxyz)
+        )  # [N, 9], float32, cuda, (meanxyz, minxyz, maxxyz)
         instance_pointnum = batch["instance_pointnum"].cuda(
-        )  # (total_nInst), int, cuda
+        )  # [total_num_inst], int, cuda
 
-        batch_offsets = batch["offsets"].cuda()  # (B + 1), int, cuda
-        overseg = batch["overseg"].cuda()  # (N), long, cuda
-        _, overseg = torch.unique(overseg, return_inverse=True)  # (N), long, cuda
+        batch_offsets = batch["offsets"].cuda()  # [B + 1], int, cuda
+        overseg = batch["overseg"].cuda()  # [N], long, cuda
+        _, overseg = torch.unique(overseg, return_inverse=True)  # [N], long, cuda
 
         prepare_flag = (self.epoch > cfg.model.prepare_epochs)
         scene_list = batch["scene_list"]
@@ -112,7 +109,7 @@ class PointGroupSolver(gorilla.BaseSolver):
         if self.cfg.model.use_coords:
             feats = torch.cat((feats, coords_float), 1)
         voxel_feats = pointgroup_ops.voxelization(
-            feats, v2p_map, cfg.data.mode)  # (M, C), float, cuda
+            feats, v2p_map, cfg.data.mode)  # [M, C], float, cuda
 
         input_ = spconv.SparseConvTensor(voxel_feats,
                                          voxel_coords.int(),
@@ -127,8 +124,8 @@ class PointGroupSolver(gorilla.BaseSolver):
                          self.epoch,
                          extra_data)
 
-        semantic_scores = ret["semantic_scores"]  # (N, nClass) float32, cuda
-        pt_offsets = ret["pt_offsets"]  # (N, 3), float32, cuda
+        semantic_scores = ret["semantic_scores"]  # [N, nClass] float32, cuda
+        pt_offsets = ret["pt_offsets"]  # [N, 3], float32, cuda
 
         loss_inp = {}
         loss_inp["batch_idxs"] = coords[:, 0].int()
@@ -157,11 +154,8 @@ class PointGroupSolver(gorilla.BaseSolver):
 
             if self.cfg.model.dynamic:
                 ## dynamic conv
-                mask_pred, batch_mask, proposals_idx_dynamic, proposals_offset_dynamic = ret["proposal_dynamic"]
-                loss_inp["proposal_dynamic"] = (mask_pred,
-                                                batch_mask,
-                                                proposals_idx_dynamic,
-                                                proposals_offset_dynamic)
+                mask_pred_list, batch_proposals_ids = ret["proposal_dynamic"]
+                loss_inp["proposal_dynamic"] = (mask_pred_list, batch_proposals_ids)
 
         loss, loss_out = self.criterion(loss_inp, self.epoch)
 
@@ -310,7 +304,9 @@ if __name__ == "__main__":
     val_dataloader = val_dataset.dataloader
 
     cfg.log = cfg.exp_path
-    Trainer = PointGroupSolver(model, [train_dataloader, val_dataloader], cfg,
+    Trainer = PointGroupSolver(model,
+                               [train_dataloader, val_dataloader],
+                               cfg,
                                logger)
 
     checkpoint, epoch = get_checkpoint(cfg.exp_path, cfg.exp_name)

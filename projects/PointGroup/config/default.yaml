@@ -42,6 +42,7 @@ model:
   block_reps: 2
   classes: 20
   dynamic_dim: 8
+  dynamic: False
 
   prepare_epochs: 128
   use_coords: True

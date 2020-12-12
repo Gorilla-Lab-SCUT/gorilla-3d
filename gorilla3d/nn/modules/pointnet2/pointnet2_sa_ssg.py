@@ -1,6 +1,4 @@
 import torch
-# TODO: fix this import
-# from gorilla.runner import load_checkpoint
 from torch import nn as nn
 
 from .point_fp_module import PointFPModule
@@ -80,14 +78,6 @@ class PointNet2SASSG(nn.Module):
                 fp_source_channel = cur_fp_mlps[-1]
                 fp_target_channel = skip_channel_list.pop()
 
-    def init_weights(self, pretrained=None):
-        r"""Initialize the weights of PointNet backbone."""
-        # Do not initialize the conv layers
-        # to follow the original implementation
-        if isinstance(pretrained, str):
-            from gorilla.utils import get_root_logger
-            logger = get_root_logger()
-            # load_checkpoint(self, pretrained, strict=False, logger=logger)
 
     @staticmethod
     def _split_point_feats(points):
