@@ -13,7 +13,7 @@ data:
   scale: 50   # voxel_size = 1 / scale, scale 50(2cm)
   batch_size: 4
   full_scale: [128, 512]
-  max_npoint: 250000
+  max_npoint: 200000
   mode: 4 # 4=mean
 
   # train mode
@@ -65,7 +65,7 @@ cluster:
 
 # optimizer
 optimizer:
-  lr: 0.001
+  lr: 0.002
   # name: Adam
   name: AdamW
   weight_decay: 0.0001

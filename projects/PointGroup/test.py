@@ -110,16 +110,17 @@ def test(model, cfg, logger):
         instance_dataset_root = osp.join(data_root, "scannetv2", cfg.data.split + "_gt")
         evaluator = gorilla3d.ScanNetSemanticEvaluator(semantic_dataset_root,
                                                        logger=logger)
-        inst_evaluator = gorilla3d.ScanNetInstanceEvaluator(
-            instance_dataset_root, logger=logger)
+        inst_evaluator = gorilla3d.ScanNetInstanceEvaluator(instance_dataset_root,
+                                                            logger=logger)
 
         for i, batch in enumerate(test_dataloader):
+            torch.cuda.empty_cache()
             timer.reset()
             N = batch["feats"].shape[0]
             test_scene_name = batch["scene_list"][0]
 
             coords = batch["locs"].cuda()                # (N, 1 + 3), long, cuda, dimension 0 for batch_idx
-            coords_offsets = batch["locs_offset"].cuda() # (B, 3), long, cuda
+            locs_offset = batch["locs_offset"].cuda() # (B, 3), long, cuda
             voxel_coords = batch["voxel_locs"].cuda()    # (M, 1 + 3), long, cuda
             p2v_map = batch["p2v_map"].cuda()            # (N), int, cuda
             v2p_map = batch["v2p_map"].cuda()            # (M, 1 + maxActive), int, cuda
@@ -132,9 +133,9 @@ def test(model, cfg, logger):
             overseg = batch["overseg"].cuda() # (N), long, cuda
             _, overseg = torch.unique(overseg, return_inverse=True)  # (N), long, cuda
 
-            extra_data = {
-                "overseg": overseg
-            }
+            extra_data = {"overseg": overseg,
+                          "locs_offset": locs_offset,
+                          "scene_list": scene_list}
 
             spatial_shape = batch["spatial_shape"]
 
@@ -146,7 +147,7 @@ def test(model, cfg, logger):
 
             data_time = timer.since_last()
 
-            ret = model(input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets, coords_offsets, scene_list, epoch, extra_data, mode="test", semantic_only=semantic)
+            ret = model(input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets, epoch, extra_data, mode="test", semantic_only=semantic)
             semantic_scores = ret["semantic_scores"]  # (N, nClass) float32, cuda
             pt_offsets = ret["pt_offsets"]            # (N, 3), float32, cuda
             if (epoch > cfg.model.prepare_epochs) and not semantic:
@@ -176,16 +177,16 @@ def test(model, cfg, logger):
             
             prepare_flag = (epoch > cfg.model.prepare_epochs)
             if prepare_flag and not semantic:
-                scores = preds["score"]  # (nProposal, 1) float, cuda
+                scores = preds["score"]  # (num_prop, 1) float, cuda
                 scores_pred = torch.sigmoid(scores.view(-1))
 
                 proposals_idx, proposals_offset = preds["proposals"]
                 # proposals_idx: (sumNPoint, 2), int, cpu, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
-                # proposals_offset: (nProposal + 1), int, cpu
+                # proposals_offset: (num_prop + 1), int, cpu
                 proposals_pred = torch.zeros(
                     (proposals_offset.shape[0] - 1, N),
                     dtype=torch.int,
-                    device=scores_pred.device)  # (nProposal, N), int, cuda
+                    device=scores_pred.device)  # (num_prop, N), int, cuda
                 proposals_pred[proposals_idx[:, 0].long(),
                                proposals_idx[:, 1].long()] = 1
                 semantic_pred_list = []
@@ -198,7 +199,7 @@ def test(model, cfg, logger):
                     semantic_pred_list.append(semantic_label)
 
                 semantic_id = semantic_label_idx[semantic_pred_list]
-                # semantic_id = semantic_label_idx[semantic_pred[proposals_idx[:, 1][proposals_offset[:-1].long()].long()]] # (nProposal), long
+                # semantic_id = semantic_label_idx[semantic_pred[proposals_idx[:, 1][proposals_offset[:-1].long()].long()]] # (num_prop), long
 
                 ##### score threshold
                 score_mask = (scores_pred > cfg.data.TEST_SCORE_THRESH)
@@ -218,12 +219,12 @@ def test(model, cfg, logger):
                     pick_idxs = np.empty(0)
                 else:
                     proposals_pred_f = proposals_pred.float(
-                    )  # (nProposal, N), float, cuda
+                    )  # (num_prop, N), float, cuda
                     intersection = torch.mm(
                         proposals_pred_f, proposals_pred_f.t(
-                        ))  # (nProposal, nProposal), float, cuda
+                        ))  # (num_prop, num_prop), float, cuda
                     proposals_pointnum = proposals_pred_f.sum(
-                        1)  # (nProposal), float, cuda
+                        1)  # (num_prop), float, cuda
                     proposals_pn_h = proposals_pointnum.unsqueeze(-1).repeat(
                         1, proposals_pointnum.shape[0])
                     proposals_pn_v = proposals_pointnum.unsqueeze(0).repeat(

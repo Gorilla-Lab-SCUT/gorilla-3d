@@ -80,6 +80,7 @@ class ScanNetV2Inst(Dataset, metaclass=ABCMeta):
                 xyz[:, 0] = -xyz[:, 0]
         if rot:
             theta = np.random.uniform() * np.pi
+            # theta = np.random.randn() * np.pi
             rot_mat = np.eye(3)
             c, s = np.cos(theta), np.sin(theta)
             rot_mat[0, 0] = c
@@ -233,7 +234,8 @@ class ScanNetV2InstTrainVal(ScanNetV2Inst):
             overseg += overseg_bias
             overseg_bias += (overseg.max() + 1)
 
-            instance_label[np.where(instance_label != -100)] += total_inst_num
+            invalid_ids = np.where(instance_label != -100)
+            instance_label[invalid_ids] += total_inst_num
             total_inst_num += inst_num
 
             ### merge the scene to the batch
