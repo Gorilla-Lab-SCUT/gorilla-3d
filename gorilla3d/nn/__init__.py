@@ -1,6 +1,6 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
 
-from .models import (votenet)
+from .models import (votenet, deepsdf)
 
 from .modules import (
     # pointnet++
