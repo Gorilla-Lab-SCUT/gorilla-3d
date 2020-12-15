@@ -20,7 +20,7 @@ def pc_normalize(pc):
 
 class ShapeNetPartNormal(Dataset):
     def __init__(self, root, npoints=2500, classification=False, split='trainval', normalize=True, 
-                return_cls_label=True):
+                return_cls_label=True, use_normal=True):
         """Author: wu.chaozheng
         dataloader of shapenet part.
 
@@ -31,6 +31,7 @@ class ShapeNetPartNormal(Dataset):
             split (str, optional): ['train', 'test', 'val' or 'trainval']. Defaults to 'trainval'.
             normalize (bool, optional): [whether to normalize the pc into unit sphere.]. Defaults to True.
             return_cls_label (bool, optional): [whether return the category label]. Defaults to True.
+            use_normal (bool, optional): [whether use the normal]. Defaults to True.
         """
         self.npoints = npoints
         self.root = root
@@ -40,6 +41,7 @@ class ShapeNetPartNormal(Dataset):
         self.classification = classification
         self.normalize = normalize
         self.return_cls_label = return_cls_label
+        self.use_normal = use_normal
         
         with open(self.catfile, 'r') as f:
             for line in f:
@@ -120,13 +122,15 @@ class ShapeNetPartNormal(Dataset):
         point_set = point_set[choice, :]
         seg = seg[choice]
         normal = normal[choice,:]
+        if self.use_normal:
+            point_set = np.concatenate([point_set, normal], -1)
         if self.classification:
-            return point_set, normal, cls
+            return point_set, cls
         else:
             if self.return_cls_label:
-                return point_set, normal, seg, cls
+                return point_set, seg, cls
             else:
-                return point_set, normal, seg
+                return point_set, seg
 
         
     def __len__(self):
