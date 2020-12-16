@@ -1,6 +1,6 @@
 computeDistanceField
-data/*
-executable/*
+data
+executable
 *.so*
 *.h5
 *.H5
