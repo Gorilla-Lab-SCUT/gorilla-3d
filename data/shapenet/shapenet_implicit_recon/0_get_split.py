@@ -3,6 +3,8 @@ import os
 import random
 import argparse
 
+random.seed(0)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--class_name", type=str, nargs="+", default=["03001627"], help="Categories to process")
