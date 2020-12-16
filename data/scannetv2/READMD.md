@@ -3,7 +3,7 @@
 ```sh
 dataset
 └── scannetv2
-    ├── meta_data
+    ├── meta_data(unnecessary, we have moved into our source code)
     │   ├── scannetv2_train.txt
     │   ├── scannetv2_val.txt
     │   ├── scannetv2_test.txt
@@ -20,14 +20,10 @@ dataset
         └── ...
 ```
 
-- We've modify the code, and it can generate input files `[scene_id]_inst_nostuff.pth` for instance segmentation directly, you don't need to split the origin data into `train/val/test`.
+
+- Refer to [PointGroup](https://github.com/Jia-Research-Lab/PointGroup), we've modify the code, and it can generate input files `[scene_id]_inst_nostuff.pth` for instance segmentation directly, you don't need to split the origin data into `train/val/test`, the script refer to `gorilla3d/preprocessing/scannetv2/inst_seg`.
+- And we package these command. You just running:
 ```sh
-python prepare_data_inst.py --data_split train
-python prepare_data_inst.py --data_split val
-python prepare_data_inst.py --data_split test
-```
-- Prepare the `.txt` instance ground-truth files as the following.
-```sh
-python prepare_data_inst_gttxt.py
+sh prepare_data.sh
 ```
 
