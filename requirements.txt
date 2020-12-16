@@ -1,4 +1,5 @@
 torch>=1.1
+h5py
 transforms3d
 gorilla-core
 

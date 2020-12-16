@@ -3,7 +3,6 @@ Modified from SparseConvNet data preparation: https://github.com/facebookresearc
 """
 import os
 import os.path as osp
-import glob
 import json
 import argparse
 import multiprocessing as mp
@@ -13,56 +12,6 @@ import plyfile
 import numpy as np
 
 import gorilla
-
-G_LABEL_NAMES = ["unannotated", "wall", "floor", "chair", "table", "desk", "bed", "bookshelf", "sofa", "sink", "bathtub", "toilet", "curtain", "counter", "door", "window", "shower curtain", "refridgerator", "picture", "cabinet", "otherfurniture"]
-
-
-def get_raw2scannetv2_label_map():
-    lines = [line.rstrip() for line in open("./meta_data/scannetv2-labels.combined.tsv")]
-    lines_0 = lines[0].split("\t")
-    print(lines_0)
-    print(len(lines))
-    lines = lines[1:]
-    raw2scannet = {}
-    for i in range(len(lines)):
-        label_classes_set = set(G_LABEL_NAMES)
-        elements = lines[i].split("\t")
-        raw_name = elements[1]
-        if (elements[1] != elements[2]):
-            print("{}: {} {}".format(i, elements[1], elements[2]))
-        nyu40_name = elements[7]
-        if nyu40_name not in label_classes_set:
-            raw2scannet[raw_name] = "unannotated"
-        else:
-            raw2scannet[raw_name] = nyu40_name
-    return raw2scannet
-
-g_raw2scannetv2 = get_raw2scannetv2_label_map()
-
-
-# Map relevant classes to {0,1,...,19}, and ignored classes to -100
-remapper = np.ones(150) * (-100)
-for i, x in enumerate([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39]):
-    remapper[x] = i
-
-parser = argparse.ArgumentParser()
-parser.add_argument("--data_split", help="data split (train / val / test)", default="test")
-opt = parser.parse_args()
-
-split = opt.data_split
-os.makedirs(split, exist_ok=True)
-print("data split: {}".format(split))
-scene_list = gorilla.list_from_file(osp.join("meta_data", "scannetv2_{}.txt".format(split)))
-
-files = sorted(list(map(lambda x: "scans/{}/{}_vh_clean_2.ply".format(x, x), scene_list)))
-
-if opt.data_split != "test":
-    files2 = sorted(list(map(lambda x: "scans/{}/{}_vh_clean_2.labels.ply".format(x, x), scene_list)))
-    files3 = sorted(list(map(lambda x: "scans/{}/{}_vh_clean_2.0.010000.segs.json".format(x, x), scene_list)))
-    files4 = sorted(list(map(lambda x: "scans/{}/{}.aggregation.json".format(x, x), scene_list)))
-    assert len(files) == len(files2)
-    assert len(files) == len(files3)
-    assert len(files) == len(files4), "{} {}".format(len(files), len(files4))
 
 def f_test(scene):
     fn = "scans_test/{}/{}_vh_clean_2.ply".format(scene, scene)
@@ -134,13 +83,63 @@ def f(scene):
     torch.save((coords, colors, faces, sem_labels, instance_labels, coords_shift, scene), osp.join(split, scene + "_inst_nostuff.pth"))
     print("Saving to " + osp.join(split, scene + "_inst_nostuff.pth"))
 
-# for fn in files:
-#     f(fn)
 
-p = mp.Pool(processes=mp.cpu_count())
-if opt.data_split == "test":
-    p.map(f_test, scene_list)
-else:
-    p.map(f, scene_list)
-p.close()
-p.join()
+if __name__ == "__main__":
+    G_LABEL_NAMES = ["unannotated", "wall", "floor", "chair", "table", "desk", "bed", "bookshelf", "sofa", "sink", "bathtub", "toilet", "curtain", "counter", "door", "window", "shower curtain", "refridgerator", "picture", "cabinet", "otherfurniture"]
+
+    meta_data_dir = osp.join(osp.dirname(__file__), "meta_data")
+
+    def get_raw2scannetv2_label_map():
+        lines = [line.rstrip() for line in open(osp.join(meta_data_dir, "scannetv2-labels.combined.tsv"))]
+        lines_0 = lines[0].split("\t")
+        print(lines_0)
+        print(len(lines))
+        lines = lines[1:]
+        raw2scannet = {}
+        for i in range(len(lines)):
+            label_classes_set = set(G_LABEL_NAMES)
+            elements = lines[i].split("\t")
+            raw_name = elements[1]
+            if (elements[1] != elements[2]):
+                print("{}: {} {}".format(i, elements[1], elements[2]))
+            nyu40_name = elements[7]
+            if nyu40_name not in label_classes_set:
+                raw2scannet[raw_name] = "unannotated"
+            else:
+                raw2scannet[raw_name] = nyu40_name
+        return raw2scannet
+
+    g_raw2scannetv2 = get_raw2scannetv2_label_map()
+
+
+    # Map relevant classes to {0,1,...,19}, and ignored classes to -100
+    remapper = np.ones(150) * (-100)
+    for i, x in enumerate([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39]):
+        remapper[x] = i
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data_split", help="data split (train / val / test)", default="test")
+    opt = parser.parse_args()
+
+    split = opt.data_split
+    os.makedirs(split, exist_ok=True)
+    print("data split: {}".format(split))
+    scene_list = gorilla.list_from_file(osp.join(meta_data_dir, "scannetv2_{}.txt".format(split)))
+
+    files = sorted(list(map(lambda x: "scans/{}/{}_vh_clean_2.ply".format(x, x), scene_list)))
+
+    if opt.data_split != "test":
+        files2 = sorted(list(map(lambda x: "scans/{}/{}_vh_clean_2.labels.ply".format(x, x), scene_list)))
+        files3 = sorted(list(map(lambda x: "scans/{}/{}_vh_clean_2.0.010000.segs.json".format(x, x), scene_list)))
+        files4 = sorted(list(map(lambda x: "scans/{}/{}.aggregation.json".format(x, x), scene_list)))
+        assert len(files) == len(files2)
+        assert len(files) == len(files3)
+        assert len(files) == len(files4), "{} {}".format(len(files), len(files4))
+
+    p = mp.Pool(processes=mp.cpu_count())
+    if opt.data_split == "test":
+        p.map(f_test, scene_list)
+    else:
+        p.map(f, scene_list)
+    p.close()
+    p.join()

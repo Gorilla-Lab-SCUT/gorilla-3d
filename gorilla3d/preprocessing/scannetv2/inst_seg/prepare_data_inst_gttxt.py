@@ -2,18 +2,21 @@
 Generate instance groundtruth .txt files (for evaluation)
 """
 
+import argparse
 import numpy as np
 import glob
 import torch
 import os
-from tqdm import trange 
-
-semantic_label_idxs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39]
-semantic_label_names = ["wall", "floor", "cabinet", "bed", "chair", "sofa", "table", "door", "window", "bookshelf", "picture", "counter", "desk", "curtain", "refrigerator", "shower curtain", "toilet", "sink", "bathtub", "otherfurniture"]
 
 
 if __name__ == "__main__":
-    split = "val"
+    semantic_label_idxs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39]
+    semantic_label_names = ["wall", "floor", "cabinet", "bed", "chair", "sofa", "table", "door", "window", "bookshelf", "picture", "counter", "desk", "curtain", "refrigerator", "shower curtain", "toilet", "sink", "bathtub", "otherfurniture"]
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data_split", help="data split (train / val)", default="val")
+    opt = parser.parse_args()
+    split = opt.data_split
     files = sorted(glob.glob("{}/scene*_inst_nostuff.pth".format(split)))
     rooms = [torch.load(i) for i in files]
 
