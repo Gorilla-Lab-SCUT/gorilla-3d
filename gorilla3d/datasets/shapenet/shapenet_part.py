@@ -122,15 +122,22 @@ class ShapeNetPartNormal(Dataset):
         point_set = point_set[choice, :]
         seg = seg[choice]
         normal = normal[choice,:]
+
         if self.use_normal:
             point_set = np.concatenate([point_set, normal], -1)
+
+        data = {"point_set": point_set}
+        # print(data)
         if self.classification:
-            return point_set, cls
+            data.update({'cls_label': cls})
+            return data
         else:
             if self.return_cls_label:
-                return point_set, seg, cls
+                data.update({'seg_label': seg, 'cls_label': cls})
+                return data
             else:
-                return point_set, seg
+                data.update({'seg_label': seg})
+                return data
 
         
     def __len__(self):
