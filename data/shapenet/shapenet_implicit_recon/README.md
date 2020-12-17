@@ -42,7 +42,6 @@
     
     ##########################################
     # create meshes
-    mkdir $SaveFolder/original_split
     for sp in train val test; do
         python 1_create_mesh.py --class_name $categories --split $sp --src_dataset_dir $ShapeNetFolder \
                                 --dst_dataset_dir $SaveFolder --split_dir $SaveFolder/original_split --sdf_executable $SDFexe
