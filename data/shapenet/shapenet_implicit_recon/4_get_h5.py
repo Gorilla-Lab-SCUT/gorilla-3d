@@ -315,6 +315,6 @@ if __name__ == "__main__":
                 args.uni_num,
                 args.n_jobs,
             )
-            os.system()
+            os.system(cmd)
 
     print("All done.")

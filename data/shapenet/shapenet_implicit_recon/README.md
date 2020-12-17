@@ -85,4 +85,31 @@
 3. issue
 
     author: lei.jiabao
-
+    
+    
+    - if you meet that `no module named mcubes.`, you need to install mcubes like this:
+    
+    '''
+        pip install pymcubes
+    ''' 
+    
+    -  to run computeDistanceField, you may need libtbb.so.2 / libtbb_preview.so.2 / libtcmalloc.so.4 (specify LD_LIBRARY_PATH manually)
+    
+    
+    - if you meet that `no module named paramiko`, you need to install paramiko like this:
+    
+    '''
+        pip install paramiko
+    '''
+    
+    - if you meet that `no module named point_cloud_util`, you need to install point_cloud_util like this:
+    
+    '''
+        pip install git+git://github.com/fwilliams/point-cloud-utils
+    '''
+    
+    or
+    
+    '''
+        conda install -c conda-forge point_cloud_utils=0.15.1
+    '''

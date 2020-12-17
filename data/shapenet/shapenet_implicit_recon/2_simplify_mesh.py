@@ -9,12 +9,13 @@ save_file = "mesh_gt_simplified.ply"
 
 
 class Transfer:
-    def __init__(self, server_ip, server_username):
+    def __init__(self, server_ip, server_username, password=""):
         self.server_ip = server_ip
         self.server_username = server_username
         self.ssh = paramiko.SSHClient()
-        self.ssh.load_host_keys(os.path.expanduser(os.path.join("~", ".ssh", "known_hosts")))
-        self.ssh.connect(self.server_ip, username=self.server_username)
+        self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        self.ssh.load_system_host_keys()
+        self.ssh.connect(self.server_ip, username=self.server_username, password=password if password else None)
         self.sftp = self.ssh.open_sftp()
 
     def to_remote(self, localpath, remotepath):
@@ -51,6 +52,7 @@ if __name__ == "__main__":
     parser.add_argument("--remote_process", action="store_true")
     parser.add_argument("--remote_server", type=str, default="", help="Remote server ip address")
     parser.add_argument("--remote_username", type=str, default="", help="Remote server username")
+    parser.add_argument("--remote_password", type=str, default="", help="Remote server password")
     parser.add_argument("--remote_localpath", type=str, help="Local directory to process")
     parser.add_argument("--remote_script_path",
                         type=str,
@@ -74,10 +76,11 @@ if __name__ == "__main__":
 
             server = args.remote_server
             username = args.remote_username
+            password = args.remote_password
             localpath = args.remote_localpath
             remote_path = args.dst_dataset_dir
 
-            t = Transfer(server, username)
+            t = Transfer(server, username, password)
             t.remote_cd(remote_path)
             class_list = t.remote_ls()
             assert class_name in class_list
@@ -123,15 +126,16 @@ if __name__ == "__main__":
     else:
         for class_name in args.class_name:
             os.system(
-                "python {} --class_name {} --localpath {} --dst_dataset_dir {} --remote_server {} --remote_username {} --remote_script_path {}"
+                "python {} --class_name {} --remote_localpath {} --dst_dataset_dir {} --remote_server {} --remote_username {} --remote_script_path {} --remote_password {}"
                 .format(
                     __file__,
                     class_name,
-                    args.localpath,
+                    args.remote_localpath,
                     args.dst_dataset_dir,
                     args.remote_server,
                     args.remote_username,
                     args.remote_script_path,
+                    args.remote_password,
                 ) + (" --override" if args.override else "") + \
                     (" --remote_process" if args.remote_process else ""))
 
