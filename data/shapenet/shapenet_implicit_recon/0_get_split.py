@@ -13,6 +13,9 @@ if __name__ == "__main__":
     parser.add_argument("--train_val_test_ratio", type=float, nargs=3, default=[0.8, 0.1, 0.1], help="Ratio to split")
     args = parser.parse_args()
 
+    if not os.path.exists(args.split_dir):
+        os.makedirs(args.split_dir)
+
     assert sum(args.train_val_test_ratio) == 1
 
     train_ratio = args.train_val_test_ratio[0]
