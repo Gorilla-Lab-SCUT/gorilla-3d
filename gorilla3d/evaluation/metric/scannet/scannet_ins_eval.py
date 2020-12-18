@@ -257,7 +257,7 @@ def assign_instances_for_scan(scene_name, pred_info, gt_file):
             continue
         label_name = ID_TO_LABEL[label_id]
         # read the mask
-        pred_mask = pred_info["mask"][i]  # (N), long
+        pred_mask = pred_info["mask"][i]  # [N], long
         if len(pred_mask) != len(gt_ids):
             message = "wrong number of lines in mask#{}: ({}) vs #mesh vertices ({})".format(
                 i, len(pred_mask), len(gt_ids))

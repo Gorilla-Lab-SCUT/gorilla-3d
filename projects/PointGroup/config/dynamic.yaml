@@ -13,7 +13,7 @@ data:
   scale: 50   # voxel_size = 1 / scale, scale 50(2cm)
   batch_size: 4
   full_scale: [128, 512]
-  max_npoint: 250000
+  max_npoint: 200000
   mode: 4 # 4=mean
 
   # train mode
@@ -42,11 +42,13 @@ model:
   block_reps: 2
   classes: 20
   dynamic_dim: 8
-  dynamic: False
+  # dynamic: False
+  dynamic: True
 
   prepare_epochs: 128
   use_coords: True
-  fix_module: []
+  # fix_module: []
+  fix_module: [input_conv, unet, output_layer, linear, offset, offset_linear, score_unet, score_outputlayer, score_linear]
   
   fg_thresh: 0.75
   bg_thresh: 0.25
@@ -66,7 +68,7 @@ cluster:
 
 # optimizer
 optimizer:
-  lr: 0.001
+  lr: 0.002
   # name: Adam
   name: AdamW
   weight_decay: 0.0001

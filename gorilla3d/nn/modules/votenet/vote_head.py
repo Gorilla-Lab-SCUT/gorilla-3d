@@ -82,9 +82,9 @@ class VoteHead(nn.Module):
         """
         assert sample_mod in ["vote", "seed", "random"]
 
-        seed_points = feat_dict["fp_xyz"][-1]  # (B, 1024, 3)
-        seed_features = feat_dict["fp_features"][-1]  # (B, 256, 1024)
-        seed_indices = feat_dict["fp_indices"][-1]  # (B, 1024)
+        seed_points = feat_dict["fp_xyz"][-1]  # [B, 1024, 3]
+        seed_features = feat_dict["fp_features"][-1]  # [B, 256, 1024]
+        seed_indices = feat_dict["fp_indices"][-1]  # [B, 1024]
 
         # 1. generate vote_points from seed_points
         # vote_points: (B, num_vote, 3)
@@ -104,7 +104,7 @@ class VoteHead(nn.Module):
         elif sample_mod == "seed":
             # FPS on seed and choose the votes corresponding to the seeds
             sample_indices = furthest_point_sample(
-                seed_points,  # (B, 256)
+                seed_points,  # [B, 256]
                 self.num_proposal)
         elif sample_mod == "random":
             # Random sampling from the votes
@@ -127,7 +127,7 @@ class VoteHead(nn.Module):
         results["aggregated_indices"] = aggregated_indices
 
         # 3. predict bbox and score
-        predictions = self.conv_pred(features)  # (B, 2+3+2+18*4+18, 256)
+        predictions = self.conv_pred(features)  # [B, 2+3+2+18*4+18, 256]
         results["predictions"] = predictions
 
         # 4. decode predictions (this will be processed in poster)

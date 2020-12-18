@@ -74,7 +74,6 @@ class PartialBinBasedBBoxCoder(object):
                                                                                       pts_instance_mask,
                                                                                       bbox_preds)
 
-            # import ipdb; ipdb.set_trace()
             bbox_result = dict(bbox_preds=bbox_preds,
                                vote_targets=vote_targets,
                                vote_target_masks=vote_target_masks,
@@ -425,7 +424,7 @@ class PartialBinBasedBBoxCoder(object):
 
         # decode center
         end += 3
-        # (batch_size, num_proposal, 3)
+        # [batch_size, num_proposal, 3]
         results["center"] = base_xyz + preds_trans[..., start:end]
         start = end
 

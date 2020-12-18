@@ -25,7 +25,6 @@ class PointFPModule(nn.Module):
         for i in range(len(mlp_channels) - 1):
             self.mlps.add_module(
                 "layer{}".format(i),
-                # TODO: test this function
                 GorillaConv(mlp_channels[i],
                             mlp_channels[i + 1],
                             kernel_size=(1, 1),
@@ -64,7 +63,7 @@ class PointFPModule(nn.Module):
 
         if target_feats is not None:
             new_features = torch.cat([interpolated_feats, target_feats],
-                                     dim=1)  # (B, C2 + C1, n)
+                                     dim=1)  # [B, C2 + C1, n]
         else:
             new_features = interpolated_feats
 

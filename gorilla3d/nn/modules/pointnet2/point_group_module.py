@@ -66,7 +66,7 @@ class QueryAndGroup(nn.Module):
 
         xyz_trans = xyz.transpose(1, 2).contiguous()
         grouped_xyz = grouping_operation(xyz_trans,
-                                         idx)  # (B, 3, npoint, nsample)
+                                         idx)  # [B, 3, npoint, nsample]
         grouped_xyz -= new_xyz.transpose(1, 2).unsqueeze(-1)
         if self.normalize_xyz:
             grouped_xyz /= self.radius
@@ -75,7 +75,7 @@ class QueryAndGroup(nn.Module):
             grouped_features = grouping_operation(features, idx)
             if self.use_xyz:
                 new_features = torch.cat([grouped_xyz, grouped_features],
-                                         dim=1)  # (B, C + 3, npoint, nsample)
+                                         dim=1)  # [B, C + 3, npoint, nsample]
             else:
                 new_features = grouped_features
         else:
@@ -127,7 +127,7 @@ class GroupAll(nn.Module):
             grouped_features = features.unsqueeze(2)
             if self.use_xyz:
                 new_features = torch.cat([grouped_xyz, grouped_features],
-                                         dim=1)  # (B, 3 + C, 1, N)
+                                         dim=1)  # [B, 3 + C, 1, N]
             else:
                 new_features = grouped_features
         else:

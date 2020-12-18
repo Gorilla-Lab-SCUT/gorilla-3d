@@ -1,5 +1,5 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
-from .votenet import VoteNet
-from .deepsdf import DeepSDF
+from .shapenet_part import ShapeNetPartNormal
+from .shapenet_implicit_recon import ShapenetImplicitRecon
 
 __all__ = [k for k in globals().keys() if not k.startswith("_")]

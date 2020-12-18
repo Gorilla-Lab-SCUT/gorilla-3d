@@ -1,7 +1,4 @@
-"""
-PointGroup train.py
-Written by Li Jiang
-"""
+# Copyright (c) Gorilla-Lab. All rights reserved.
 import ipdb
 import open3d as o3d
 import sys
@@ -15,8 +12,7 @@ import gorilla3d
 import spconv
 from torch_scatter import scatter_mean
 
-from pointgroup import (get_checkpoint, pointgroup_ops, PointGroupLoss,
-                        align_overseg_semantic_label, PointGroup)
+from pointgroup import (get_checkpoint, pointgroup_ops, PointGroupLoss, PointGroup)
 
 
 def get_parser():
@@ -81,37 +77,39 @@ class PointGroupSolver(gorilla.BaseSolver):
         # model_fn defined in PointGroup
         ##### prepare input and forward
         coords = batch["locs"].cuda(
-        )  # (N, 1 + 3), long, cuda, dimension 0 for batch_idx
-        coords_offsets = batch["locs_offset"].cuda()  # (B, 3), long, cuda
-        voxel_coords = batch["voxel_locs"].cuda()  # (M, 1 + 3), long, cuda
-        p2v_map = batch["p2v_map"].cuda()  # (N), int, cuda
-        v2p_map = batch["v2p_map"].cuda()  # (M, 1 + maxActive), int, cuda
+        )  ]N, 1 + 3], long, cuda, dimension 0 for batch_idx
+        locs_offset = batch["locs_offset"].cuda()  # [B, 3], long, cuda
+        voxel_coords = batch["voxel_locs"].cuda()  # [M, 1 + 3], long, cuda
+        p2v_map = batch["p2v_map"].cuda()  # [N], int, cuda
+        v2p_map = batch["v2p_map"].cuda()  # [M, 1 + maxActive], int, cuda
 
-        coords_float = batch["locs_float"].cuda()  # (N, 3), float32, cuda
-        feats = batch["feats"].cuda()  # (N, C), float32, cuda
-        labels = batch["labels"].cuda()  # (N), long, cuda
+        coords_float = batch["locs_float"].cuda()  # [N, 3], float32, cuda
+        feats = batch["feats"].cuda()  # [N, C], float32, cuda
+        labels = batch["labels"].cuda()  # [N], long, cuda
         instance_labels = batch["instance_labels"].cuda(
-        )  # (N), long, cuda, 0~total_nInst, -100
+        )  # [N], long, cuda, 0~total_num_inst, -100
 
         instance_info = batch["instance_info"].cuda(
-        )  # (N, 9), float32, cuda, (meanxyz, minxyz, maxxyz)
+        )  # [N, 9], float32, cuda, (meanxyz, minxyz, maxxyz)
         instance_pointnum = batch["instance_pointnum"].cuda(
-        )  # (total_nInst), int, cuda
+        )  # [total_num_inst], int, cuda
 
-        batch_offsets = batch["offsets"].cuda()  # (B + 1), int, cuda
-        overseg = batch["overseg"].cuda()  # (N), long, cuda
-        _, overseg = torch.unique(overseg, return_inverse=True)  # (N), long, cuda
-
-        extra_data = {"overseg": overseg,}
+        batch_offsets = batch["offsets"].cuda()  # [B + 1], int, cuda
+        overseg = batch["overseg"].cuda()  # [N], long, cuda
+        _, overseg = torch.unique(overseg, return_inverse=True)  # [N], long, cuda
 
         prepare_flag = (self.epoch > cfg.model.prepare_epochs)
         scene_list = batch["scene_list"]
         spatial_shape = batch["spatial_shape"]
 
+        extra_data = {"overseg": overseg,
+                      "locs_offset": locs_offset,
+                      "scene_list": scene_list}
+
         if self.cfg.model.use_coords:
             feats = torch.cat((feats, coords_float), 1)
         voxel_feats = pointgroup_ops.voxelization(
-            feats, v2p_map, cfg.data.mode)  # (M, C), float, cuda
+            feats, v2p_map, cfg.data.mode)  # [M, C], float, cuda
 
         input_ = spconv.SparseConvTensor(voxel_feats,
                                          voxel_coords.int(),
@@ -123,31 +121,11 @@ class PointGroupSolver(gorilla.BaseSolver):
                          coords_float,
                          coords[:, 0].int(),
                          batch_offsets,
-                         coords_offsets,
-                         scene_list,
-                         epoch,
+                         self.epoch,
                          extra_data)
 
-        semantic_scores = ret["semantic_scores"]  # (N, nClass) float32, cuda
-        pt_offsets = ret["pt_offsets"]  # (N, 3), float32, cuda
-
-        # overseg semantic align
-        overseg_semantic_scores = ret["overseg_semantic_scores"]  # (num_overseg, nClass)
-        overseg_labels = align_overseg_semantic_label(labels,
-                                                      overseg,
-                                                      21)  # (num_overseg)
-
-        overseg_pt_offsets = ret["overseg_pt_offsets"]  # (num_overseg, 3)
-        overseg_centers = scatter_mean(coords_float, overseg, dim=0)  # (num_overseg, 3)
-        overseg_instance_labels = align_overseg_semantic_label(instance_labels,
-                                                               overseg,
-                                                               int(instance_labels.max() + 1))  # (num_overseg)
-
-        if prepare_flag:
-            scores, proposals_idx, proposals_offset = ret["proposal_scores"]
-            # scores: (nProposal, 1) float, cuda
-            # proposals_idx: (sumNPoint, 2), int, cpu, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
-            # proposals_offset: (nProposal + 1), int, cpu
+        semantic_scores = ret["semantic_scores"]  # [N, nClass] float32, cuda
+        pt_offsets = ret["pt_offsets"]  # [N, 3], float32, cuda
 
         loss_inp = {}
         loss_inp["batch_idxs"] = coords[:, 0].int()
@@ -157,19 +135,27 @@ class PointGroupSolver(gorilla.BaseSolver):
         loss_inp["batch_offsets"] = batch_offsets
 
         loss_inp["semantic_scores"] = (semantic_scores, labels)
-        loss_inp["pt_offsets"] = (pt_offsets, coords_float, instance_info,
+        loss_inp["pt_offsets"] = (pt_offsets,
+                                  coords_float,
+                                  instance_info,
                                   instance_labels)
 
-        loss_inp["overseg_semantic_scores"] = (overseg_semantic_scores, overseg_labels)
-        loss_inp["overseg_pt_offsets"] = (overseg_centers,
-                                          overseg_pt_offsets,
-                                          overseg_instance_labels)
 
         if prepare_flag:
+            scores, proposals_idx, proposals_offset = ret["proposal_scores"]
+            # scores: (num_prop, 1) float, cuda
+            # proposals_idx: (sum_points, 2), int, cpu, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
+            # proposals_offset: (num_prop + 1), int, cpu
+
             loss_inp["proposal_scores"] = (scores,
                                            proposals_idx,
                                            proposals_offset,
                                            instance_pointnum)
+
+            if self.cfg.model.dynamic:
+                ## dynamic conv
+                mask_pred_list, batch_proposals_ids = ret["proposal_dynamic"]
+                loss_inp["proposal_dynamic"] = (mask_pred_list, batch_proposals_ids)
 
         loss, loss_out = self.criterion(loss_inp, self.epoch)
 
@@ -196,7 +182,6 @@ class PointGroupSolver(gorilla.BaseSolver):
 
     def train(self):
         self.clear()
-        torch.cuda.empty_cache()
         iter_time = gorilla.HistoryBuffer()
         data_time = gorilla.HistoryBuffer()
         model.train()
@@ -204,8 +189,8 @@ class PointGroupSolver(gorilla.BaseSolver):
         epoch_timer = gorilla.Timer()
         iter_timer = gorilla.Timer()
 
-        ##### adjust learning rate
         for i, batch in enumerate(self.train_data_loader):
+            torch.cuda.empty_cache()
             # calculate data loading time
             data_time.update(iter_timer.since_last())
             # model step forward and return loss
@@ -253,11 +238,10 @@ class PointGroupSolver(gorilla.BaseSolver):
                 
             if (i == len(self.train_data_loader) - 1): print()
 
-        max_mem = self.get_max_memory()
         logger.info(
-            "epoch: {}/{}, train loss: {:.4f}, time: {}s, max_mem: {}M".format(
+            "epoch: {}/{}, train loss: {:.4f}, time: {}s".format(
                 self.epoch, self.cfg.data.epochs, loss_buffer.avg,
-                epoch_timer.since_start(), max_mem))
+                epoch_timer.since_start()))
 
         meta = {"epoch": self.epoch}
         filename = osp.join(self.cfg.exp_path,
@@ -320,10 +304,13 @@ if __name__ == "__main__":
     val_dataloader = val_dataset.dataloader
 
     cfg.log = cfg.exp_path
-    Trainer = PointGroupSolver(model, [train_dataloader, val_dataloader], cfg,
+    Trainer = PointGroupSolver(model,
+                               [train_dataloader, val_dataloader],
+                               cfg,
                                logger)
+
     checkpoint, epoch = get_checkpoint(cfg.exp_path, cfg.exp_name)
-    Trainer.set_epoch(epoch)
+    Trainer.epoch = epoch
     if gorilla.is_filepath(checkpoint):
-        Trainer.resume(checkpoint)
+        Trainer.resume(checkpoint, strict=False)
     Trainer.solve()

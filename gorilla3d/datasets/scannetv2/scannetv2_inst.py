@@ -80,6 +80,7 @@ class ScanNetV2Inst(Dataset, metaclass=ABCMeta):
                 xyz[:, 0] = -xyz[:, 0]
         if rot:
             theta = np.random.uniform() * np.pi
+            # theta = np.random.randn() * np.pi
             rot_mat = np.eye(3)
             c, s = np.cos(theta), np.sin(theta)
             rot_mat[0, 0] = c
@@ -112,11 +113,11 @@ class ScanNetV2Inst(Dataset, metaclass=ABCMeta):
     def get_instance_info(self, xyz, instance_label):
         """
         :param xyz: (n, 3)
-        :param instance_label: (n), int, (0~nInst-1, -100)
+        :param instance_label: (n), int, (0~num_inst-1, -100)
         :return: instance_num, dict
         """
-        instance_info = np.ones((xyz.shape[0], 9), dtype=np.float32) * -100.0   # (n, 9), float, (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
-        instance_pointnum = []   # (nInst), int
+        instance_info = np.ones((xyz.shape[0], 9), dtype=np.float32) * -100.0   # [n, 9], float, (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
+        instance_pointnum = []   # [num_inst], int
         instance_num = int(instance_label.max()) + 1
         for i_ in range(instance_num):
             inst_idx_i = np.where(instance_label == i_)
@@ -192,8 +193,8 @@ class ScanNetV2InstTrainVal(ScanNetV2Inst):
 
         ### get instance information
         inst_num, inst_infos = self.get_instance_info(xyz_middle, instance_label.astype(np.int32))
-        inst_info = inst_infos["instance_info"]  # (n, 9), (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
-        inst_pointnum = inst_infos["instance_pointnum"]   # (nInst), list
+        inst_info = inst_infos["instance_info"]  # [n, 9], (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
+        inst_pointnum = inst_infos["instance_pointnum"]   # [num_inst], list
         
         loc = torch.from_numpy(xyz).long()
         loc_offset = torch.from_numpy(xyz_offset).long()
@@ -217,8 +218,8 @@ class ScanNetV2InstTrainVal(ScanNetV2Inst):
         labels = []
         instance_labels = []
 
-        instance_infos = []  # (N, 9)
-        instance_pointnum = []  # (total_nInst), int
+        instance_infos = []  # [N, 9]
+        instance_pointnum = []  # [total_num_inst], int
 
         batch_offsets = [0]
         scene_list = []
@@ -233,7 +234,8 @@ class ScanNetV2InstTrainVal(ScanNetV2Inst):
             overseg += overseg_bias
             overseg_bias += (overseg.max() + 1)
 
-            instance_label[np.where(instance_label != -100)] += total_inst_num
+            invalid_ids = np.where(instance_label != -100)
+            instance_label[invalid_ids] += total_inst_num
             total_inst_num += inst_num
 
             ### merge the scene to the batch
@@ -251,20 +253,20 @@ class ScanNetV2InstTrainVal(ScanNetV2Inst):
             instance_pointnum.extend(inst_pointnum)
 
         ### merge all the scenes in the batchd
-        batch_offsets = torch.tensor(batch_offsets, dtype=torch.int)  # int (B+1)
+        batch_offsets = torch.tensor(batch_offsets, dtype=torch.int)  # int [B+1]
 
-        locs = torch.cat(locs, 0)                                # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
-        locs_float = torch.cat(locs_float, 0).to(torch.float32)  # float (N, 3)
-        overseg = torch.cat(overseg_list, 0).long()               # long(N)
-        feats = torch.cat(feats, 0)                              # float (N, C)
-        labels = torch.cat(labels, 0).long()                     # long (N)
-        instance_labels = torch.cat(instance_labels, 0).long()   # long (N)
-        locs_offset = torch.stack(loc_offset_list)               # long (B, 3)
+        locs = torch.cat(locs, 0)                                # long [N, 1 + 3], the batch item idx is put in locs[:, 0]
+        locs_float = torch.cat(locs_float, 0).to(torch.float32)  # float [N, 3]
+        overseg = torch.cat(overseg_list, 0).long()               # long[N]
+        feats = torch.cat(feats, 0)                              # float [N, C]
+        labels = torch.cat(labels, 0).long()                     # long [N]
+        instance_labels = torch.cat(instance_labels, 0).long()   # long [N]
+        locs_offset = torch.stack(loc_offset_list)               # long [B, 3]
 
-        instance_infos = torch.cat(instance_infos, 0).to(torch.float32)       # float (N, 9) (meanxyz, minxyz, maxxyz)
-        instance_pointnum = torch.tensor(instance_pointnum, dtype=torch.int)  # int (total_nInst)
+        instance_infos = torch.cat(instance_infos, 0).to(torch.float32)       # float [N, 9] (meanxyz, minxyz, maxxyz)
+        instance_pointnum = torch.tensor(instance_pointnum, dtype=torch.int)  # int [total_num_inst]
 
-        spatial_shape = np.clip((locs.max(0)[0][1:] + 1).numpy(), self.full_scale[0], None) # long (3)
+        spatial_shape = np.clip((locs.max(0)[0][1:] + 1).numpy(), self.full_scale[0], None) # long [3]
 
         ### voxelize
         voxel_locs, p2v_map, v2p_map = pointgroup_ops.voxelization_idx(locs, self.batch_size, self.mode)
@@ -296,7 +298,7 @@ class ScanNetV2InstTest(ScanNetV2Inst):
         overseg = np.array(overseg["segIndices"])
         
         # read edge
-        edges = np.concatenate([faces[:, :2], faces[:, 1:], faces[:, [0, 2]]]) # (nEdges, 2)
+        edges = np.concatenate([faces[:, :2], faces[:, 1:], faces[:, [0, 2]]]) # [nEdges, 2]
         overseg_edges = overseg[edges]
         overseg_edges = overseg_edges[overseg_edges[:, 0] != overseg_edges[:, 1]]
 
@@ -314,8 +316,8 @@ class ScanNetV2InstTest(ScanNetV2Inst):
         if "val" in self.task or "train" in self.task:
             ### get instance information
             inst_num, inst_infos = self.get_instance_info(xyz_middle, instance_label.astype(np.int32))
-            inst_info = inst_infos["instance_info"]  # (n, 9), (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
-            inst_pointnum = inst_infos["instance_pointnum"]   # (nInst), list
+            inst_info = inst_infos["instance_info"]  # [n, 9], (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
+            inst_pointnum = inst_infos["instance_pointnum"]   # [num_inst], list
         
         loc = torch.from_numpy(xyz).long()
         loc_offset = torch.from_numpy(xyz_offset).long()
@@ -348,8 +350,8 @@ class ScanNetV2InstTest(ScanNetV2Inst):
         total_inst_num = 0
         labels = []
         instance_labels = []
-        instance_infos = []  # (N, 9)
-        instance_pointnum = []  # (total_nInst), int
+        instance_infos = []  # [N, 9]
+        instance_pointnum = []  # [total_num_inst], int
 
         for i, data in enumerate(batch):
             if "val" in self.task or "train" in self.task:
@@ -379,20 +381,20 @@ class ScanNetV2InstTest(ScanNetV2Inst):
                 instance_pointnum.extend(inst_pointnum)
 
         ### merge all the scenes in the batchd
-        batch_offsets = torch.tensor(batch_offsets, dtype=torch.int)  # int (B+1)
+        batch_offsets = torch.tensor(batch_offsets, dtype=torch.int)  # int [B+1]
 
-        locs = torch.cat(locs, 0)                                # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
-        locs_float = torch.cat(locs_float, 0).to(torch.float32)  # float (N, 3)
-        overseg = torch.cat(overseg_list, 0).long()               # long(N)
-        feats = torch.cat(feats, 0)                              # float (N, C)
-        labels = torch.cat(labels, 0).long()                     # long (N)
-        instance_labels = torch.cat(instance_labels, 0).long()   # long (N)
-        locs_offset = torch.stack(loc_offset_list)               # long (B, 3)
+        locs = torch.cat(locs, 0)                                # long [N, 1 + 3], the batch item idx is put in locs[:, 0]
+        locs_float = torch.cat(locs_float, 0).to(torch.float32)  # float [N, 3]
+        overseg = torch.cat(overseg_list, 0).long()              # long [N]
+        feats = torch.cat(feats, 0)                              # float [N, C]
+        labels = torch.cat(labels, 0).long()                     # long [N]
+        instance_labels = torch.cat(instance_labels, 0).long()   # long [N]
+        locs_offset = torch.stack(loc_offset_list)               # long [B, 3]
 
-        instance_infos = torch.cat(instance_infos, 0).to(torch.float32)       # float (N, 9) (meanxyz, minxyz, maxxyz)
-        instance_pointnum = torch.tensor(instance_pointnum, dtype=torch.int)  # int (total_nInst)
+        instance_infos = torch.cat(instance_infos, 0).to(torch.float32)       # float [N, 9] (meanxyz, minxyz, maxxyz)
+        instance_pointnum = torch.tensor(instance_pointnum, dtype=torch.int)  # int [total_num_inst]
 
-        spatial_shape = np.clip((locs.max(0)[0][1:] + 1).numpy(), self.full_scale[0], None) # long (3)
+        spatial_shape = np.clip((locs.max(0)[0][1:] + 1).numpy(), self.full_scale[0], None) # long [3]
 
         ### voxelize
         voxel_locs, p2v_map, v2p_map = pointgroup_ops.voxelization_idx(locs, self.batch_size, self.mode)
