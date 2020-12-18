@@ -3,6 +3,8 @@ import os
 import random
 import argparse
 
+random.seed(0)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--class_name", type=str, nargs="+", default=["03001627"], help="Categories to process")
@@ -10,6 +12,9 @@ if __name__ == "__main__":
     parser.add_argument("--split_dir", type=str, help="Path to the folder to save split files")
     parser.add_argument("--train_val_test_ratio", type=float, nargs=3, default=[0.8, 0.1, 0.1], help="Ratio to split")
     args = parser.parse_args()
+
+    if not os.path.exists(args.split_dir):
+        os.makedirs(args.split_dir)
 
     assert sum(args.train_val_test_ratio) == 1
 
