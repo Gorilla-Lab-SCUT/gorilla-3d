@@ -47,26 +47,26 @@
     
     ##########################################
     # generate split file
-    python 0_get_split.py --class_name $categories --src_dataset_dir $ShapeNetFolder --split_dir $SaveFolder/original_split
+    python -m gorilla3d.preprocessing.shapenet.shapenet_implicit_recon.0_get_split.py --class_name $categories --src_dataset_dir $ShapeNetFolder --split_dir $SaveFolder/original_split
     
     ##########################################
     # create meshes
     for sp in train val test; do
-        python 1_create_mesh.py --class_name $categories --split $sp --src_dataset_dir $ShapeNetFolder \
+        python -m gorilla3d.preprocessing.shapenet.shapenet_implicit_recon.1_create_mesh.py --class_name $categories --split $sp --src_dataset_dir $ShapeNetFolder \
                                 --dst_dataset_dir $SaveFolder --split_dir $SaveFolder/original_split --sdf_executable $SDFexe
     done
 
     ##########################################
     # simplify mesh
     # if your meshlabserver is installed on the machine storing your dataset, please run this single command
-    python 2_simplify_mesh.py --class_name $categories --dst_dataset_dir $SaveFolder
+    python -m gorilla3d.preprocessing.shapenet.shapenet_implicit_recon.2_simplify_mesh.py --class_name $categories --dst_dataset_dir $SaveFolder
     # if your meshlabserver is installed on another machine, but it can login to the machine storing the dataset, please run the following five commands (you may need to specify password by adding an addition argument `--remote_password ???`)
     # if you are on linux:
     export remote_ip="111.222.333.444" # this is your remote machine ip address which has the data
     export remote_user="root" # this is the remote machine user name to login
     export temp_path="." # this is the directory on your local machine which has enough disk space to store the temporary results
     export script="./2_simplify_mesh.mlx" # this is the path to the meshlab script to simplify mesh on local machine
-    python 2_simplify_mesh.py --class_name $categories --dst_dataset_dir $SaveFolder --remote_process \
+    python -m gorilla3d.preprocessing.shapenet.shapenet_implicit_recon.2_simplify_mesh.py --class_name $categories --dst_dataset_dir $SaveFolder --remote_process \
                               --remote_server $remote_ip --remote_username $remote_user --remote_localpath $temp_path --remote_script_path $script
     # if you are on windows (save them in a .bat script file and run it)
     @echo off
@@ -77,21 +77,21 @@
     set temp_path=???
     set script=???
     set password=???
-    python 2.py --class_name %categories% --dst_dataset_dir %SaveFolder% --remote_process --remote_server %remote_ip% --remote_username %remote_user% --remote_localpath %temp_path% --remote_script_path %script% --remote_password %password%
+    python -m gorilla3d.preprocessing.shapenet.shapenet_implicit_recon.2_simplify_mesh.py --class_name %categories% --dst_dataset_dir %SaveFolder% --remote_process --remote_server %remote_ip% --remote_username %remote_user% --remote_localpath %temp_path% --remote_script_path %script% --remote_password %password%
     pause
     
     ##########################################
     # filter out unqualified meshes (note: for '04090263', you may need to specify "--minMB 1.0" additionally)
     mkdir $SaveFolder/unqualified $SaveFolder/split
     for sp in train val test; do
-        python 3_filter_out.py --class_name $categories --split $sp --src_dataset_dir $SaveFolder --moved_dataset_dir $SaveFolder/unqualified \
+        python -m gorilla3d.preprocessing.shapenet.shapenet_implicit_recon.3_filter_out.py --class_name $categories --split $sp --src_dataset_dir $SaveFolder --moved_dataset_dir $SaveFolder/unqualified \
                                --load_split_dir $SaveFolder/original_split --save_split_dir $SaveFolder/split
     done
 
     ##########################################
     # generate h5 file finally 
     for sp in train val test; do
-        python 4_gen_h5.py --class_name $categories --split $sp --src_dataset_dir $SaveFolder --dst_dataset_dir $SaveFolder \
+        python -m gorilla3d.preprocessing.shapenet.shapenet_implicit_recon.4_gen_h5.py --class_name $categories --split $sp --src_dataset_dir $SaveFolder --dst_dataset_dir $SaveFolder \
                            --img_dataset_dir $ImagesFolder --split_dir $SaveFolder/split 
     done
 
