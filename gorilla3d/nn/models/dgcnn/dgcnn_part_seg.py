@@ -18,12 +18,7 @@ class DGCNNPartSeg(nn.Module):
         Args:
             k (int): [Num of nearest neighbors]
             emb_dims (int): [Dimension of embeddings]
-            dropout (List[int], optional): [layers to apply dropout]
-
-        Returns:
-            dict('input_pc', 'prediction')
-            input_pc: [batch_size, input_channels, num_points]
-            prediction: [batch_size, output_channels, num_points]: [the part segmentation probability of each category]
+            dropout (float): [dropout rate]
         """
         super().__init__()
         self.cfg = cfg
@@ -83,6 +78,18 @@ class DGCNNPartSeg(nn.Module):
         self.conv11 = nn.Conv1d(128, self.seg_num_all, kernel_size=1, bias=False)
 
     def forward(self, x, l):
+        """Author: shi.xian
+        dgcnn cls forward
+
+        Args:
+            x (torch.Tensor, [batch_size, input_channels, num_points]): input points
+            l (torch.Tensor, [batch_size, num_categories]): input shape category mask
+        Returns:
+            dict('input_pc', 'prediction')
+            input_pc: [batch_size, input_channels, num_points]
+            prediction: [batch_size, output_channels]: [the classification probability of each category]
+        """
+
         results = dict(input_pc=x)
 
         batch_size = x.size(0)

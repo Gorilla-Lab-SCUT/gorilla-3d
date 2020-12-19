@@ -17,23 +17,19 @@ class DGCNNSemSeg(nn.Module):
         Args:
             k (int): [Num of nearest neighbors]
             emb_dims (int): [Dimension of embeddings]
-            dropout (List[int], optional): [layers to apply dropout]
-
-        Returns:
-            dict('input_pc', 'prediction')
-            input_pc: [batch_size, input_channels, num_points]
-            prediction: [batch_size, output_channels, num_points]: [the segmentation probability of each category]
+            dropout (float): [dropout rate]
         """
         super().__init__()
         self.cfg = cfg
         self.k = cfg.k
-        
+        self.emb_dims = cfg.get("emb_dims")
+
         self.bn1 = nn.BatchNorm2d(64)
         self.bn2 = nn.BatchNorm2d(64)
         self.bn3 = nn.BatchNorm2d(64)
         self.bn4 = nn.BatchNorm2d(64)
         self.bn5 = nn.BatchNorm2d(64)
-        self.bn6 = nn.BatchNorm1d(cfg.emb_dims)
+        self.bn6 = nn.BatchNorm1d(self.emb_dims)
         self.bn7 = nn.BatchNorm1d(512)
         self.bn8 = nn.BatchNorm1d(256)
 
@@ -52,7 +48,7 @@ class DGCNNSemSeg(nn.Module):
         self.conv5 = nn.Sequential(nn.Conv2d(64*2, 64, kernel_size=1, bias=False),
                                    self.bn5,
                                    nn.LeakyReLU(negative_slope=0.2))
-        self.conv6 = nn.Sequential(nn.Conv1d(192, cfg.emb_dims, kernel_size=1, bias=False),
+        self.conv6 = nn.Sequential(nn.Conv1d(192, self.emb_dims, kernel_size=1, bias=False),
                                    self.bn6,
                                    nn.LeakyReLU(negative_slope=0.2))
         self.conv7 = nn.Sequential(nn.Conv1d(1216, 512, kernel_size=1, bias=False),
@@ -66,6 +62,17 @@ class DGCNNSemSeg(nn.Module):
         
 
     def forward(self, x):
+        """Author: shi.xian
+        dgcnn cls forward
+
+        Args:
+            x (torch.Tensor, [batch_size, input_channels, num_points]): input points
+
+        Returns:
+            dict('input_pc', 'prediction')
+            input_pc: [batch_size, input_channels, num_points]
+            prediction: [batch_size, output_channels]: [the classification probability of each category]
+        """
         results = dict(input_pc=x)
 
         batch_size = x.size(0)
