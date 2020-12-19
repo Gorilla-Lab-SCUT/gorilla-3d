@@ -10,6 +10,8 @@ from .modules import (
     # sparse conv
     single_conv, double_conv, triple_conv, down_conv, up_conv,
     residual_block, ResidualBlock, VGGBlock, UBlock, UBlockBottom,
-    TransformerSparse3D, PositionEmbeddingSine3d)
+    TransformerSparse3D, PositionEmbeddingSine3d,
+    # dgcnn
+    TransformNet)
 
 __all__ = [k for k in globals().keys() if not k.startswith("_")]
