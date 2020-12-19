@@ -22,7 +22,7 @@ class DGCNNSemSeg(nn.Module):
         super().__init__()
         self.cfg = cfg
         self.k = cfg.k
-        self.emb_dims = cfg.get("emb_dims")
+        self.emb_dims = cfg.get("emb_dims", 1024)
 
         self.bn1 = nn.BatchNorm2d(64)
         self.bn2 = nn.BatchNorm2d(64)
@@ -66,7 +66,7 @@ class DGCNNSemSeg(nn.Module):
         dgcnn cls forward
 
         Args:
-            x (torch.Tensor, [batch_size, input_channels, num_points]): input points
+            x (torch.Tensor, [batch_size, input_channels, num_points]): input points     For S3DIS data, input_channels=9 
 
         Returns:
             dict('input_pc', 'prediction')

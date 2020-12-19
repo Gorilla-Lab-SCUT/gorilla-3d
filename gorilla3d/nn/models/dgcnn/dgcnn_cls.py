@@ -21,7 +21,7 @@ class DGCNNCls(nn.Module):
         super(DGCNNCls, self).__init__()
         self.cfg = cfg
         self.k = cfg.get("k")
-        self.emb_dims = cfg.get("emb_dims")
+        self.emb_dims = cfg.get("emb_dims", 1024)
         self.dropout = cfg.get("dropout", 0.5)
         
         self.bn1 = nn.BatchNorm2d(64)

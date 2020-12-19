@@ -23,7 +23,7 @@ class DGCNNPartSeg(nn.Module):
         super().__init__()
         self.cfg = cfg
         self.k = cfg.get("k")
-        self.emb_dims = cfg.get("emb_dims")
+        self.emb_dims = cfg.get("emb_dims", 1024)
         self.dropout = cfg.get("dropout", 0.5)
         self.seg_num_all = seg_num_all
 
@@ -64,7 +64,7 @@ class DGCNNPartSeg(nn.Module):
         self.conv7 = nn.Sequential(nn.Conv1d(16, 64, kernel_size=1, bias=False),
                                    self.bn7,
                                    nn.LeakyReLU(negative_slope=0.2))
-        self.conv8 = nn.Sequential(nn.Conv1d(1280, 256, kernel_size=1, bias=False),
+        self.conv8 = nn.Sequential(nn.Conv1d(self.emb_dims + 256, 256, kernel_size=1, bias=False),
                                    self.bn8,
                                    nn.LeakyReLU(negative_slope=0.2))
         self.dp1 = nn.Dropout(p=self.dropout)

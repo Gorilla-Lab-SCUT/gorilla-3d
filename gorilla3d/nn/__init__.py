@@ -1,7 +1,8 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
 from .models import (
     MODELS,
-    VoteNet, DeepSDF)
+    VoteNet, DeepSDF,
+    DGCNNCls, DGCNNPartSeg, DGCNNSemSeg)
 
 from .modules import (
     MODULES,
