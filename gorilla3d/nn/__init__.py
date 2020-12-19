@@ -1,8 +1,10 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
-
-from .models import (VoteNet, DeepSDF)
+from .models import (
+    MODELS,
+    VoteNet, DeepSDF)
 
 from .modules import (
+    MODULES,
     # pointnet++
     three_interpolate, three_nn, furthest_point_sample, GroupAll,
     QueryAndGroup, gather_points, PointFPModule, PointSAModuleMSG,
@@ -13,5 +15,6 @@ from .modules import (
     TransformerSparse3D, PositionEmbeddingSine3d,
     # dgcnn
     TransformNet)
+
 
 __all__ = [k for k in globals().keys() if not k.startswith("_")]

@@ -27,10 +27,12 @@ class DGCNNPartSeg(nn.Module):
         """
         super().__init__()
         self.cfg = cfg
+        self.k = cfg.get("k")
+        self.emb_dims = cfg.get("emb_dims")
+        self.dropout = cfg.get("dropout", 0.5)
         self.seg_num_all = seg_num_all
-        self.k = cfg.k
 
-        self.with_trans = cfg.with_trans
+        self.with_trans = cfg.get("with_trans", True)
 
         if self.with_trans:
             self.transform_net = TransformNet(cfg)
@@ -40,7 +42,7 @@ class DGCNNPartSeg(nn.Module):
         self.bn3 = nn.BatchNorm2d(64)
         self.bn4 = nn.BatchNorm2d(64)
         self.bn5 = nn.BatchNorm2d(64)
-        self.bn6 = nn.BatchNorm1d(cfg.emb_dims)
+        self.bn6 = nn.BatchNorm1d(self.emb_dims)
         self.bn7 = nn.BatchNorm1d(64)
         self.bn8 = nn.BatchNorm1d(256)
         self.bn9 = nn.BatchNorm1d(256)
@@ -61,7 +63,7 @@ class DGCNNPartSeg(nn.Module):
         self.conv5 = nn.Sequential(nn.Conv2d(64*2, 64, kernel_size=1, bias=False),
                                    self.bn5,
                                    nn.LeakyReLU(negative_slope=0.2))
-        self.conv6 = nn.Sequential(nn.Conv1d(192, cfg.emb_dims, kernel_size=1, bias=False),
+        self.conv6 = nn.Sequential(nn.Conv1d(192, self.emb_dims, kernel_size=1, bias=False),
                                    self.bn6,
                                    nn.LeakyReLU(negative_slope=0.2))
         self.conv7 = nn.Sequential(nn.Conv1d(16, 64, kernel_size=1, bias=False),
@@ -70,11 +72,11 @@ class DGCNNPartSeg(nn.Module):
         self.conv8 = nn.Sequential(nn.Conv1d(1280, 256, kernel_size=1, bias=False),
                                    self.bn8,
                                    nn.LeakyReLU(negative_slope=0.2))
-        self.dp1 = nn.Dropout(p=cfg.dropout)
+        self.dp1 = nn.Dropout(p=self.dropout)
         self.conv9 = nn.Sequential(nn.Conv1d(256, 256, kernel_size=1, bias=False),
                                    self.bn9,
                                    nn.LeakyReLU(negative_slope=0.2))
-        self.dp2 = nn.Dropout(p=cfg.dropout)
+        self.dp2 = nn.Dropout(p=self.dropout)
         self.conv10 = nn.Sequential(nn.Conv1d(256, 128, kernel_size=1, bias=False),
                                    self.bn10,
                                    nn.LeakyReLU(negative_slope=0.2))
