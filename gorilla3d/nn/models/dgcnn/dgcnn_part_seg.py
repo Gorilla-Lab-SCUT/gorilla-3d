@@ -18,17 +18,12 @@ class DGCNNPartSeg(nn.Module):
         Args:
             k (int): [Num of nearest neighbors]
             emb_dims (int): [Dimension of embeddings]
-            dropout (List[int], optional): [layers to apply dropout]
-
-        Returns:
-            dict('input_pc', 'prediction')
-            input_pc: [batch_size, input_channels, num_points]
-            prediction: [batch_size, output_channels, num_points]: [the part segmentation probability of each category]
+            dropout (float): [dropout rate]
         """
         super().__init__()
         self.cfg = cfg
         self.k = cfg.get("k")
-        self.emb_dims = cfg.get("emb_dims")
+        self.emb_dims = cfg.get("emb_dims", 1024)
         self.dropout = cfg.get("dropout", 0.5)
         self.seg_num_all = seg_num_all
 
@@ -69,7 +64,7 @@ class DGCNNPartSeg(nn.Module):
         self.conv7 = nn.Sequential(nn.Conv1d(16, 64, kernel_size=1, bias=False),
                                    self.bn7,
                                    nn.LeakyReLU(negative_slope=0.2))
-        self.conv8 = nn.Sequential(nn.Conv1d(1280, 256, kernel_size=1, bias=False),
+        self.conv8 = nn.Sequential(nn.Conv1d(self.emb_dims + 256, 256, kernel_size=1, bias=False),
                                    self.bn8,
                                    nn.LeakyReLU(negative_slope=0.2))
         self.dp1 = nn.Dropout(p=self.dropout)
@@ -83,6 +78,18 @@ class DGCNNPartSeg(nn.Module):
         self.conv11 = nn.Conv1d(128, self.seg_num_all, kernel_size=1, bias=False)
 
     def forward(self, x, l):
+        """Author: shi.xian
+        dgcnn cls forward
+
+        Args:
+            x (torch.Tensor, [batch_size, input_channels, num_points]): input points
+            l (torch.Tensor, [batch_size, num_categories]): input shape category mask
+        Returns:
+            dict('input_pc', 'prediction')
+            input_pc: [batch_size, input_channels, num_points]
+            prediction: [batch_size, output_channels]: [the classification probability of each category]
+        """
+
         results = dict(input_pc=x)
 
         batch_size = x.size(0)
@@ -132,7 +139,6 @@ class DGCNNPartSeg(nn.Module):
         
         results["prediction"] = x
         return results
-
 
 
 
