@@ -1,7 +1,8 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
 from .models import (
     MODELS,
-    VoteNet, DeepSDF)
+    VoteNet, DeepSDF,
+    DGCNNCls, DGCNNPartSeg, DGCNNSemSeg)
 
 from .modules import (
     MODULES,
@@ -14,7 +15,7 @@ from .modules import (
     residual_block, ResidualBlock, VGGBlock, UBlock, UBlockBottom,
     TransformerSparse3D, PositionEmbeddingSine3d,
     # dgcnn
-    TransformNet)
+    TransformNet, DGCNNAggregation)
 
 
 __all__ = [k for k in globals().keys() if not k.startswith("_")]

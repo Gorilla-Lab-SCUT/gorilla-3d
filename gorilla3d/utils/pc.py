@@ -1,5 +1,7 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
 import math
+from typing import Optional, Union
+from numpy.lib.arraysetops import isin
 
 import torch
 import numpy as np
@@ -104,5 +106,24 @@ def square_distance(src, dst=None):
     dist += (dst ** 2).sum(-1).reshape(1, M)
     return dist
 
+
+def save_pc(points: Union[np.ndarray, torch.Tensor],
+            colors: Optional[Union[np.ndarray, torch.Tensor]]=None,
+            filename: str="./temp.ply") -> None:
+    if isinstance(points, torch.Tensor):
+        points = points.cpu().numpy()
+    if colors is not None:
+        if isinstance(colors, torch.Tensor):
+            colors = colors.cpu().numpy()
+    try:
+        import open3d as o3d
+        pc = o3d.geometry.PointCloud()
+        pc.points = o3d.utility.Vector3dVector(points)
+        if colors is not None:
+            pc.colors = o3d.utility.Vector3dVector(colors)
+        o3d.io.write_point_cloud(filename, pc)
+    except:
+        # TODO: add write ply file manually
+        pass
 
 

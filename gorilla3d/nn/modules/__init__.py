@@ -13,7 +13,7 @@ from .sparse import (single_conv, double_conv, triple_conv, down_conv, up_conv,
                      # transformer
                      TransformerSparse3D, PositionEmbeddingSine3d)
 
-from .dgcnn import (TransformNet)
+from .dgcnn import (TransformNet, DGCNNAggregation, get_graph_feature)
 
 from gorilla import MODULES, auto_registry
 auto_registry(MODULES, globals())
