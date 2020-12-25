@@ -64,9 +64,9 @@ class ScanNetV2Inst(Dataset, metaclass=ABCMeta):
         pass
     
     @property
-    def dataloader(self):
+    def dataloader(self, shuffle=True):
         return DataLoader(self, batch_size=self.batch_size, collate_fn=self.merge, num_workers=self.workers,
-                          shuffle=True, sampler=None, drop_last=True, pin_memory=True)
+                          shuffle=shuffle, sampler=None, drop_last=True, pin_memory=True)
 
 
     def data_aug(self, xyz, scale=False, flip=False, rot=False):
@@ -413,4 +413,9 @@ class ScanNetV2InstTest(ScanNetV2Inst):
                     "offsets": batch_offsets, "spatial_shape": spatial_shape,
                     "overseg": overseg}
 
+    
+    @property
+    def dataloader(self, shuffle=False):
+        return DataLoader(self, batch_size=self.batch_size, collate_fn=self.merge, num_workers=self.workers,
+                          shuffle=shuffle, sampler=None, drop_last=True, pin_memory=True)
 

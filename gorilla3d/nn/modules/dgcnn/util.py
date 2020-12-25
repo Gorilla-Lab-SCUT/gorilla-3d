@@ -99,3 +99,20 @@ class DGCNNAggregation(nn.Module):
 
         return x, results
 
+    def __repr__(self) -> str:
+        content = "DGCNNAggregation(\n"
+        bias = 1
+        num_aggre = len(self.nodes) - 1
+        for idx, node_list in enumerate(self.nodes):
+            # show get_graph_feature
+            content += "  get_graph_feature(k={})\n".format(self.k)
+            num_conv = len(node_list) - 1
+            for _ in range(num_conv):
+                content += "  "
+                content += str(self._modules["conv{}".format(bias)]).replace("\n", "\n    ")
+                bias += 1
+            # show maxpooling
+            content += "\n  MaxPooling()\n"
+            if idx == num_aggre:
+                content += ")"
+        return content
