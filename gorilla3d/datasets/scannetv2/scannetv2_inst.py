@@ -303,6 +303,7 @@ class ScanNetV2InstTest(ScanNetV2Inst):
         overseg_edges = overseg_edges[overseg_edges[:, 0] != overseg_edges[:, 1]]
 
         xyz_middle = self.data_aug(xyz_origin, False, False, False)
+        # xyz_middle = self.data_aug(xyz_origin, False, True, True)
 
         ### scale
         xyz = xyz_middle * self.scale
@@ -387,12 +388,13 @@ class ScanNetV2InstTest(ScanNetV2Inst):
         locs_float = torch.cat(locs_float, 0).to(torch.float32)  # float [N, 3]
         overseg = torch.cat(overseg_list, 0).long()              # long [N]
         feats = torch.cat(feats, 0)                              # float [N, C]
-        labels = torch.cat(labels, 0).long()                     # long [N]
-        instance_labels = torch.cat(instance_labels, 0).long()   # long [N]
         locs_offset = torch.stack(loc_offset_list)               # long [B, 3]
 
-        instance_infos = torch.cat(instance_infos, 0).to(torch.float32)       # float [N, 9] (meanxyz, minxyz, maxxyz)
-        instance_pointnum = torch.tensor(instance_pointnum, dtype=torch.int)  # int [total_num_inst]
+        if "val" in self.task or "train" in self.task:
+            labels = torch.cat(labels, 0).long()                     # long [N]
+            instance_labels = torch.cat(instance_labels, 0).long()   # long [N]
+            instance_infos = torch.cat(instance_infos, 0).to(torch.float32)       # float [N, 9] (meanxyz, minxyz, maxxyz)
+            instance_pointnum = torch.tensor(instance_pointnum, dtype=torch.int)  # int [total_num_inst]
 
         spatial_shape = np.clip((locs.max(0)[0][1:] + 1).numpy(), self.full_scale[0], None) # long [3]
 
