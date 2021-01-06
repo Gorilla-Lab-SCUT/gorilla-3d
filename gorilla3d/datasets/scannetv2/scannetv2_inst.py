@@ -1,5 +1,5 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
-
+import math
 import json
 import glob
 import os.path as osp
@@ -69,27 +69,16 @@ class ScanNetV2Inst(Dataset, metaclass=ABCMeta):
                           shuffle=shuffle, sampler=None, drop_last=True, pin_memory=True)
 
 
-    def data_aug(self, xyz, scale=False, flip=False, rot=False):
-        if scale:
-            scale = np.random.uniform(0.8, 1.2)
-            xyz = xyz * scale
+    def data_aug(self, xyz, jitter=False, flip=False, rot=False):
+        m = np.eye(3)
+        if jitter:
+            m += np.random.randn(3, 3) * 0.1
         if flip:
-            # m[0][0] *= np.random.randint(0, 2) * 2 - 1  # flip x randomly
-            flag = np.random.randint(0, 2)
-            if flag:
-                xyz[:, 0] = -xyz[:, 0]
+            m[0][0] *= np.random.randint(0, 2) * 2 - 1  # flip x randomly
         if rot:
-            theta = np.random.uniform() * np.pi
-            # theta = np.random.randn() * np.pi
-            rot_mat = np.eye(3)
-            c, s = np.cos(theta), np.sin(theta)
-            rot_mat[0, 0] = c
-            rot_mat[0, 1] = -s
-            rot_mat[1, 1] = c
-            rot_mat[1, 0] = s
-            xyz = xyz @ rot_mat.T
-            
-        return xyz
+            theta = np.random.rand() * 2 * math.pi
+            m = np.matmul(m, [[math.cos(theta), math.sin(theta), 0], [-math.sin(theta), math.cos(theta), 0], [0, 0, 1]])  # rotation
+        return np.matmul(xyz, m)
 
     def crop(self, xyz):
         """

@@ -15,7 +15,8 @@ from .sparse import (single_conv, double_conv, triple_conv, down_conv, up_conv,
 
 from .dgcnn import (TransformNet, DGCNNAggregation, get_graph_feature)
 
+import torch
 from gorilla import MODULES, auto_registry
-auto_registry(MODULES, globals())
+auto_registry(MODULES, globals(), torch.nn.Module)
 
 __all__ = [k for k in globals().keys() if not k.startswith("_")]
