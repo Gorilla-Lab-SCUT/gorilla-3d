@@ -6,7 +6,7 @@ from gorilla.nn import GorillaConv
 from gorilla3d.ops import three_interpolate, three_nn
 
 
-class PointFPModule(nn.Module):
+class PointnetFPModule(nn.Module):
     r"""Point feature propagation module used in PointNets.
 
         Propagate the features from one set to another.

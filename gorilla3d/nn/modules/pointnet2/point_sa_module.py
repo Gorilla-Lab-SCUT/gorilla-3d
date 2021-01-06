@@ -8,7 +8,7 @@ from gorilla3d.ops import furthest_point_sample, gather_points
 from .point_group_module import GroupAll, QueryAndGroup
 
 
-class PointSAModuleMSG(nn.Module):
+class PointnetSAModuleMSG(nn.Module):
     r"""Point set abstraction module with multi-scale grouping used in
         Pointnets.
 
@@ -131,7 +131,7 @@ class PointSAModuleMSG(nn.Module):
         return new_xyz, torch.cat(new_features_list, dim=1), indices
 
 
-class PointSAModule(PointSAModuleMSG):
+class PointnetSAModule(PointnetSAModuleMSG):
     r"""Point set abstraction module used in Pointnets.
 
     Args:

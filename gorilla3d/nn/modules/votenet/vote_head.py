@@ -6,7 +6,7 @@ from torch import nn as nn
 from torch.nn import functional as F
 
 from gorilla3d.ops import furthest_point_sample
-from ..pointnet2 import PointSAModule
+from ..pointnet2 import PointnetSAModule
 from .vote_module import VoteModule
 
 
@@ -38,7 +38,7 @@ class VoteHead(nn.Module):
             vote_moudule_cfg["in_channels"]
 
         self.vote_module = VoteModule(**vote_moudule_cfg)
-        self.vote_aggregation = PointSAModule(**vote_aggregation_cfg)
+        self.vote_aggregation = PointnetSAModule(**vote_aggregation_cfg)
 
         prev_channel = vote_aggregation_cfg["mlp_channels"][-1]
         conv_pred_list = list()

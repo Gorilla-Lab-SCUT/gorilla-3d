@@ -1,8 +1,8 @@
 import torch
 from torch import nn as nn
 
-from .point_fp_module import PointFPModule
-from .point_sa_module import PointSAModule
+from .point_fp_module import PointnetFPModule
+from .point_sa_module import PointnetSAModule
 
 
 class PointNet2SASSG(nn.Module):
@@ -55,7 +55,7 @@ class PointNet2SASSG(nn.Module):
             sa_out_channel = cur_sa_mlps[-1]
 
             self.SA_modules.append(
-                PointSAModule(num_point=num_points[sa_index],
+                PointnetSAModule(num_point=num_points[sa_index],
                               radius=radius[sa_index],
                               num_sample=num_samples[sa_index],
                               mlp_channels=cur_sa_mlps,
@@ -73,7 +73,7 @@ class PointNet2SASSG(nn.Module):
         for fp_index in range(len(fp_channels)):
             cur_fp_mlps = list(fp_channels[fp_index])
             cur_fp_mlps = [fp_source_channel + fp_target_channel] + cur_fp_mlps
-            self.FP_modules.append(PointFPModule(mlp_channels=cur_fp_mlps))
+            self.FP_modules.append(PointnetFPModule(mlp_channels=cur_fp_mlps))
             if fp_index != len(fp_channels) - 1:
                 fp_source_channel = cur_fp_mlps[-1]
                 fp_target_channel = skip_channel_list.pop()
