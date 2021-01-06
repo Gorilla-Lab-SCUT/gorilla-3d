@@ -8,8 +8,8 @@ from .modules import (
     MODULES,
     # pointnet++
     three_interpolate, three_nn, furthest_point_sample, GroupAll,
-    QueryAndGroup, gather_points, PointFPModule, PointSAModuleMSG,
-    PointSAModule, PointNet2SASSG,
+    QueryAndGroup, gather_points, PointnetFPModule, PointnetSAModuleMSG,
+    PointnetSAModule, PointNet2SASSG,
     # sparse conv
     single_conv, double_conv, triple_conv, down_conv, up_conv,
     residual_block, ResidualBlock, VGGBlock, UBlock, UBlockBottom,
