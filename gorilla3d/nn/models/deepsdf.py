@@ -14,7 +14,7 @@ class DeepSDF(nn.Module):
         dropout_prob=0.0,
         norm_layers: List[int]=[],
         latent_in: List[int]=[],
-        weight_norm: =False,
+        weight_norm: bool=False,
         xyz_in_all: bool=False,
         use_tanh: bool=False,
         latent_dropout: bool=False,
