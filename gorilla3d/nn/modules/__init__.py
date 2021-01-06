@@ -3,8 +3,8 @@
 from .pointnet import (PointNetFeatExt)
 
 from .pointnet2 import (three_interpolate, three_nn, furthest_point_sample,
-                        GroupAll, QueryAndGroup, gather_points, PointFPModule,
-                        PointSAModuleMSG, PointSAModule, PointNet2SASSG)
+                        GroupAll, QueryAndGroup, gather_points, PointnetFPModule,
+                        PointnetSAModuleMSG, PointnetSAModule, PointNet2SASSG)
 
 from .votenet import (VoteHead, VoteModule)
 
