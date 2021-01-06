@@ -1,11 +1,15 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
 import math
+from typing import Optional, Union
+from numpy.lib.arraysetops import isin
 
 import torch
 import numpy as np
 import scipy.ndimage as ndimage
 import scipy.interpolate as interpolate
 import transforms3d.euler as euler
+from plyfile import PlyData
+from plyfile import PlyElement
 
 def elastic(xyz, gran, mag):
     """Elastic distortion (from point group)
@@ -105,4 +109,33 @@ def square_distance(src, dst=None):
     return dist
 
 
+def save_pc(points: Union[np.ndarray, torch.Tensor],
+            colors: Optional[Union[np.ndarray, torch.Tensor]]=None,
+            filename: str="./temp.ply") -> None:
+    if isinstance(points, torch.Tensor):
+        points = points.cpu().numpy()
+    if colors is not None:
+        if isinstance(colors, torch.Tensor):
+            colors = colors.cpu().numpy()
+    try:
+        import open3d as o3d
+        pc = o3d.geometry.PointCloud()
+        pc.points = o3d.utility.Vector3dVector(points)
+        if colors is not None and colors.max() > 1:
+            colors = colors / 255
+            pc.colors = o3d.utility.Vector3dVector(colors)
+        o3d.io.write_point_cloud(filename, pc)
+    except:
+        if colors is not None and colors.max() < 1:
+            colors = (colors * 255).astype(np.int32)
+            vc = np.concatenate([points, colors], axis=1)
+            vc = [tuple(vc[i]) for i in range(vc.shape[0])]
+            vc = np.array(vc, dtype=[("x", "f4"), ("y", "f4"), ("z", "f4"),
+                                    ("r", "i4"), ("g", "i4"), ("b", "i4")])
+        else:
+            vc = points
+            vc = [tuple(vc[i]) for i in range(vc.shape[0])]
+            vc = np.array(vc, dtype=[("x", "f4"), ("y", "f4"), ("z", "f4")])
+        el = PlyElement.describe(vc, "vertex")
+        PlyData([el]).write(filename)
 

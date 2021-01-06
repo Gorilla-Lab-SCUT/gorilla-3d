@@ -64,9 +64,9 @@ class ScanNetV2Inst(Dataset, metaclass=ABCMeta):
         pass
     
     @property
-    def dataloader(self):
+    def dataloader(self, shuffle=True):
         return DataLoader(self, batch_size=self.batch_size, collate_fn=self.merge, num_workers=self.workers,
-                          shuffle=True, sampler=None, drop_last=True, pin_memory=True)
+                          shuffle=shuffle, sampler=None, drop_last=True, pin_memory=True)
 
 
     def data_aug(self, xyz, scale=False, flip=False, rot=False):
@@ -303,6 +303,7 @@ class ScanNetV2InstTest(ScanNetV2Inst):
         overseg_edges = overseg_edges[overseg_edges[:, 0] != overseg_edges[:, 1]]
 
         xyz_middle = self.data_aug(xyz_origin, False, False, False)
+        # xyz_middle = self.data_aug(xyz_origin, False, True, True)
 
         ### scale
         xyz = xyz_middle * self.scale
@@ -387,12 +388,13 @@ class ScanNetV2InstTest(ScanNetV2Inst):
         locs_float = torch.cat(locs_float, 0).to(torch.float32)  # float [N, 3]
         overseg = torch.cat(overseg_list, 0).long()              # long [N]
         feats = torch.cat(feats, 0)                              # float [N, C]
-        labels = torch.cat(labels, 0).long()                     # long [N]
-        instance_labels = torch.cat(instance_labels, 0).long()   # long [N]
         locs_offset = torch.stack(loc_offset_list)               # long [B, 3]
 
-        instance_infos = torch.cat(instance_infos, 0).to(torch.float32)       # float [N, 9] (meanxyz, minxyz, maxxyz)
-        instance_pointnum = torch.tensor(instance_pointnum, dtype=torch.int)  # int [total_num_inst]
+        if "val" in self.task or "train" in self.task:
+            labels = torch.cat(labels, 0).long()                     # long [N]
+            instance_labels = torch.cat(instance_labels, 0).long()   # long [N]
+            instance_infos = torch.cat(instance_infos, 0).to(torch.float32)       # float [N, 9] (meanxyz, minxyz, maxxyz)
+            instance_pointnum = torch.tensor(instance_pointnum, dtype=torch.int)  # int [total_num_inst]
 
         spatial_shape = np.clip((locs.max(0)[0][1:] + 1).numpy(), self.full_scale[0], None) # long [3]
 
@@ -413,4 +415,9 @@ class ScanNetV2InstTest(ScanNetV2Inst):
                     "offsets": batch_offsets, "spatial_shape": spatial_shape,
                     "overseg": overseg}
 
+    
+    @property
+    def dataloader(self, shuffle=False):
+        return DataLoader(self, batch_size=self.batch_size, collate_fn=self.merge, num_workers=self.workers,
+                          shuffle=shuffle, sampler=None, drop_last=True, pin_memory=True)
 
