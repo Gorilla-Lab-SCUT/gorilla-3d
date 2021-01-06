@@ -70,7 +70,7 @@ class PointnetSAModuleMSG(nn.Module):
                                 mlp_spec[i + 1],
                                 kernel_size=(1, 1),
                                 stride=(1, 1),
-                                conv_cfg=dict(type="Conv2d"),
+                                D=2,
                                 norm_cfg=norm_cfg))
             self.mlps.append(mlp)
 

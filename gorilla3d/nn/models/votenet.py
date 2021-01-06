@@ -27,7 +27,7 @@ class VoteNet(nn.Module):
                      in_channels=256,
                      vote_per_seed=1,
                      conv_channels=(256, 256),
-                     conv_cfg=dict(type="Conv1d"),
+                     D=1,
                      norm_cfg=dict(type="BN1d"),
                      norm_feats=True),
                                 vote_aggregation_cfg=dict(
@@ -38,7 +38,7 @@ class VoteNet(nn.Module):
                                     use_xyz=True,
                                     normalize_xyz=True),
                                 feat_channels=(128, 128),
-                                conv_cfg=dict(type="Conv1d"),
+                                D=1,
                                 norm_cfg=dict(type="BN1d")),
                  train_sample_mod="vote",
                  test_sample_mod="random"):

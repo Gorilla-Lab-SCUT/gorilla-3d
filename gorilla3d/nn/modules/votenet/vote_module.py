@@ -15,8 +15,7 @@ class VoteModule(nn.Module):
             from each seed point.
         conv_channels (tuple[int]): Out channels of vote
             generating convolution.
-        conv_cfg (dict): Config of convolution.
-            Default: dict(type='Conv1d').
+        D (int): Dimension of convolution. Defualt: 1.
         norm_cfg (dict): Config of normalization.
             Default: dict(type='BN1d').
         norm_feats (bool): Whether to normalize features.
@@ -27,7 +26,7 @@ class VoteModule(nn.Module):
                  vote_per_seed=1,
                  gt_per_seed=3,
                  conv_channels=(16, 16),
-                 conv_cfg=dict(type='Conv1d'),
+                 D=1,
                  norm_cfg=dict(type='BN1d'),
                  norm_feats=True):
         super().__init__()
@@ -44,7 +43,7 @@ class VoteModule(nn.Module):
                             conv_channels[k],
                             1,
                             padding=0,
-                            conv_cfg=conv_cfg,
+                            D=D,
                             norm_cfg=norm_cfg))
             prev_channels = conv_channels[k]
         self.vote_conv = nn.Sequential(*vote_conv_list)

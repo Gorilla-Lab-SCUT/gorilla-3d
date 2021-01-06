@@ -18,7 +18,7 @@ class VoteHead(nn.Module):
         vote_aggregation_cfg (dict): Config of vote aggregation layer.
         feat_channels (tuple[int]): Convolution channels of
             prediction layer.
-        conv_cfg (dict): Config of convolution in prediction layer.
+        D (int): Dimension of convolution. Defualt: 1.
         norm_cfg (dict): Config of BN in prediction layer.
     """
     def __init__(self,
@@ -28,7 +28,7 @@ class VoteHead(nn.Module):
                  vote_moudule_cfg=None,
                  vote_aggregation_cfg=None,
                  feat_channels=(128, 128),
-                 conv_cfg=dict(type="Conv1d"),
+                 D=1,
                  norm_cfg=dict(type="BN1d")):
         super(VoteHead, self).__init__()
         self.num_classes = num_classes
@@ -46,9 +46,8 @@ class VoteHead(nn.Module):
             conv_pred_list.append(
                 GorillaConv(prev_channel,
                             feat_channels[k],
-                            1,
+                            D=D,
                             padding=0,
-                            conv_cfg=conv_cfg,
                             norm_cfg=norm_cfg))
             prev_channel = feat_channels[k]
         self.conv_pred = nn.Sequential(*conv_pred_list)
