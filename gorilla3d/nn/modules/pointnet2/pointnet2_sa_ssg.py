@@ -31,7 +31,7 @@ class PointNet2SASSG(nn.Module):
                  sa_channels=((64, 64, 128), (128, 128, 256), (128, 128, 256),
                               (128, 128, 256)),
                  fp_channels=((256, 256), (256, 256)),
-                 norm_cfg=dict(type="BN2d"),
+                 norm_cfg=dict(name="BN2d"),
                  pool_mod="max",
                  use_xyz=True,
                  normalize_xyz=True):

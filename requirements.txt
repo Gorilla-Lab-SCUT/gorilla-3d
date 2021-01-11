@@ -3,3 +3,4 @@ h5py
 transforms3d
 gorilla-core
 plyfile
+rich

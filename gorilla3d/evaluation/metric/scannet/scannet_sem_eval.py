@@ -93,7 +93,7 @@ def evaluate(matches, logger=None):
         evaluate_scan(data, confusion)
         sys.stdout.write("\rscans processed: {}".format(i + 1))
         sys.stdout.flush()
-    info("")
+    print("")
 
     class_ious = {}
     for i in range(len(VALID_CLASS_IDS)):
