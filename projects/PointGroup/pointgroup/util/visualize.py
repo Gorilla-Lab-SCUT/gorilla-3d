@@ -1,7 +1,7 @@
-'''
+"""
 Visualization
 Written by Li Jiang
-'''
+"""
 
 # import open3d as o3d
 import numpy as np
@@ -24,33 +24,33 @@ COLOR40 = np.array(
         [144,154,219], [160,86,40], [67,107,165], [194,170,104], [162,95,150], [143,110,44], [146,72,105], [225,142,106], [162,83,86], [227,124,143]])
 
 SEMANTIC_IDXS = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39])
-SEMANTIC_NAMES = np.array(['wall', 'floor', 'cabinet', 'bed', 'chair', 'sofa', 'table', 'door', 'window', 'bookshelf', 'picture', 'counter',
-                        'desk', 'curtain', 'refridgerator', 'shower curtain', 'toilet', 'sink', 'bathtub', 'otherfurniture'])
+SEMANTIC_NAMES = np.array(["wall", "floor", "cabinet", "bed", "chair", "sofa", "table", "door", "window", "bookshelf", "picture", "counter",
+                        "desk", "curtain", "refridgerator", "shower curtain", "toilet", "sink", "bathtub", "otherfurniture"])
 CLASS_COLOR = {
-    'unannotated': [0, 0, 0],
-    'floor': [143, 223, 142],
-    'wall': [171, 198, 230],
-    'cabinet': [0, 120, 177],
-    'bed': [255, 188, 126],
-    'chair': [189, 189, 57],
-    'sofa': [144, 86, 76],
-    'table': [255, 152, 153],
-    'door': [222, 40, 47],
-    'window': [197, 176, 212],
-    'bookshelf': [150, 103, 185],
-    'picture': [200, 156, 149],
-    'counter': [0, 190, 206],
-    'desk': [252, 183, 210],
-    'curtain': [219, 219, 146],
-    'refridgerator': [255, 127, 43],
-    'bathtub': [234, 119, 192],
-    'shower curtain': [150, 218, 228],
-    'toilet': [0, 160, 55],
-    'sink': [110, 128, 143],
-    'otherfurniture': [80, 83, 160]
+    "unannotated": [0, 0, 0],
+    "floor": [143, 223, 142],
+    "wall": [171, 198, 230],
+    "cabinet": [0, 120, 177],
+    "bed": [255, 188, 126],
+    "chair": [189, 189, 57],
+    "sofa": [144, 86, 76],
+    "table": [255, 152, 153],
+    "door": [222, 40, 47],
+    "window": [197, 176, 212],
+    "bookshelf": [150, 103, 185],
+    "picture": [200, 156, 149],
+    "counter": [0, 190, 206],
+    "desk": [252, 183, 210],
+    "curtain": [219, 219, 146],
+    "refridgerator": [255, 127, 43],
+    "bathtub": [234, 119, 192],
+    "shower curtain": [150, 218, 228],
+    "toilet": [0, 160, 55],
+    "sink": [110, 128, 143],
+    "otherfurniture": [80, 83, 160]
 }
-SEMANTIC_IDX2NAME = {1: 'wall', 2: 'floor', 3: 'cabinet', 4: 'bed', 5: 'chair', 6: 'sofa', 7: 'table', 8: 'door', 9: 'window', 10: 'bookshelf', 11: 'picture',
-                12: 'counter', 14: 'desk', 16: 'curtain', 24: 'refridgerator', 28: 'shower curtain', 33: 'toilet',  34: 'sink', 36: 'bathtub', 39: 'otherfurniture'}
+SEMANTIC_IDX2NAME = {1: "wall", 2: "floor", 3: "cabinet", 4: "bed", 5: "chair", 6: "sofa", 7: "table", 8: "door", 9: "window", 10: "bookshelf", 11: "picture",
+                12: "counter", 14: "desk", 16: "curtain", 24: "refridgerator", 28: "shower curtain", 33: "toilet",  34: "sink", 36: "bathtub", 39: "otherfurniture"}
 
 
 def visualize_pts_rgb(pts, rgb, room_name):
@@ -67,43 +67,43 @@ def visualize_pts_rgb(pts, rgb, room_name):
 
 
 def get_coords_color(opt):
-    input_file = os.path.join(opt.data_root, opt.room_split, opt.room_name + '_inst_nostuff.pth')
-    assert os.path.isfile(input_file), 'File not exist - {}.'.format(input_file)
-    if 'test' in opt.room_split:
+    input_file = os.path.join(opt.data_root, opt.room_split, opt.room_name + "_inst_nostuff.pth")
+    assert os.path.isfile(input_file), f"File not exist - {input_file}."
+    if "test" in opt.room_split:
         xyz, rgb, scene_idx = torch.load(input_file)
     else:
         xyz, rgb, label, inst_label = torch.load(input_file)
     rgb = (rgb + 1) * 127.5
 
-    if (opt.task == 'semantic_gt'):
-        assert 'test' not in opt.room_split
+    if (opt.task == "semantic_gt"):
+        assert "test" not in opt.room_split
         label = label.astype(np.int)
         label_rgb = np.zeros(rgb.shape)
         label_rgb[label >= 0] = np.array(itemgetter(*SEMANTIC_NAMES[label[label >= 0]])(CLASS_COLOR))
         rgb = label_rgb
 
-    elif (opt.task == 'instance_gt'):
-        assert 'test' not in opt.room_split
+    elif (opt.task == "instance_gt"):
+        assert "test" not in opt.room_split
         inst_label = inst_label.astype(np.int)
-        print("Instance number: {}".format(inst_label.max() + 1))
+        print(f"Instance number: {inst_label.max() + 1}")
         inst_label_rgb = np.zeros(rgb.shape)
         object_idx = (inst_label >= 0)
         inst_label_rgb[object_idx] = COLOR20[inst_label[object_idx] % len(COLOR20)]
         rgb = inst_label_rgb
 
-    elif (opt.task == 'semantic_pred'):
-        assert opt.room_split != 'train'
-        semantic_file = os.path.join(opt.result_root, opt.room_split, 'semantic', opt.room_name + '.npy')
-        assert os.path.isfile(semantic_file), 'No semantic result - {}.'.format(semantic_file)
+    elif (opt.task == "semantic_pred"):
+        assert opt.room_split != "train"
+        semantic_file = os.path.join(opt.result_root, opt.room_split, "semantic", opt.room_name + ".npy")
+        assert os.path.isfile(semantic_file), f"No semantic result - {semantic_file}."
         label_pred = np.load(semantic_file).astype(np.int)  # 0~19
         label_pred_rgb = np.array(itemgetter(*SEMANTIC_NAMES[label_pred])(CLASS_COLOR))
         rgb = label_pred_rgb
 
-    elif (opt.task == 'instance_pred'):
-        assert opt.room_split != 'train'
-        instance_file = os.path.join(opt.result_root, opt.room_split, opt.room_name + '.txt')
-        assert os.path.isfile(instance_file), 'No instance result - {}.'.format(instance_file)
-        f = open(instance_file, 'r')
+    elif (opt.task == "instance_pred"):
+        assert opt.room_split != "train"
+        instance_file = os.path.join(opt.result_root, opt.room_split, opt.room_name + ".txt")
+        assert os.path.isfile(instance_file), f"No instance result - {instance_file}."
+        f = open(instance_file, "r")
         masks = f.readlines()
         masks = [mask.rstrip().split() for mask in masks]
         inst_label_pred_rgb = np.zeros(rgb.shape)  # np.ones(rgb.shape) * 255 #
@@ -113,11 +113,11 @@ def get_coords_color(opt):
             if (float(masks[i][2]) < 0.09):
                 continue
             mask = np.loadtxt(mask_path).astype(np.int)
-            print('{} {}: {} pointnum: {}'.format(i, masks[i], SEMANTIC_IDX2NAME[int(masks[i][1])], mask.sum()))
+            print(f"{i} {masks[i]}: {SEMANTIC_IDX2NAME[int(masks[i][1])]} pointnum: {mask.sum()}")
             inst_label_pred_rgb[mask == 1] = COLOR20[i % len(COLOR20)]
         rgb = inst_label_pred_rgb
 
-    if 'test' not in opt.room_split:
+    if "test" not in opt.room_split:
         sem_valid = (label != -100)
         xyz = xyz[sem_valid]
         rgb = rgb[sem_valid]
@@ -127,13 +127,13 @@ def get_coords_color(opt):
 
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_root', help='path to the input dataset files', default='../dataset/scannetv2')
-    parser.add_argument('--result_root', help='path to the predicted results', default='exp/scannetv2/pointgroup/pointgroup_run1_scannet/result/epoch384_nmst0.3_scoret0.09_npointt100')
-    parser.add_argument('--room_name', help='room_name', default='scene0707_00')
-    parser.add_argument('--room_split', help='train / val / test', default='test')
-    parser.add_argument('--task', help='input / semantic_gt / semantic_pred / instance_gt / instance_pred', default='instance_pred')
+    parser.add_argument("--data_root", help="path to the input dataset files", default="../dataset/scannetv2")
+    parser.add_argument("--result_root", help="path to the predicted results", default="exp/scannetv2/pointgroup/pointgroup_run1_scannet/result/epoch384_nmst0.3_scoret0.09_npointt100")
+    parser.add_argument("--room_name", help="room_name", default="scene0707_00")
+    parser.add_argument("--room_split", help="train / val / test", default="test")
+    parser.add_argument("--task", help="input / semantic_gt / semantic_pred / instance_gt / instance_pred", default="instance_pred")
     opt = parser.parse_args()
 
     print(opt.room_name)

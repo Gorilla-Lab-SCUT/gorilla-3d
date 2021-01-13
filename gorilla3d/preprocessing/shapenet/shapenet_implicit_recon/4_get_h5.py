@@ -98,7 +98,7 @@ def process(class_name, obj_name):
         imgs = np.empty([IMAGES_NUM, 137, 137, 3], dtype=np.uint8)
         for index in range(IMAGES_NUM):
             image_path = os.path.join(IMG_DATASET_DIR, class_name, obj_name, "rendering",
-                                      "{}.png".format(str(index).zfill(2)))
+                                      f"{str(index).zfill(2)}.png")
             img = cv2.imread(image_path)  # 0~255 HWC uint8
             imgs[index] = img
         imgs = np.transpose(imgs, [0, 3, 1, 2])  # BHWC -> BCHW
@@ -114,7 +114,7 @@ def process(class_name, obj_name):
         imgs=imgs,
     )
 
-    print("time = {:.3f} ({} / {})".format(time.time() - st, class_name, obj_name))
+    print(f"time = {(time.time() - st):.3f} ({class_name} / {obj_name})")
     print("===================================================================")
     print(flush=True)
 
@@ -125,12 +125,12 @@ def process(class_name, obj_name):
 
 
 def auto_process():
-    with open(os.path.join(SPLIT_DIR, "{}_{}.lst".format(CLASS_NAME, SPLIT))) as f:
+    with open(os.path.join(SPLIT_DIR, f"{CLASS_NAME}_{SPLIT}.lst")) as f:
         object_list = f.readlines()
     object_list = [s.strip() for s in object_list if s.strip() != ""]
 
-    save_h5_path = os.path.join(DST_DATASET_DIR, "{}_{}.h5".format(CLASS_NAME, SPLIT))
-    print("we are going to save to: {}".format(save_h5_path))
+    save_h5_path = os.path.join(DST_DATASET_DIR, f"{CLASS_NAME}_{SPLIT}.h5")
+    print(f"we are going to save to: {save_h5_path}")
     if not os.path.exists(save_h5_path):
         f = h5py.File(save_h5_path, "w")
         f.create_dataset("obj_list", data=np.array(object_list, dtype="S"))
@@ -209,7 +209,7 @@ def auto_process():
                 dset_imgs.resize((dset_imgs.shape[0] + 1, IMAGES_NUM, 3, 137, 137))
                 dset_imgs[-1, :, :, :, :] = results_dict["imgs"].astype(np.uint8)
         else:
-            print("Skip: {} / {}".format(CLASS_NAME, obj_name), flush=True)
+            print(f"Skip: {CLASS_NAME} / {obj_name}", flush=True)
         f.close()
 
 
@@ -291,30 +291,12 @@ if __name__ == "__main__":
 
     else:
         for class_name in args.class_name:
-            cmd = "python {} --class_name {} --split {} --src_dataset_dir {} --dst_dataset_dir {} --img_dataset_dir {} --split_dir {} --load_mesh_name {} --images_num {} --rand_sampling_num {} --poisson_sampling_num {} --sdf_method {} --sdf_approx_sampling_num {} --near_std {} --near_num {} --far_std {} --far_num {} --uni_scale {} --uni_num {} --n_jobs {}" + (
-                " --override" if args.override else "")
-            cmd = cmd.format(
-                __file__,
-                class_name,
-                args.split,
-                args.src_dataset_dir,
-                args.dst_dataset_dir,
-                args.img_dataset_dir,
-                args.split_dir,
-                args.load_mesh_name,
-                args.images_num,
-                args.rand_sampling_num,
-                args.poisson_sampling_num,
-                args.sdf_method,
-                args.sdf_approx_sampling_num,
-                args.near_std,
-                args.near_num,
-                args.far_std,
-                args.far_num,
-                args.uni_scale,
-                args.uni_num,
-                args.n_jobs,
-            )
-            os.system(cmd)
+            os.system(f"python {__file__} --class_name {class_name} --split {args.split} --src_dataset_dir {args.src_dataset_dir} "
+                      f"--dst_dataset_dir {args.dst_dataset_dir} --img_dataset_dir {args.img_dataset_dir} --split_dir {args.split_dir} "
+                      f"--load_mesh_name {args.load_mesh_name} --images_num {args.images_num} --rand_sampling_num {args.rand_sampling_num} "
+                      f"--poisson_sampling_num {args.poisson_sampling_num} --sdf_method {args.sdf_method} "
+                      f"--sdf_approx_sampling_num {args.sdf_approx_sampling_num} --near_std {args.near_std} --near_num {args.near_num} "
+                      f"--far_std {args.far_std} --far_num {args.far_num} --uni_scale {args.uni_scale} "
+                      f"--uni_num {args.uni_num} --n_jobs {args.n_jobs}")
 
     print("All done.")

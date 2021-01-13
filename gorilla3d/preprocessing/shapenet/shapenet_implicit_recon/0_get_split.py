@@ -35,10 +35,10 @@ if __name__ == "__main__":
                           test=obj_list[(train_num + val_num):])
 
         for sp in write_dict.keys():
-            to_save_path = os.path.join(args.split_dir, "{}_{}.lst".format(class_name, sp))
+            to_save_path = os.path.join(args.split_dir, f"{class_name}_{sp}.lst")
             with open(to_save_path, "w") as f:
                 for line in write_dict[sp]:
-                    f.write("{}\n".format(line))
-            print("save split one file to {}".format(to_save_path))
+                    f.write(f"{line}\n")
+            print(f"save split one file to {to_save_path}")
 
     print("All done.")

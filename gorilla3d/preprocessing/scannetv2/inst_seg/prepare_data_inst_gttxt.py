@@ -17,7 +17,7 @@ if __name__ == "__main__":
     parser.add_argument("--data_split", help="data split (train / val)", default="val")
     opt = parser.parse_args()
     split = opt.data_split
-    files = sorted(glob.glob("{}/scene*_inst_nostuff.pth".format(split)))
+    files = sorted(glob.glob(f"{split}/scene*_inst_nostuff.pth"))
     rooms = [torch.load(i) for i in files]
 
     if not os.path.exists(split + "_gt"):
@@ -26,7 +26,7 @@ if __name__ == "__main__":
     for i in range(len(rooms)):
         xyz, rgb, faces, label, instance_label, coords_shift, sample_idx = rooms[i]   # label 0~19 -100;  instance_label 0~instance_num-1 -100
         scene_name = files[i].split("/")[-1][:12]
-        print("{}/{} {}".format(i + 1, len(rooms), scene_name))
+        print(f"{i + 1}/{len(rooms)} {scene_name}")
 
         instance_label_new = np.zeros(instance_label.shape, dtype=np.int32)  # 0 for unannotated, xx00y: x for semantic_label, y for inst_id (1~instance_num)
 

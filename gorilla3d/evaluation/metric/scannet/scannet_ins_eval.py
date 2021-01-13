@@ -229,7 +229,7 @@ def assign_instances_for_scan(scene_name, pred_info, gt_file):
     try:
         gt_ids = load_ids(gt_file)
     except Exception as e:
-        message = "unable to load {}: {}".format(gt_file, e)
+        message = f"unable to load {gt_file}: {e}"
         sys.stderr.write("ERROR: " + str(message) + "\n")
         sys.exit(2)
 
@@ -259,9 +259,8 @@ def assign_instances_for_scan(scene_name, pred_info, gt_file):
         # read the mask
         pred_mask = pred_info["mask"][i]  # [N], long
         if len(pred_mask) != len(gt_ids):
-            message = "wrong number of lines in mask#{}: ({}) vs #mesh vertices ({})".format(
-                i, len(pred_mask), len(gt_ids))
-            sys.stderr.write("ERROR: " + str(message) + "\n")
+            sys.stderr.write(f"ERROR: wrong number of lines in mask#{i}: "
+                             f"({len(pred_mask)}) vs #mesh vertices ({len(gt_ids)})\n")
             sys.exit(2)
         # convert to binary
         pred_mask = np.not_equal(pred_mask, 0)
@@ -270,8 +269,7 @@ def assign_instances_for_scan(scene_name, pred_info, gt_file):
             continue  # skip if empty
 
         pred_instance = {}
-        pred_instance["filename"] = "{}_{:03d}".format(scene_name,
-                                                       num_pred_instances)
+        pred_instance["filename"] = f"{scene_name}_{num_pred_instances:03d}"
         pred_instance["pred_id"] = num_pred_instances
         pred_instance["label_id"] = label_id
         pred_instance["vert_count"] = num
@@ -316,10 +314,10 @@ def print_results(avgs, logger=None):
     info("")
     info("#" * lineLen)
     line = ""
-    line += "{:<15}".format("what") + sep + col1
-    line += "{:>15}".format("AP") + sep
-    line += "{:>15}".format("AP_50%") + sep
-    line += "{:>15}".format("AP_25%") + sep
+    line += f"{'what  ':<15}" + sep + col1
+    line += f"{'AP    ':>15}" + sep
+    line += f"{'AP_50%':>15}" + sep
+    line += f"{'AP_25%':>15}" + sep
     info(line)
     info("#" * lineLen)
 
@@ -327,10 +325,10 @@ def print_results(avgs, logger=None):
         ap_avg = avgs["classes"][label_name]["ap"]
         ap_50o = avgs["classes"][label_name]["ap50%"]
         ap_25o = avgs["classes"][label_name]["ap25%"]
-        line = "{:<15}".format(label_name) + sep + col1
-        line += sep + "{:>15.3f}".format(ap_avg) + sep
-        line += sep + "{:>15.3f}".format(ap_50o) + sep
-        line += sep + "{:>15.3f}".format(ap_25o) + sep
+        line = f"{label_name:<15}" + sep + col1
+        line += sep + f"{ap_avg:>15.3f}" + sep
+        line += sep + f"{ap_50o:>15.3f}" + sep
+        line += sep + f"{ap_25o:>15.3f}" + sep
         info(line)
 
     all_ap_avg = avgs["all_ap"]
@@ -338,9 +336,9 @@ def print_results(avgs, logger=None):
     all_ap_25o = avgs["all_ap_25%"]
 
     info("-" * lineLen)
-    line = "{:<15}".format("average") + sep + col1
-    line += "{:>15.3f}".format(all_ap_avg) + sep
-    line += "{:>15.3f}".format(all_ap_50o) + sep
-    line += "{:>15.3f}".format(all_ap_25o) + sep
+    line = f"{'average':<15}" + sep + col1
+    line += f"{all_ap_avg:>15.3f}" + sep
+    line += f"{all_ap_50o:>15.3f}" + sep
+    line += f"{all_ap_25o:>15.3f}" + sep
     info(line)
     info("")

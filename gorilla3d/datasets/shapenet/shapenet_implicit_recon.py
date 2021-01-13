@@ -97,7 +97,7 @@ class ShapenetImplicitRecon(Dataset):
 
         assert self.categories is not None and len(self.categories) != 0, \
                "`categories` should be a list of str containing all the needed categories"
-        self.h5_list = ["{}_{}.h5".format(c, self.split) for c in self.categories]
+        self.h5_list = [f"{c}_{self.split}.h5" for c in self.categories]
         self.field_list = [ShapenetImplicitReconField(os.path.join(self.h5_dataset_folder, s)) for s in self.h5_list]
 
         self.load_configs = dict(

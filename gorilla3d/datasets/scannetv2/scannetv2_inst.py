@@ -47,7 +47,7 @@ class ScanNetV2Inst(Dataset, metaclass=ABCMeta):
     def load_files(self):
         file_names = sorted(glob.glob(osp.join(self.data_root, self.dataset, self.task, "*" + self.filename_suffix)))
         self.files = [torch.load(i) for i in gorilla.track(file_names)]
-        self.logger.info("{} samples: {}".format(self.task, len(self.files)))
+        self.logger.info(f"{self.task} samples: {len(self.files)}")
 
     def __len__(self):
         return len(self.files)

@@ -65,7 +65,7 @@ class PointnetSAModuleMSG(nn.Module):
             mlp = nn.Sequential()
             for i in range(len(mlp_spec) - 1):
                 mlp.add_module(
-                    "layer{}".format(i),
+                    f"layer{i}",
                     GorillaConv(mlp_spec[i],
                                 mlp_spec[i + 1],
                                 kernel_size=(1, 1),

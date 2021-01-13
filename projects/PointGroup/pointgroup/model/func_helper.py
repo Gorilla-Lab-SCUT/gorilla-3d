@@ -26,7 +26,7 @@ def overseg_pooling(feats, overseg, mode="max"):
     elif mode == "mean": # mean-pooling
         overseg_feats = scatter_mean(feats, overseg, dim=0) # [num_overseg, C]
     else:
-        raise ValueError("mode must be 'max' or 'mean', but got {}".format(mode))
+        raise ValueError(f"mode must be 'max' or 'mean', but got {mode}")
     
     return overseg_feats
 
@@ -241,5 +241,5 @@ def visual_tree(coords, overseg, batch_offsets, overseg_centers, overseg_batch_i
         line_set = o3d.geometry.LineSet()
         line_set.points = o3d.utility.Vector3dVector(batch_overseg_center)
         line_set.lines = o3d.utility.Vector2iVector(lines)
-        o3d.io.write_line_set(osp.join(save_dir, scene + "_{}.ply".format(suffix)), line_set)
+        o3d.io.write_line_set(osp.join(save_dir, scene + f"_{suffix}.ply"), line_set)
 

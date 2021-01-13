@@ -24,7 +24,7 @@ class PointnetFPModule(nn.Module):
         self.mlps = nn.Sequential()
         for i in range(len(mlp_channels) - 1):
             self.mlps.add_module(
-                "layer{}".format(i),
+                f"layer{i}",
                 GorillaConv(mlp_channels[i],
                             mlp_channels[i + 1],
                             kernel_size=(1, 1),

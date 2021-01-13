@@ -30,9 +30,9 @@ def get_save_path(class_name, obj_name, file_name):
 def create_bsdf_file(obj_file, bsdf_file, g=0.0):
     """ create sdf file (binary)
     """
-    command_str = "{} {} {} {} {} -s -e 1.2 -o {} -m 1".format(SDF_COMMAND, obj_file, RES, RES, RES, bsdf_file)
+    command_str = f"{SDF_COMMAND} {obj_file} {RES} {RES} {RES} -s -e 1.2 -o {bsdf_file} -m 1"
     if g > 0.0:
-        command_str = "{} -g {}".format(command_str, g)
+        command_str = f"{command_str} -g {g}"
     os.system(command_str)
 
 
@@ -47,7 +47,7 @@ def get_sdf(bsdf_file, res=RES):
             bytes = f.read()
             ress = np.frombuffer(bytes[:intsize * 3], dtype=np.int32)
             if -1 * ress[0] != res or ress[1] != res or ress[2] != res:
-                raise Exception("resolution error: {}".format(bsdf_file))
+                raise Exception(f"resolution error: {bsdf_file}")
             positions = np.frombuffer(bytes[intsize * 3:intsize * 3 + floatsize * 6], dtype=np.float64)
             # bottom left corner, x,y,z and top right corner, x, y, z
             sdf["param"] = [positions[0], positions[1], positions[2], positions[3], positions[4],
@@ -66,7 +66,7 @@ def process(class_name, obj_name, override=False):
     st = time.time()
 
     mesh_load_path = get_src_path(class_name, obj_name, "model.obj")
-    bsdf_save_path = "dense_sdf_{}_{}.sdf".format(class_name, obj_name)
+    bsdf_save_path = f"dense_sdf_{class_name}_{obj_name}.sdf"
     mesh_gt_path = get_save_path(class_name, obj_name, "mesh_gt.ply")  # it is not normalized
 
     # marching cubes gt mesh
@@ -80,22 +80,22 @@ def process(class_name, obj_name, override=False):
         vertices[:, 2] = (vertices[:, 2] / RES) * (sdf_info["param"][5] - sdf_info["param"][2]) + sdf_info["param"][2]
         vertices[:, [0, 2]] = vertices[:, [2, 0]]
         trimesh.Trimesh(vertices=vertices, faces=triangles).export(mesh_gt_path, encoding="binary")
-        print("save gt mesh to: {}".format(mesh_gt_path))
+        print(f"save gt mesh to: {mesh_gt_path}")
         del sdf_info
     else:
-        print("Skip: {}".format(mesh_gt_path))
+        print(f"Skip: {mesh_gt_path}")
 
     if os.path.exists(bsdf_save_path):
-        os.system("rm -rf {}".format(bsdf_save_path))
-        print("delete: {}".format(bsdf_save_path))
+        os.system(f"rm -rf {bsdf_save_path}")
+        print(f"delete: {bsdf_save_path}")
 
-    print("total time = {}".format(time.time() - st))
+    print(f"total time = {time.time() - st}")
     print("===================================================================")
     print()
 
 
 def auto_process():
-    with open(os.path.join(SPLIT_DIR, "{}_{}.lst".format(CLASS_NAME, SPLIT))) as f:
+    with open(os.path.join(SPLIT_DIR, f"{CLASS_NAME}_{SPLIT}.lst")) as f:
         object_list = f.readlines()
     object_list = [s.strip() for s in object_list if s.strip() != ""]
 
@@ -133,16 +133,9 @@ if __name__ == "__main__":
     else:
         for class_name in args.class_name:
             os.system(
-                "python {} --class_name {} --split {} --res {} --src_dataset_dir {} --dst_dataset_dir {} --split_dir {} --sdf_executable {}"
-                .format(
-                    __file__,
-                    class_name,
-                    SPLIT,
-                    RES,
-                    SRC_DATASET_DIR,
-                    DST_DATASET_DIR,
-                    SPLIT_DIR,
-                    SDF_COMMAND,
-                ) + (" --override" if OVERRIDE else ""))
+                f"python {__file__} --class_name {class_name} --split {SPLIT} --res {RES} "
+                f"--src_dataset_dir {SRC_DATASET_DIR} --dst_dataset_dir {DST_DATASET_DIR} "
+                f"--split_dir {SPLIT_DIR} --sdf_executable {SDF_COMMAND}"
+                + (" --override" if OVERRIDE else ""))
 
     print("All done.")

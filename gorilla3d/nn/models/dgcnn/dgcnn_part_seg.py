@@ -68,7 +68,7 @@ class DGCNNPartSeg(nn.Module):
             dropout [dropout] * self.num_mlp
 
         for idx, (in_channels, out_channels, drop) in enumerate(zip(mlp_nodes[:-1], mlp_nodes[1:], dropout)):
-            setattr(self, "conv{}".format(idx + 1),
+            setattr(self, f"conv{idx + 1}",
                     nn.Sequential(
                         nn.Conv1d(in_channels, out_channels, kernel_size=1, bias=False),
                         nn.BatchNorm1d(out_channels),
@@ -128,7 +128,7 @@ class DGCNNPartSeg(nn.Module):
         x = torch.cat(aggregation_results, dim=1) # [batch_size, channels, num_points]
         
         for conv_idx in range(self.num_mlp):
-            x = getattr(self, "conv{}".format(conv_idx + 1))(x)
+            x = getattr(self, f"conv{conv_idx + 1}")(x)
         
         # output partseg result
         x = self.output(x)

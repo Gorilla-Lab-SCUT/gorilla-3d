@@ -64,12 +64,13 @@ def visualize_instance_mask(clusters: np.ndarray,
                             semantic_pred: Optional[np.ndarray]=None,
                             color: int=20,):
     assert color in [20, 40]
-    colors = globals()["COLOR{}".format(color)]
+    colors = globals()[f"COLOR{color}"]
     mesh_file = osp.join(data_root, room_name, room_name + "_vh_clean_2.ply")
     mesh = o3d.io.read_triangle_mesh(mesh_file)
     pred_mesh = deepcopy(mesh)
     points = np.array(pred_mesh.vertices)
     inst_label_pred_rgb = np.zeros_like(points)  # np.ones(rgb.shape) * 255 #
+    logger.info(f"room_name: {room_name}")
     for cluster_id, cluster in enumerate(clusters):
         if logger is not None:
             # NOTE: remove the handlers are not FileHandler to avoid 
@@ -80,15 +81,15 @@ def visualize_instance_mask(clusters: np.ndarray,
                 if not isinstance(handler, logging.FileHandler):
                     handler_storage.append(handler)
                     logger.removeHandler(handler)
-            message = "{:<4}: pointnum: {:<7} ".format(cluster_id, int(cluster.sum()))
+            message = f"{cluster_id:<4}: pointnum: {int(cluster.sum()):<7} "
             if semantic_pred is not None:
                 semantic_label = np.argmax(np.bincount(semantic_pred[np.where(cluster == 1)[0]]))
                 semantic_id = int(SEMANTIC_IDXS[semantic_label])
                 semantic_name = SEMANTIC_IDX2NAME[semantic_id]
-                message += "semantic: {:<3}-{:<15} ".format(semantic_id, semantic_name)
+                message += f"semantic: {semantic_id:<3}-{semantic_name:<15} "
             if cluster_scores is not None:
                 score = float(cluster_scores[cluster_id])
-                message += "score: {:.4f} ".format(score)
+                message += f"score: {score:.4f} "
             logger.info(message)
             for handler in handler_storage:
                 logger.addHandler(handler)
@@ -119,7 +120,7 @@ def visualize_pts_rgb(rgb, room_name):
 
 def get_coords_color(opt):
     input_file = os.path.join(opt.data_root, opt.room_split, opt.room_name + "_inst_nostuff.pth")
-    assert os.path.isfile(input_file), "File not exist - {}.".format(input_file)
+    assert os.path.isfile(input_file), f"File not exist - {input_file}."
     if "test" in opt.room_split:
         xyz, rgb, edges, scene_idx = torch.load(input_file)
     else:
@@ -136,7 +137,7 @@ def get_coords_color(opt):
     elif (opt.task == "instance_gt"):
         assert "test" not in opt.room_split
         inst_label = inst_label.astype(np.int)
-        print("Instance number: {}".format(inst_label.max() + 1))
+        print(f"Instance number: {inst_label.max() + 1}")
         inst_label_rgb = np.zeros(rgb.shape)
         object_idx = (inst_label >= 0)
         inst_label_rgb[object_idx] = COLOR20[inst_label[object_idx] % len(COLOR20)]
@@ -145,7 +146,7 @@ def get_coords_color(opt):
     elif (opt.task == "semantic_pred"):
         assert opt.room_split != "train"
         semantic_file = os.path.join(opt.result_root, opt.room_split, "semantic", opt.room_name + ".npy")
-        assert os.path.isfile(semantic_file), "No semantic result - {}.".format(semantic_file)
+        assert os.path.isfile(semantic_file), f"No semantic result - {semantic_file}."
         label_pred = np.load(semantic_file).astype(np.int)  # 0~19
         label_pred_rgb = np.array(itemgetter(*SEMANTIC_NAMES[label_pred])(CLASS_COLOR))
         rgb = label_pred_rgb
@@ -153,7 +154,7 @@ def get_coords_color(opt):
     elif (opt.task == "instance_pred"):
         assert opt.room_split != "train"
         instance_file = os.path.join(opt.result_root, opt.room_split, opt.room_name + ".txt")
-        assert os.path.isfile(instance_file), "No instance result - {}.".format(instance_file)
+        assert os.path.isfile(instance_file), f"No instance result - {instance_file}."
         f = open(instance_file, "r")
         masks = f.readlines()
         masks = [mask.rstrip().split() for mask in masks]
@@ -164,7 +165,7 @@ def get_coords_color(opt):
             if (float(masks[i][2]) < 0.09):
                 continue
             mask = np.loadtxt(mask_path).astype(np.int)
-            print("{} {}: {} pointnum: {}".format(i, masks[i], SEMANTIC_IDX2NAME[int(masks[i][1])], mask.sum()))
+            print(f"{i} {mask[i]}: {SEMANTIC_IDX2NAME[int(masks[i][1])]} pointnum: {mask.sum()}")
             inst_label_pred_rgb[mask == 1] = COLOR20[i % len(COLOR20)]
         rgb = inst_label_pred_rgb
 

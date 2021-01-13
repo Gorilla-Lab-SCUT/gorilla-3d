@@ -18,8 +18,8 @@ def try_make_dirs(path):
         os.makedirs(path)
 
 
-def is_okey(filePath, minMB):
-    fsize = os.path.getsize(filePath)
+def is_okey(file_path, minMB):
+    fsize = os.path.getsize(file_path)
     fsize = fsize / float(1024 * 1024)  # MB
     return (fsize >= minMB)
 
@@ -29,28 +29,28 @@ def auto_process():
     try_make_dirs(dst_class_dir)
     class_dir = os.path.join(SRC_DATASET_DIR, CLASS_NAME)
 
-    with open(os.path.join(LOAD_SPLIT_DIR, "{}_{}.lst".format(CLASS_NAME, SPLIT)), "r") as f:
+    with open(os.path.join(LOAD_SPLIT_DIR, f"{CLASS_NAME}_{SPLIT}.lst"), "r") as f:
         obj_list = f.readlines()
     obj_list = [s.strip() for s in obj_list if s.strip() != ""]
     final_obj_list = []
 
     for i, obj_name in enumerate(obj_list):
-        filePath = os.path.join(class_dir, obj_name, MESH_NAME)
-        if is_okey(filePath, MINMB):
-            print("file[{}/{}]: {} is okey!".format(i, len(obj_list), filePath))
+        file_path = os.path.join(class_dir, obj_name, MESH_NAME)
+        if is_okey(file_path, MINMB):
+            print(f"file[{i}/{len(obj_list)}]: {file_path} is okey!")
             final_obj_list.append(obj_name)
         else:
-            print("file[{}/{}]: {} is not okey!".format(i, len(obj_list), filePath))
+            print(f"file[{i}/{len(obj_list)}]: {file_path} is not okey!")
             src_dir = os.path.join(class_dir, obj_name)
             shutil.move(src_dir, dst_class_dir)
-            print("dir: {} is moved to folder: {}".format(src_dir, dst_class_dir))
+            print(f"dir: {src_dir} is moved to folder: {dst_class_dir}")
         print("======================================")
 
     try_make_dirs(SAVE_SPLIT_DIR)
-    save_split_file_path = os.path.join(SAVE_SPLIT_DIR, "{}_{}.lst".format(CLASS_NAME, SPLIT))
+    save_split_file_path = os.path.join(SAVE_SPLIT_DIR, f"{CLASS_NAME}_{SPLIT}.lst")
     with open(save_split_file_path, "w") as f:
-        f.writelines(["{}\n".format(s) for s in final_obj_list])
-    print("save split file to: {}".format(save_split_file_path))
+        f.writelines([f"{s}\n" for s in final_obj_list])
+    print(f"save split file to: {save_split_file_path}")
 
 
 if __name__ == "__main__":
@@ -87,17 +87,8 @@ if __name__ == "__main__":
     else:
         for class_name in args.class_name:
             os.system(
-                "python {} --class_name {} --split {} --src_dataset_dir {} --moved_dataset_dir {} --load_split_dir {} --save_split_dir {} --mesh_name {} --minMB {}"
-                .format(
-                    __file__,
-                    class_name,
-                    args.split,
-                    args.src_dataset_dir,
-                    args.moved_dataset_dir,
-                    args.load_split_dir,
-                    args.save_split_dir,
-                    args.mesh_name,
-                    args.minMB,
-                ))
+                f"python {__file__} --class_name {class_name} --split {args.split} --src_dataset_dir {args.src_dataset_dir} "
+                f"--moved_dataset_dir {args.moved_dataset_dir} --load_split_dir {args.load_split_dir} "
+                f"--save_split_dir {args.save_split_dir} --mesh_name {args.mesh_name} --minMB {args.minMB}")
 
     print("All done.")
