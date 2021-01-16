@@ -142,7 +142,7 @@ class PointGroup(nn.Module):
         elif mode == 1: # mean-pooling
             clusters_feats = scatter_mean(clusters_feats, clusters_idx[:, 0].cuda().long(), dim=0) # [nCluster, C]
         else:
-            raise ValueError("mode must be '0' or '1', but got {}".format(mode))
+            raise ValueError(f"mode must be '0' or '1', but got {mode}")
 
         return clusters_feats
 
@@ -231,8 +231,6 @@ class PointGroup(nn.Module):
         pt_offsets = self.offset_linear(pt_offsets_feats) # [N, 3], float32
         ret["pt_offsets"] = pt_offsets
 
-        # print("backbone: {}s".format(timer.since_last()))
-
         # if True:
         if (epoch > self.prepare_epochs) and not semantic_only:
             #### get prooposal clusters
@@ -279,12 +277,8 @@ class PointGroup(nn.Module):
                 # proposals_offset, [num_prop + 1]: int
                 """
 
-            # print("region growing: {}s".format(timer.since_last()))
-
             #### proposals voxelization again
             input_feats, inp_map = self.clusters_voxelization(proposals_idx, output_feats, coords, self.score_fullscale, self.score_scale, self.mode)
-
-            # print("voxelization: {}s".format(timer.since_last()))
 
             #### aggregate and dynamic conv
             if self.dynamic:
@@ -318,10 +312,6 @@ class PointGroup(nn.Module):
 
             ret["proposal_scores"] = (scores, proposals_idx, proposals_offset)
 
-            # print("score net: {}s".format(timer.since_last()))
-
-            # print("forward: {}s".format(timer.since_start()))
-                
 
         return ret
 

@@ -14,7 +14,7 @@ import numpy as np
 import gorilla
 
 def f_test(scene):
-    fn = "scans_test/{}/{}_vh_clean_2.ply".format(scene, scene)
+    fn = f"scans_test/{scene}/{scene}_vh_clean_2.ply"
     print(fn)
 
     f = plyfile.PlyData().read(fn)
@@ -29,10 +29,10 @@ def f_test(scene):
 
 
 def f(scene):
-    fn = "scans/{}/{}_vh_clean_2.ply".format(scene, scene)
-    fn2 = "scans/{}/{}_vh_clean_2.labels.ply".format(scene, scene)
-    fn3 = "scans/{}/{}_vh_clean_2.0.010000.segs.json".format(scene, scene)
-    fn4 = "scans/{}/{}.aggregation.json".format(scene, scene)
+    fn = f"scans/{scene}/{scene}_vh_clean_2.ply"
+    fn2 = f"scans/{scene}/{scene}_vh_clean_2.labels.ply"
+    fn3 = f"scans/{scene}/{scene}_vh_clean_2.0.010000.segs.json"
+    fn4 = f"scans/{scene}/{scene}.aggregation.json"
     print(fn)
 
     f = plyfile.PlyData().read(fn)
@@ -101,7 +101,7 @@ if __name__ == "__main__":
             elements = lines[i].split("\t")
             raw_name = elements[1]
             if (elements[1] != elements[2]):
-                print("{}: {} {}".format(i, elements[1], elements[2]))
+                print(f"{i}: {elements[1]} {elements[2]}")
             nyu40_name = elements[7]
             if nyu40_name not in label_classes_set:
                 raw2scannet[raw_name] = "unannotated"
@@ -123,18 +123,18 @@ if __name__ == "__main__":
 
     split = opt.data_split
     os.makedirs(split, exist_ok=True)
-    print("data split: {}".format(split))
-    scene_list = gorilla.list_from_file(osp.join(meta_data_dir, "scannetv2_{}.txt".format(split)))
+    print(f"data split: {split}")
+    scene_list = gorilla.list_from_file(osp.join(meta_data_dir, f"scannetv2_{split}.txt"))
 
-    files = sorted(list(map(lambda x: "scans/{}/{}_vh_clean_2.ply".format(x, x), scene_list)))
+    files = sorted(list(map(lambda x: f"scans/{x}/{x}_vh_clean_2.ply", scene_list)))
 
     if opt.data_split != "test":
-        files2 = sorted(list(map(lambda x: "scans/{}/{}_vh_clean_2.labels.ply".format(x, x), scene_list)))
-        files3 = sorted(list(map(lambda x: "scans/{}/{}_vh_clean_2.0.010000.segs.json".format(x, x), scene_list)))
-        files4 = sorted(list(map(lambda x: "scans/{}/{}.aggregation.json".format(x, x), scene_list)))
+        files2 = sorted(list(map(lambda x: f"scans/{x}/{x}_vh_clean_2.labels.ply", scene_list)))
+        files3 = sorted(list(map(lambda x: f"scans/{x}/{x}_vh_clean_2.0.010000.segs.json", scene_list)))
+        files4 = sorted(list(map(lambda x: f"scans/{x}/{x}.aggregation.json", scene_list)))
         assert len(files) == len(files2)
         assert len(files) == len(files3)
-        assert len(files) == len(files4), "{} {}".format(len(files), len(files4))
+        assert len(files) == len(files4), f"{len(files)} {len(files4)}"
 
     p = mp.Pool(processes=mp.cpu_count())
     if opt.data_split == "test":

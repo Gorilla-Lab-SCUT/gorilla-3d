@@ -52,13 +52,14 @@ def init():
     #### get logger file
     if cfg.data.split == "test":
         log_file = os.path.join(
-            cfg.exp_path, "result", "epoch{}_nmst{}_scoret{}_npointt{}".format(cfg.data.test_epoch, cfg.data.TEST_NMS_THRESH, cfg.data.TEST_SCORE_THRESH, cfg.data.TEST_NPOINT_THRESH),
-            cfg.data.split, "test-{}.log".format(time.strftime("%Y%m%d_%H%M%S", time.localtime()))
+            cfg.exp_path, f"result",
+            "epoch{cfg.data.test_epoch}_nmst{cfg.data.TEST_NMS_THRESH}_scoret{cfg.data.TEST_SCORE_THRESH}_npointt{cfg.data.TEST_NPOINT_THRESH}",
+            cfg.data.split, f"test-{time.strftime("%Y%m%d_%H%M%S", time.localtime())}.log"
         )
     else:
         log_file = osp.join(
             cfg.exp_path,
-            "{}-{}.log".format(cfg.data.split, time.strftime("%Y%m%d_%H%M%S", time.localtime()))
+            f"{cfg.data.split}-{time.strftime("%Y%m%d_%H%M%S", time.localtime())}.log"
         )
     if not gorilla.is_filepath(osp.dirname(log_file)):
         gorilla.mkdir_or_exist(log_file)
@@ -72,10 +73,10 @@ def init():
     global result_dir
     result_dir = osp.join(
         cfg.exp_path, "result",
-        "epoch{}_nmst{}_scoret{}_npointt{}".format(cfg.data.test_epoch,
-                                                   cfg.data.TEST_NMS_THRESH,
-                                                   cfg.data.TEST_SCORE_THRESH,
-                                                   cfg.data.TEST_NPOINT_THRESH),
+        f"epoch{cfg.data.test_epoch,}_"
+        f"nmst{cfg.data.TEST_NMS_THRESH}_"
+        f"scoret{cfg.data.TEST_SCORE_THRESH}_"
+        f"npointt{cfg.data.TEST_NPOINT_THRESH}",
         cfg.data.split)
     os.makedirs(osp.join(result_dir, "predicted_masks"), exist_ok=True)
 
@@ -280,9 +281,8 @@ def test(model, cfg, logger):
                         np.bincount(
                             semantic_pred[np.where(clusters_i == 1)[0]].cpu()))
                     score = cluster_scores[proposal_id]
-                    f.write("predicted_masks/{}_{:03d}.txt {} {:.4f}".format(
-                        test_scene_name, proposal_id,
-                        semantic_label_idx[semantic_label], score))
+                    f.write(f"predicted_masks/{test_scene_name}_{proposal_id:03d}.txt "
+                            f"{semantic_label_idx[semantic_label]} {score:.4f}")
                     if proposal_id < nclusters - 1:
                         f.write("\n")
                     content = list(map(lambda x: str(x), clusters_i.tolist()))
@@ -302,12 +302,14 @@ def test(model, cfg, logger):
             ##### print
             if semantic:
                 logger.info(
-                    "instance iter: {}/{} point_num: {} time: total {:.2f}s data: {:.2f}s inference {:.2f}s save {:.2f}s".format(
-                        i + 1, len(test_dataset), N, total_time, data_time, inference_time, save_time))
+                    f"instance iter: {i + 1}/{len(test_dataset)} point_num: {N} "
+                    f"time: total {total_time:.2f}s data: {data_time:.2f}s "
+                    f"inference {inference_time:.2f}s save {save_time:.2f}s")
             else:
                 logger.info(
-                    "instance iter: {}/{} point_num: {} ncluster: {} time: total {:.2f}s data: {:.2f}s inference {:.2f}s save {:.2f}s".format(
-                        i + 1, len(test_dataset), N, nclusters, total_time, data_time, inference_time, save_time))
+                    f"instance iter: {i + 1}/{len(test_dataset)} point_num: {N} "
+                    f"ncluster: {nclusters} time: total {total_time:.2f}s data: {data_time:.2f}s "
+                    f"inference {inference_time:.2f}s save {save_time:.2f}s")
 
         ##### evaluation
         if cfg.data.eval:
@@ -321,18 +323,17 @@ if __name__ == "__main__":
 
     ##### model
     logger.info("=> creating model ...")
-    logger.info("Classes: {}".format(cfg.model.classes))
+    logger.info(f"Classes: {cfg.model.classes}")
 
     model = PointGroup(cfg)
 
     use_cuda = torch.cuda.is_available()
-    logger.info("cuda available: {}".format(use_cuda))
+    logger.info(f"cuda available: {use_cuda}")
     assert use_cuda
     model = model.cuda()
 
     # logger.info(model)
-    logger.info("#classifier parameters (model): {}".format(
-        sum([x.nelement() for x in model.parameters()])))
+    logger.info(f"#classifier parameters (model): {sum([x.nelement() for x in model.parameters()])}")
 
     ##### load model
     gorilla.load_checkpoint(

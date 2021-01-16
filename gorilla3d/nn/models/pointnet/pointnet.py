@@ -49,7 +49,7 @@ class PointNetCls(nn.Module):
             function after each batchnorm (default: F.relu)
         batchnorm (bool): Whether or not to use batchnorm layers
             (default: True)
-        transposed_input (bool): Whether the input's second and third dimension
+        transposed_input (bool): Whether the input"s second and third dimension
             is already transposed. If so, a transpose operation can be avoided,
             improving performance.
             See documentation of PointNetFeatExt for more details.
@@ -76,21 +76,20 @@ class PointNetCls(nn.Module):
         super().__init__()
 
         if not isinstance(num_classes, int):
-            raise TypeError('Argument num_classes must be of type int. '
-                            'Got {0} instead.'.format(type(num_classes)))
+            raise TypeError(f"Argument num_classes must be of type int. "
+                            f"Got {type(num_classes)} instead.")
         if not isinstance(dropout, float):
-            raise TypeError('Argument dropout must be of type float. '
-                            'Got {0} instead.'.format(type(dropout)))
+            raise TypeError(f"Argument dropout must be of type float. "
+                            f"Got {type(dropout)} instead.")
         if dropout < 0 or dropout > 1:
-            raise ValueError('Dropout ratio must always be in the range'
-                             '[0, 1]. Got {0} instead.'.format(dropout))
-        if not hasattr(classifier_layer_dims, '__iter__'):
-            raise TypeError('Argument classifier_layer_dims is not iterable.')
+            raise ValueError(f"Dropout ratio must always be in the range"
+                             f"[0, 1]. Got {dropout} instead.")
+        if not hasattr(classifier_layer_dims, "__iter__"):
+            raise TypeError("Argument classifier_layer_dims is not iterable.")
         for idx, layer_dim in enumerate(classifier_layer_dims):
             if not isinstance(layer_dim, int):
-                raise TypeError('Expected classifier_layer_dims to contain '
-                                'int. Found type {0} at index {1}.'.format(
-                                    type(layer_dim), idx))
+                raise TypeError(f"Expected classifier_layer_dims to contain "
+                                f"int. Found type {type(layer_dim)} at index {idx}.")
 
         # Add feat_size to the head of classifier_layer_dims (the output of
         # the PointNet feature extractor has number of elements equal to
@@ -204,7 +203,7 @@ class PointNetSeg(nn.Module):
             function after each batchnorm (default: F.relu)
         batchnorm (bool): Whether or not to use batchnorm layers
             (default: True)
-        transposed_input (bool): Whether the input's second and third dimension
+        transposed_input (bool): Whether the input"s second and third dimension
             is already transposed. If so, a transpose operation can be avoided,
             improving performance.
             See documentation of PointNetFeatExt for more details.
@@ -230,18 +229,17 @@ class PointNetSeg(nn.Module):
         super().__init__()
 
         if not isinstance(num_classes, int):
-            raise TypeError('Argument num_classes must be of type int. '
-                            'Got {0} instead.'.format(type(num_classes)))
+            raise TypeError(f"Argument num_classes must be of type int. "
+                            f"Got {type(num_classes)} instead.")
         if not isinstance(dropout, float):
-            raise TypeError('Argument dropout must be of type float. '
-                            'Got {0} instead.'.format(type(dropout)))
-        if not hasattr(classifier_layer_dims, '__iter__'):
-            raise TypeError('Argument classifier_layer_dims is not iterable.')
+            raise TypeError(f"Argument dropout must be of type float. "
+                            f"Got {type(dropout)} instead.")
+        if not hasattr(classifier_layer_dims, "__iter__"):
+            raise TypeError("Argument classifier_layer_dims is not iterable.")
         for idx, layer_dim in enumerate(classifier_layer_dims):
             if not isinstance(layer_dim, int):
-                raise TypeError('Expected classifier_layer_dims to contain '
-                                'int. Found type {0} at index {1}.'.format(
-                                    type(layer_dim), idx))
+                raise TypeError(f"Expected classifier_layer_dims to contain "
+                                f"int. Found type {type(layer_dim)} at index {idx}.")
 
         # Add feat_size to the head of classifier_layer_dims (the output of
         # the PointNet feature extractor has number of elements equal to
@@ -320,5 +318,5 @@ class PointNetSeg(nn.Module):
         x = self.last_conv_layer(x)
         x = x.transpose(2, 1).contiguous()
         # x = F.log_softmax(x.view(-1, self.num_classes), dim=-1)
-        print("x.shape = {}".format(x.shape))
+        print(f"x.shape = {x.shape}")
         return x.view(batchsize, num_points, self.num_classes)

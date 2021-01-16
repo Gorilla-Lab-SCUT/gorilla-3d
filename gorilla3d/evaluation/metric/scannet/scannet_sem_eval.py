@@ -66,8 +66,7 @@ def evaluate_scan(data, confusion):
     gt_ids = data["semantic_gt"]
     # sanity checks
     if not pred_ids.shape == gt_ids.shape:
-        message = "{}: number of predicted values does not match number of vertices".format(
-            pred_ids.shape)
+        message = f"{pred_ids.shape}: number of predicted values does not match number of vertices"
         sys.stderr.write("ERROR: " + str(message) + "\n")
         sys.exit(2)
 
@@ -87,11 +86,11 @@ def evaluate(matches, logger=None):
         else:
             print(message)
 
-    message = "evaluating {} scans...".format(len(matches))
+    message = f"evaluating {len(matches)} scans..."
     info(message)
     for i, (scene, data) in enumerate(matches.items()):
         evaluate_scan(data, confusion)
-        sys.stdout.write("\rscans processed: {}".format(i + 1))
+        sys.stdout.write(f"\rscans processed: {i + 1}")
         sys.stdout.flush()
     print("")
 
@@ -106,10 +105,9 @@ def evaluate(matches, logger=None):
     mean_iou = 0
     for i in range(len(VALID_CLASS_IDS)):
         label_name = CLASS_LABELS[i]
-        #print("{{0:<14s}: 1:>5.3f}".format(label_name, class_ious[label_name][0]))
-        info("{0:<14s}: {1:>5.3f}   ({2:>6d}/{3:<6d})".format(
-            label_name, class_ious[label_name][0], class_ious[label_name][1],
-            class_ious[label_name][2]))
+        #print(f"{{label_name:<14s}: class_ious[label_name][0]:>5.3f}")
+        info(f"{label_name:<14s}: {class_ious[label_name][0]:>5.3f}   "
+             f"({class_ious[label_name][1]:>6d}/{class_ious[label_name][2]:<6d})")
         mean_iou += class_ious[label_name][0]
     mean_iou = mean_iou / len(VALID_CLASS_IDS)
-    info("mean: {:>5.3f}".format(mean_iou))
+    info(f"mean: {mean_iou:>5.3f}")

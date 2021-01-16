@@ -20,11 +20,11 @@ class UBlock(nn.Module):
         self.nPlanes = nPlanes
 
         blocks = {
-            'block{}'.format(i):
+            f"block{i}":
             block(nPlanes[0],
                   nPlanes[0],
                   norm_fn,
-                  indice_key='subm{}'.format(indice_key_id))
+                  indice_key=f"subm{indice_key_id}")
             for i in range(block_reps)
         }
         blocks = OrderedDict(blocks)
@@ -39,7 +39,7 @@ class UBlock(nn.Module):
                     kernel_size=2,
                     stride=2,
                     bias=False,
-                    indice_key='spconv{}'.format(indice_key_id)))
+                    indice_key=f"spconv{indice_key_id}"))
 
             self.u = UBlock(nPlanes[1:],
                             norm_fn,
@@ -54,15 +54,15 @@ class UBlock(nn.Module):
                     nPlanes[0],
                     kernel_size=2,
                     bias=False,
-                    indice_key='spconv{}'.format(indice_key_id)))
+                    indice_key=f"spconv{indice_key_id}"))
 
             blocks_tail = {}
             for i in range(block_reps):
-                blocks_tail['block{}'.format(i)] = block(
+                blocks_tail[f"block{i}"] = block(
                     nPlanes[0] * (2 - i),
                     nPlanes[0],
                     norm_fn,
-                    indice_key='subm{}'.format(indice_key_id))
+                    indice_key=f"subm{indice_key_id}")
             blocks_tail = OrderedDict(blocks_tail)
             self.blocks_tail = spconv.SparseSequential(blocks_tail)
 
@@ -93,11 +93,11 @@ class UBlockBottom(nn.Module):
         self.nPlanes = nPlanes
 
         blocks = {
-            'block{}'.format(i):
+            f"block{i}":
             block(nPlanes[0],
                   nPlanes[0],
                   norm_fn,
-                  indice_key='subm{}'.format(indice_key_id))
+                  indice_key=f"subm{indice_key_id}")
             for i in range(block_reps)
         }
         blocks = OrderedDict(blocks)
@@ -112,7 +112,7 @@ class UBlockBottom(nn.Module):
                     kernel_size=2,
                     stride=2,
                     bias=False,
-                    indice_key='spconv{}'.format(indice_key_id)))
+                    indice_key=f"spconv{indice_key_id}"))
 
             self.u = UBlockBottom(nPlanes[1:],
                                   norm_fn,
@@ -127,15 +127,15 @@ class UBlockBottom(nn.Module):
                     nPlanes[0],
                     kernel_size=2,
                     bias=False,
-                    indice_key='spconv{}'.format(indice_key_id)))
+                    indice_key=f"spconv{indice_key_id}"))
 
             blocks_tail = {}
             for i in range(block_reps):
-                blocks_tail['block{}'.format(i)] = block(
+                blocks_tail[f"block{i}"] = block(
                     nPlanes[0] * (2 - i),
                     nPlanes[0],
                     norm_fn,
-                    indice_key='subm{}'.format(indice_key_id))
+                    indice_key=f"subm{indice_key_id}")
             blocks_tail = OrderedDict(blocks_tail)
             self.blocks_tail = spconv.SparseSequential(blocks_tail)
 

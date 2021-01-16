@@ -49,8 +49,7 @@ def init():
     #### get logger file
     log_file = osp.join(
         cfg.exp_path,
-        "{}-{}.log".format(cfg.task,
-                           time.strftime("%Y%m%d_%H%M%S", time.localtime())))
+        f"{cfg.task}-{time.strftime("%Y%m%d_%H%M%S", time.localtime())}.log")
     if not gorilla.is_filepath(osp.dirname(log_file)):
         gorilla.mkdir_or_exist(log_file)
     logger = gorilla.get_root_logger(log_file)
@@ -162,9 +161,9 @@ class PointGroupSolver(gorilla.BaseSolver):
         ##### accuracy / meter_dict
         with torch.no_grad():
             meter_dict = {}
-            meter_dict["loss_{}".format(mode)] = (loss.item(), coords.shape[0])
+            meter_dict[f"loss_{mode}"] = (loss.item(), coords.shape[0])
             for k, v in loss_out.items():
-                meter_dict["{}_{}".format(k, mode)] = (float(v[0]), v[1])
+                meter_dict[f"{k}_{mode}"] = (float(v[0]), v[1])
 
         self.log_buffer.update(meter_dict)
 
@@ -217,31 +216,19 @@ class PointGroupSolver(gorilla.BaseSolver):
             remain_time = remain_iter * iter_time.avg
             t_m, t_s = divmod(remain_time, 60)
             t_h, t_m = divmod(t_m, 60)
-            remain_time = "{:02d}:{:02d}:{:02d}".format(
-                int(t_h), int(t_m), int(t_s))
+            remain_time = f"{int(t_h):02d}:{int(t_m):02d}:{int(t_s):02d}"
 
             loss_buffer = self.log_buffer.get("loss_train")
             sys.stdout.write(
-                "epoch: {}/{} iter: {}/{} lr: {:4f} loss: {:.4f}({:.4f}) data_time: {:.2f}({:.2f}) iter_time: {:.2f}({:.2f}) remain_time: {remain_time}\n"
-                .format(self.epoch,
-                        self.cfg.data.epochs,
-                        i + 1,
-                        len(self.train_data_loader),
-                        lr,
-                        loss_buffer.latest,
-                        loss_buffer.avg,
-                        data_time.latest,
-                        data_time.avg,
-                        iter_time.latest,
-                        iter_time.avg,
-                        remain_time=remain_time))
+                f"epoch: {self.epoch}/{self.cfg.data.epochs} iter: {i + 1}/{len(self.train_data_loader)} "
+                f"lr: {lr:4f} loss: {loss_buffer.latest:.4f}({loss_buffer.avg:.4f}) "
+                f"data_time: {data_time.latest:.2f}({data_time.avg:.2f}) "
+                f"iter_time: {iter_time.latest:.2f}({iter_time.avg:.2f}) remain_time: {remain_time}\n")
                 
             if (i == len(self.train_data_loader) - 1): print()
 
         logger.info(
-            "epoch: {}/{}, train loss: {:.4f}, time: {}s".format(
-                self.epoch, self.cfg.data.epochs, loss_buffer.avg,
-                epoch_timer.since_start()))
+            f"epoch: {self.epoch}/{self.cfg.data.epochs}, train loss: {loss_buffer.avg:.4f}, time: {epoch_timer.since_start}s")
 
         meta = {"epoch": self.epoch}
         filename = osp.join(self.cfg.exp_path,
@@ -265,14 +252,12 @@ class PointGroupSolver(gorilla.BaseSolver):
 
                 loss_buffer = self.log_buffer.get("loss_eval")
                 ##### print
-                sys.stdout.write("\riter: {}/{} loss: {:.4f}({:.4f})".format(
-                    i + 1, len(self.val_data_loader), loss_buffer.latest,
-                    loss_buffer.avg))
+                sys.stdout.write(f"\riter: {i + 1}/{len(self.val_data_loader)} "
+                                 f"loss: {loss_buffer.latest:.4f}({loss_buffer.avg:.4f})")
                 if (i == len(self.val_data_loader) - 1): print()
 
-            logger.info("epoch: {}/{}, val loss: {:.4f}, time: {}s".format(
-                self.epoch, self.cfg.data.epochs, loss_buffer.avg,
-                epoch_timer.since_start()))
+            logger.info(f"epoch: {self.epoch}/{self.cfg.data.epochs}, "
+                        f"val loss: {loss_buffer.avg:.4f}, time: {epoch_timer.since_start()}s")
 
             self.write()
 
@@ -287,12 +272,12 @@ if __name__ == "__main__":
     model = PointGroup(cfg)
 
     use_cuda = torch.cuda.is_available()
-    logger.info("cuda available: {}".format(use_cuda))
+    logger.info(f"cuda available: {use_cuda}")
     assert use_cuda
     model = model.cuda()
 
     count_parameters = sum(gorilla.parameter_count(model).values())
-    logger.info("#classifier parameters new: {}".format(count_parameters))
+    logger.info(f"#classifier parameters new: {count_parameters}")
 
     ##### dataset
     # get the real data root

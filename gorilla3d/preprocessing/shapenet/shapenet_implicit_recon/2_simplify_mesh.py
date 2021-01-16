@@ -39,7 +39,7 @@ class Transfer:
 
 
 def local_process(load_path, save_path, script_path):
-    os.system("meshlabserver -i {} -o {} -s {}".format(load_path, save_path, script_path))
+    os.system(f"meshlabserver -i {load_path} -o {save_path} -s {script_path}")
 
 
 if __name__ == "__main__":
@@ -89,17 +89,17 @@ if __name__ == "__main__":
             t.remote_cd(class_name)
             for obj_idx, obj_name in enumerate(obj_list):
                 if not t.remote_exists(obj_name, save_file) or override:
-                    load_path = os.path.join(localpath, "{}_{}_load.ply".format(class_name, obj_name))
-                    save_path = os.path.join(localpath, "{}_{}_save.ply".format(class_name, obj_name))
-                    t.from_remote("{}/{}".format(obj_name, load_file), load_path)
+                    load_path = os.path.join(localpath, f"{class_name}_{obj_name}_load.ply")
+                    save_path = os.path.join(localpath, f"{class_name}_{obj_name}_save.ply")
+                    t.from_remote(f"{obj_name}/{load_file}", load_path)
                     local_process(load_path, save_path, script_path)
-                    t.to_remote(save_path, "{}/{}".format(obj_name, save_file))
+                    t.to_remote(save_path, f"{obj_name}/{save_file}")
                     os.remove(load_path)
                     os.remove(save_path)
-                    print("[{}/{}] processed: {} - {}".format(obj_idx, len(obj_list), class_name, obj_name))
+                    print(f"[{obj_idx}/{len(obj_list)}] processed: {class_name} - {obj_name}")
                     print("============================================================\n")
                 else:
-                    print("Skip process {} - {}".format(class_name, obj_name))
+                    print(f"Skip process {class_name} - {obj_name}")
                     print("============================================================\n")
             t.close()
 
@@ -117,26 +117,18 @@ if __name__ == "__main__":
                 save_path = os.path.join(load_path, class_name, obj_name, save_file)
                 if not os.path.exists(save_path) or override:
                     local_process(load_path, save_path, script_path)
-                    print("[{}/{}] processed: {} - {}".format(obj_idx, len(obj_list), class_name, obj_name))
+                    print(f"[{obj_idx}/{len(obj_list)}] processed: {class_name} - {obj_name}")
                     print("============================================================\n")
                 else:
-                    print("Skip process {} - {}".format(class_name, obj_name))
+                    print(f"Skip process {class_name} - {obj_name}")
                     print("============================================================\n")
 
     else:
         for class_name in args.class_name:
             os.system(
-                "python {} --class_name {} --remote_localpath {} --dst_dataset_dir {} --remote_server {} --remote_username {} --remote_script_path {} --remote_password {}"
-                .format(
-                    __file__,
-                    class_name,
-                    args.remote_localpath,
-                    args.dst_dataset_dir,
-                    args.remote_server,
-                    args.remote_username,
-                    args.remote_script_path,
-                    args.remote_password,
-                ) + (" --override" if args.override else "") + \
-                    (" --remote_process" if args.remote_process else ""))
+                f"python {__file__} --class_name {class_name} --remote_localpath {args.remote_localpath} "
+                f"--dst_dataset_dir {args.dst_dataset_dir} --remote_server {args.remote_server} --remote_username {args.remote_username} "
+                f"--remote_script_path {args.remote_script_path} --remote_password {args.remote_password}"
+                + (" --override" if args.override else "") + (" --remote_process" if args.remote_process else ""))
 
     print("All done.")

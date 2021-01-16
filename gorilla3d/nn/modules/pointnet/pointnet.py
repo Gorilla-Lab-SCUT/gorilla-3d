@@ -76,22 +76,20 @@ class PointNetFeatExt(nn.Module):
         super().__init__()
 
         if not isinstance(in_channels, int):
-            raise TypeError('Argument in_channels expected to be of type int. '
-                            'Got {0} instead.'.format(type(in_channels)))
+            raise TypeError(f"Argument in_channels expected to be of type int. "
+                            f"Got {type(in_channels)} instead.")
         if not isinstance(feat_size, int):
-            raise TypeError('Argument feat_size expected to be of type int. '
-                            'Got {0} instead.'.format(type(feat_size)))
-        if not hasattr(layer_dims, '__iter__'):
-            raise TypeError('Argument layer_dims is not iterable.')
+            raise TypeError(f"Argument feat_size expected to be of type int. "
+                            f"Got {type(feat_size)} instead.")
+        if not hasattr(layer_dims, "__iter__"):
+            raise TypeError("Argument layer_dims is not iterable.")
         for idx, layer_dim in enumerate(layer_dims):
             if not isinstance(layer_dim, int):
-                raise TypeError('Elements of layer_dims must be of type int. '
-                                'Found type {0} at index {1}.'.format(
-                                    type(layer_dim), idx))
+                raise TypeError(f"Elements of layer_dims must be of type int. "
+                                f"Found type {type(layer_dim)} at index {idx}.")
         if not isinstance(global_feat, bool):
-            raise TypeError('Argument global_feat expected to be of type '
-                            'bool. Got {0} instead.'.format(
-                                type(global_feat)))
+            raise TypeError(f"Argument global_feat expected to be of type "
+                            f"bool. Got {type(global_feat)} instead.")
 
         # Store feat_size as a class attribute
         self.feat_size = feat_size

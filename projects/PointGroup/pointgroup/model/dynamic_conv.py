@@ -59,7 +59,7 @@ class DynamicConv(nn.Module):
 
         if self.with_norm:
             for i in range(n_hid - 1):
-                setattr(self, "norm{}".format(i), nn.LayerNorm(hid_channel))
+                setattr(self, f"norm{i}", nn.LayerNorm(hid_channel))
 
         self.out_layer = nn.Linear(hid_channel, out_channel)
         
@@ -131,7 +131,7 @@ class DynamicConv(nn.Module):
                     batch_features = self.activation(batch_features) # [num_batch_prop, num_batch, out_c]
                     # norm
                     if self.with_norm:
-                        batch_features = getattr(self, "norm{}".format(i + 1))(batch_features) # [num_batch_prop, num_batch, out_c]
+                        batch_features = getattr(self, f"norm{i + 1}")(batch_features) # [num_batch_prop, num_batch, out_c]
             batch_features_list.append(batch_features)
 
         return batch_features_list, batch_proposals_ids

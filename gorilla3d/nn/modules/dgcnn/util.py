@@ -73,7 +73,7 @@ class DGCNNAggregation(nn.Module):
                 #       neighbors' features so the in_channels will be twice of itself
                 if idx == 0:
                     in_channels *= 2
-                setattr(self, "conv{}".format(conv_bias),
+                setattr(self, f"conv{conv_bias}",
                         nn.Sequential(
                             nn.Conv2d(in_channels, out_channels, kernel_size=1, bias=False),
                             nn.BatchNorm2d(out_channels),
@@ -91,7 +91,7 @@ class DGCNNAggregation(nn.Module):
             # conv2d forward
             num_conv = len(node_list) - 1
             for conv_idx in range(num_conv):
-                x = getattr(self, "conv{}".format(conv_bias))(x)
+                x = getattr(self, f"conv{conv_bias}")(x)
                 conv_bias += 1
             # maxpooling
             x = x.max(dim=-1, keepdim=False)[0]
@@ -105,11 +105,11 @@ class DGCNNAggregation(nn.Module):
         num_aggre = len(self.nodes) - 1
         for idx, node_list in enumerate(self.nodes):
             # show get_graph_feature
-            content += "  get_graph_feature(k={})\n".format(self.k)
+            content += f"  get_graph_feature(k={self.k})\n"
             num_conv = len(node_list) - 1
             for _ in range(num_conv):
                 content += "  "
-                content += str(self._modules["conv{}".format(bias)]).replace("\n", "\n    ")
+                content += str(self._modules[f"conv{bias}"]).replace("\n", "\n    ")
                 bias += 1
             # show maxpooling
             content += "\n  MaxPooling()\n"
