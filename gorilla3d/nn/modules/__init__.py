@@ -11,7 +11,9 @@ from .votenet import (VoteHead, VoteModule)
 from .sparse import (single_conv, double_conv, triple_conv, down_conv, up_conv,
                      residual_block, ResidualBlock, VGGBlock, UBlock, UBlockBottom,
                      # transformer
-                     TransformerSparse3D, PositionEmbeddingSine3d)
+                     TransformerSparse3D, PositionEmbeddingSine3d,
+                     # attention
+                     ConcatAttention)
 
 from .dgcnn import (TransformNet, DGCNNAggregation, get_graph_feature)
 
