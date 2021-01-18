@@ -13,7 +13,7 @@ from .modules import (
     # sparse conv
     single_conv, double_conv, triple_conv, down_conv, up_conv,
     residual_block, ResidualBlock, VGGBlock, UBlock, UBlockBottom,
-    TransformerSparse3D, PositionEmbeddingSine3d,
+    TransformerSparse3D, PositionEmbeddingSine3d, ConcatAttention,
     # dgcnn
     TransformNet, DGCNNAggregation)
 
