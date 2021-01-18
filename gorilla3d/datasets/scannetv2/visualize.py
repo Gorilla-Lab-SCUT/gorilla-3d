@@ -104,8 +104,12 @@ def visualize_instance_mask(clusters: np.ndarray,
 # TODO: add the semantic visualization
 
 
-def visualize_pts_rgb(rgb, room_name):
-    mesh_file = osp.join("..", "..", "data", "scannetv2", "scans_test", room_name, room_name + "_vh_clean_2.ply")
+def visualize_pts_rgb(rgb, room_name, data_root, output_dir, mode="test"):
+    if "test" in mode:
+        split = "scans_test"
+    else:
+        split = "scans"
+    mesh_file = osp.join(data_root, split, room_name, room_name + "_vh_clean_2.ply")
     mesh = o3d.io.read_triangle_mesh(mesh_file)
     pred_mesh = deepcopy(mesh)
     pred_mesh.vertex_colors = o3d.utility.Vector3dVector(rgb / 255)
@@ -114,7 +118,7 @@ def visualize_pts_rgb(rgb, room_name):
     points[:, 1] += (points[:, 1].max() + 0.5)
     pred_mesh.vertices = o3d.utility.Vector3dVector(points)
     mesh += pred_mesh
-    o3d.io.write_triangle_mesh(osp.join(".", "vis", room_name+".ply"), mesh)
+    o3d.io.write_triangle_mesh(osp.join(output_dir, room_name+".ply"), mesh)
 
 
 def get_coords_color(opt):
