@@ -7,14 +7,13 @@ from abc import ABCMeta, abstractmethod
 
 import gorilla
 import numpy as np
-from numpy.lib.financial import ipmt
 import torch
 from torch.utils.data import (Dataset, DataLoader)
 
-from ...utils import elastic, pc_aug
+from ...utils import elastic
 
 try:
-    from pointgroup import pointgroup_ops
+    import pointgroup_ops
 except:
     pass
 
@@ -60,12 +59,12 @@ class ScanNetV2Inst(Dataset, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def merge(self):
+    def collate_fn(self):
         pass
     
     @property
     def dataloader(self, shuffle=True):
-        return DataLoader(self, batch_size=self.batch_size, collate_fn=self.merge, num_workers=self.workers,
+        return DataLoader(self, batch_size=self.batch_size, collate_fn=self.collate_fn, num_workers=self.workers,
                           shuffle=shuffle, sampler=None, drop_last=True, pin_memory=True)
 
 
@@ -199,7 +198,7 @@ class ScanNetV2InstTrainVal(ScanNetV2Inst):
 
         return scene, loc, loc_offset, loc_float, feat, label, instance_label, overseg, inst_num, inst_info, inst_pointnum
 
-    def merge(self, batch):
+    def collate_fn(self, batch):
         locs = []
         loc_offset_list = []
         locs_float = []
@@ -258,7 +257,8 @@ class ScanNetV2InstTrainVal(ScanNetV2Inst):
         spatial_shape = np.clip((locs.max(0)[0][1:] + 1).numpy(), self.full_scale[0], None) # long [3]
 
         ### voxelize
-        voxel_locs, p2v_map, v2p_map = pointgroup_ops.voxelization_idx(locs, self.batch_size, self.mode)
+        batch_size = len(batch)
+        voxel_locs, p2v_map, v2p_map = pointgroup_ops.voxelization_idx(locs, batch_size, 4)
 
         return {"locs": locs, "locs_offset": locs_offset, "voxel_locs": voxel_locs,
                 "scene_list": scene_list, "p2v_map": p2v_map, "v2p_map": v2p_map,
@@ -325,7 +325,7 @@ class ScanNetV2InstTest(ScanNetV2Inst):
         else:
             return scene, loc, loc_offset, loc_float, feat, overseg
 
-    def merge(self, batch):
+    def collate_fn(self, batch):
         locs = []
         loc_offset_list = []
         locs_float = []
@@ -388,7 +388,8 @@ class ScanNetV2InstTest(ScanNetV2Inst):
         spatial_shape = np.clip((locs.max(0)[0][1:] + 1).numpy(), self.full_scale[0], None) # long [3]
 
         ### voxelize
-        voxel_locs, p2v_map, v2p_map = pointgroup_ops.voxelization_idx(locs, self.batch_size, self.mode)
+        batch_size = len(batch)
+        voxel_locs, p2v_map, v2p_map = pointgroup_ops.voxelization_idx(locs, batch_size, 4)
 
         if "val" in self.task or "train" in self.task:
             return {"locs": locs, "locs_offset": locs_offset, "voxel_locs": voxel_locs,
@@ -407,6 +408,6 @@ class ScanNetV2InstTest(ScanNetV2Inst):
     
     @property
     def dataloader(self, shuffle=False):
-        return DataLoader(self, batch_size=self.batch_size, collate_fn=self.merge, num_workers=self.workers,
+        return DataLoader(self, batch_size=self.batch_size, collate_fn=self.collate_fn, num_workers=self.workers,
                           shuffle=shuffle, sampler=None, drop_last=True, pin_memory=True)
 

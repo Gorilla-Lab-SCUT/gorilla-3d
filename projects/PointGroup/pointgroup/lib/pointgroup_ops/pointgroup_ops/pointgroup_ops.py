@@ -6,7 +6,8 @@ Written by Li Jiang
 import torch
 from torch.autograd import Function
 
-import PG_OP
+# import pointgroup_ops_ext
+from . import pointgroup_ops_ext
 
 class Voxelization_Idx(Function):
     @staticmethod
@@ -28,7 +29,7 @@ class Voxelization_Idx(Function):
         input_map = torch.IntTensor(N).zero_()
         output_map = input_map.new()
 
-        PG_OP.voxelize_idx(coords, output_coords, input_map, output_map, batchsize, mode)
+        pointgroup_ops_ext.voxelize_idx(coords, output_coords, input_map, output_map, batchsize, mode)
         return output_coords, input_map, output_map
 
 
@@ -58,7 +59,7 @@ class Voxelization(Function):
 
         ctx.for_backwards = (map_rule, mode, maxActive, N)
 
-        PG_OP.voxelize_fp(feats, output_feats, map_rule, mode, M, maxActive, C)
+        pointgroup_ops_ext.voxelize_fp(feats, output_feats, map_rule, mode, M, maxActive, C)
         return output_feats
 
 
@@ -69,7 +70,7 @@ class Voxelization(Function):
 
         d_feats = torch.cuda.FloatTensor(N, C).zero_()
 
-        PG_OP.voxelize_bp(d_output_feats.contiguous(), d_feats, map_rule, mode, M, maxActive, C)
+        pointgroup_ops_ext.voxelize_bp(d_output_feats.contiguous(), d_feats, map_rule, mode, M, maxActive, C)
         return d_feats, None, None
 
 voxelization = Voxelization.apply
@@ -94,7 +95,7 @@ class PointRecover(Function):
 
         ctx.for_backwards = (map_rule, maxActive, M)
 
-        PG_OP.point_recover_fp(feats, output_feats, map_rule, M, maxActive, C)
+        pointgroup_ops_ext.point_recover_fp(feats, output_feats, map_rule, M, maxActive, C)
 
         return output_feats
 
@@ -105,7 +106,7 @@ class PointRecover(Function):
 
         d_feats = torch.cuda.FloatTensor(M, C).zero_()
 
-        PG_OP.point_recover_bp(d_output_feats.contiguous(), d_feats, map_rule, M, maxActive, C)
+        pointgroup_ops_ext.point_recover_bp(d_output_feats.contiguous(), d_feats, map_rule, M, maxActive, C)
 
         return d_feats, None, None
 
@@ -135,7 +136,7 @@ class BallQueryBatchP(Function):
         while True:
             idx = torch.cuda.IntTensor(n * meanActive).zero_()
             start_len = torch.cuda.IntTensor(n, 2).zero_()
-            nActive = PG_OP.ballquery_batch_p(coords, batch_idxs, batch_offsets, idx, start_len, n, meanActive, radius)
+            nActive = pointgroup_ops_ext.ballquery_batch_p(coords, batch_idxs, batch_offsets, idx, start_len, n, meanActive, radius)
             if nActive <= n * meanActive:
                 break
             meanActive = int(nActive // n + 1)
@@ -171,7 +172,7 @@ class BFSCluster(Function):
         cluster_idxs = semantic_label.new()
         cluster_offsets = semantic_label.new()
 
-        PG_OP.bfs_cluster(semantic_label, ball_query_idxs, start_len, cluster_idxs, cluster_offsets, N, threshold)
+        pointgroup_ops_ext.bfs_cluster(semantic_label, ball_query_idxs, start_len, cluster_idxs, cluster_offsets, N, threshold)
 
         return cluster_idxs, cluster_offsets
 
@@ -200,7 +201,7 @@ class RoiPool(Function):
         output_feats = torch.cuda.FloatTensor(nProposal, C).zero_()
         output_maxidx = torch.cuda.IntTensor(nProposal, C).zero_()
 
-        PG_OP.roipool_fp(feats, proposals_offset, output_feats, output_maxidx, nProposal, C)
+        pointgroup_ops_ext.roipool_fp(feats, proposals_offset, output_feats, output_maxidx, nProposal, C)
 
         ctx.for_backwards = (output_maxidx, proposals_offset, sumNPoint)
 
@@ -214,7 +215,7 @@ class RoiPool(Function):
 
         d_feats = torch.cuda.FloatTensor(sumNPoint, C).zero_()
 
-        PG_OP.roipool_bp(d_feats, proposals_offset, output_maxidx, d_output_feats.contiguous(), nProposal, C)
+        pointgroup_ops_ext.roipool_bp(d_feats, proposals_offset, output_maxidx, d_output_feats.contiguous(), nProposal, C)
 
         return d_feats, None
 
@@ -242,7 +243,7 @@ class GetIoU(Function):
 
         proposals_iou = torch.cuda.FloatTensor(nProposal, nInstance).zero_()
 
-        PG_OP.get_iou(proposals_idx, proposals_offset, instance_labels, instance_pointnum, proposals_iou, nInstance, nProposal)
+        pointgroup_ops_ext.get_iou(proposals_idx, proposals_offset, instance_labels, instance_pointnum, proposals_iou, nInstance, nProposal)
 
         return proposals_iou
 
@@ -270,7 +271,7 @@ class SecMean(Function):
 
         out = torch.cuda.FloatTensor(nProposal, C).zero_()
 
-        PG_OP.sec_mean(inp, offsets, out, nProposal, C)
+        pointgroup_ops_ext.sec_mean(inp, offsets, out, nProposal, C)
 
         return out
 
@@ -298,7 +299,7 @@ class SecMin(Function):
 
         out = torch.cuda.FloatTensor(nProposal, C).zero_()
 
-        PG_OP.sec_min(inp, offsets, out, nProposal, C)
+        pointgroup_ops_ext.sec_min(inp, offsets, out, nProposal, C)
 
         return out
 
@@ -326,7 +327,7 @@ class SecMax(Function):
 
         out = torch.cuda.FloatTensor(nProposal, C).zero_()
 
-        PG_OP.sec_max(inp, offsets, out, nProposal, C)
+        pointgroup_ops_ext.sec_max(inp, offsets, out, nProposal, C)
 
         return out
 
