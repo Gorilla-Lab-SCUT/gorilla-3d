@@ -61,8 +61,7 @@ class ScanNetV2Inst(Dataset, metaclass=ABCMeta):
     @abstractmethod
     def collate_fn(self):
         pass
-    
-    @property
+
     def dataloader(self, shuffle=True):
         return DataLoader(self, batch_size=self.batch_size, collate_fn=self.collate_fn, num_workers=self.workers,
                           shuffle=shuffle, sampler=None, drop_last=True, pin_memory=True)
