@@ -11,11 +11,8 @@ class VoteModule(nn.Module):
     Args:
         in_channels (int): Number of channels of seed point features.
         vote_per_seed (int): Number of votes generated from each seed point.
-        gt_per_seed (int): Number of ground truth votes generated
-            from each seed point.
         conv_channels (tuple[int]): Out channels of vote
             generating convolution.
-        D (int): Dimension of convolution. Defualt: 1.
         norm_cfg (dict): Config of normalization.
             Default: dict(name="BN1d").
         norm_feats (bool): Whether to normalize features.
@@ -24,15 +21,12 @@ class VoteModule(nn.Module):
     def __init__(self,
                  in_channels,
                  vote_per_seed=1,
-                 gt_per_seed=3,
                  conv_channels=(16, 16),
-                 D=1,
                  norm_cfg=dict(name="BN1d"),
                  norm_feats=True):
         super().__init__()
         self.in_channels = in_channels
         self.vote_per_seed = vote_per_seed
-        self.gt_per_seed = gt_per_seed
         self.norm_feats = norm_feats
 
         prev_channels = in_channels
@@ -43,7 +37,7 @@ class VoteModule(nn.Module):
                             conv_channels[k],
                             1,
                             padding=0,
-                            D=D,
+                            D=1,
                             norm_cfg=norm_cfg))
             prev_channels = conv_channels[k]
         self.vote_conv = nn.Sequential(*vote_conv_list)
@@ -95,4 +89,5 @@ class VoteModule(nn.Module):
         if self.norm_feats:
             features_norm = torch.norm(vote_feats, p=2, dim=1)
             vote_feats = vote_feats.div(features_norm.unsqueeze(1))
+            
         return vote_points, vote_feats

@@ -405,8 +405,7 @@ class ScanNetV2InstTest(ScanNetV2Inst):
                     "offsets": batch_offsets, "spatial_shape": spatial_shape,
                     "overseg": overseg}
 
-    
-    @property
+
     def dataloader(self, shuffle=False):
         return DataLoader(self, batch_size=self.batch_size, collate_fn=self.collate_fn, num_workers=self.workers,
                           shuffle=shuffle, sampler=None, drop_last=True, pin_memory=True)

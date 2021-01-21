@@ -15,7 +15,9 @@ from .modules import (
     residual_block, ResidualBlock, VGGBlock, UBlock, UBlockBottom,
     TransformerSparse3D, PositionEmbeddingSine3d, ConcatAttention,
     # dgcnn
-    TransformNet, DGCNNAggregation)
+    TransformNet, DGCNNAggregation,
+    # vote module
+    VoteHead, VoteModule,)
 
 
 __all__ = [k for k in globals().keys() if not k.startswith("_")]
