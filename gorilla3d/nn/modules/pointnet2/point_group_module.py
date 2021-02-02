@@ -1,7 +1,7 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
 import torch
 import torch.nn as nn
-from gorilla3d.ops import grouping_operation
+from gorilla3d.ops import grouping_operation, ball_query
 
 
 class QueryAndGroup(nn.Module):

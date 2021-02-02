@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from torch.utils.data import (Dataset, DataLoader)
 
-from ...utils import elastic
+from ...utils import elastic, pc_aug
 
 try:
     import pointgroup_ops
@@ -65,18 +65,6 @@ class ScanNetV2Inst(Dataset, metaclass=ABCMeta):
     def dataloader(self, shuffle=True):
         return DataLoader(self, batch_size=self.batch_size, collate_fn=self.collate_fn, num_workers=self.workers,
                           shuffle=shuffle, sampler=None, drop_last=True, pin_memory=True)
-
-
-    def data_aug(self, xyz, jitter=False, flip=False, rot=False):
-        m = np.eye(3)
-        if jitter:
-            m += np.random.randn(3, 3) * 0.1
-        if flip:
-            m[0][0] *= np.random.randint(0, 2) * 2 - 1  # flip x randomly
-        if rot:
-            theta = np.random.rand() * 2 * math.pi
-            m = np.matmul(m, [[math.cos(theta), math.sin(theta), 0], [-math.sin(theta), math.cos(theta), 0], [0, 0, 1]])  # rotation
-        return np.matmul(xyz, m)
 
     def crop(self, xyz):
         """
@@ -151,9 +139,9 @@ class ScanNetV2InstTrainVal(ScanNetV2Inst):
 
         ### jitter / flip x / rotation
         if self.split=="train":
-            xyz_middle = self.data_aug(xyz_origin, True, True, True)
+            xyz_middle = pc_aug(xyz_origin, True, True, True)
         else:
-            xyz_middle = self.data_aug(xyz_origin, False, False, False)
+            xyz_middle = pc_aug(xyz_origin, False, False, False)
 
         ### scale
         xyz = xyz_middle * self.scale
@@ -276,7 +264,7 @@ class ScanNetV2InstTest(ScanNetV2Inst):
         if "val" in self.task or "train" in self.task:
             xyz_origin, rgb, faces, label, instance_label, coords_shift, scene = self.files[index]
             sub_dir = "scans"
-        elif self.task == "test":
+        elif "test" in self.task:
             xyz_origin, rgb, faces, scene = self.files[index]
             sub_dir = "scans_test"
 
@@ -290,8 +278,8 @@ class ScanNetV2InstTest(ScanNetV2Inst):
         overseg_edges = overseg[edges]
         overseg_edges = overseg_edges[overseg_edges[:, 0] != overseg_edges[:, 1]]
 
-        xyz_middle = self.data_aug(xyz_origin, False, False, False)
-        # xyz_middle = self.data_aug(xyz_origin, False, True, True)
+        xyz_middle = pc_aug(xyz_origin, False, False, False)
+        # xyz_middle = pc_aug(xyz_origin, False, True, True)
 
         ### scale
         xyz = xyz_middle * self.scale

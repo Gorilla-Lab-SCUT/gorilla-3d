@@ -60,29 +60,17 @@ def pc_rotator(xyz):
     xyz = xyz @ rot_mat.T
     return xyz
 
-
+# modify from PointGroup
 def pc_aug(xyz, jitter=False, flip=False, rot=False):
-    """point cloud augmentation(from point group)
-
-    Args:
-        x (np.ndarray): input point cloud
-        jitter (bool, optional): [description]. Defaults to False.
-        flip (bool, optional): [description]. Defaults to False.
-        rot (bool, optional): [description]. Defaults to False.
-
-    Returns:
-        [type]: [description]
-    """
+    m = np.eye(3)
     if jitter:
-        xyz = pc_jitter(xyz)
+        m += np.random.randn(3, 3) * 0.1
     if flip:
-        flag = np.random.randint(0, 2)
-        if flag:
-            xyz = pc_flipper(xyz)
+        m[0][0] *= np.random.randint(0, 2) * 2 - 1  # flip x randomly
     if rot:
-        xyz = pc_rotator(xyz)
-
-    return xyz
+        theta = np.random.rand() * 2 * math.pi
+        m = np.matmul(m, [[math.cos(theta), math.sin(theta), 0], [-math.sin(theta), math.cos(theta), 0], [0, 0, 1]])  # rotation
+    return np.matmul(xyz, m)
 
 
 def square_distance(src, dst=None):
