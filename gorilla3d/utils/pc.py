@@ -127,3 +127,35 @@ def save_pc(points: Union[np.ndarray, torch.Tensor],
         el = PlyElement.describe(vc, "vertex")
         PlyData([el]).write(filename)
 
+
+def save_lines(coords: np.ndarray,
+               vector: np.ndarray,
+               filename: str="./temp.ply") -> None:
+    r"""
+    draw line
+            (vector: ->)
+        o----------------->
+    (coords: o)
+
+    Args:
+        coords (np.ndarray, [N, 3]): coordinates of points
+        vector (np.ndarray, [N, 3]): [description]
+        filename (str, optional): [description]. Defaults to "./temp.ply".
+    """
+    assert coords.shape[0] == vector.shape[0]
+    assert coords.shape[1] == vector.shape[1] == 3
+    N = coords.shape[0]
+    try:
+        import open3d as o3d
+        shifted_coords = coords + vector # [N, 3]
+        points = np.concatenate([coords, shifted_coords]) # [2N, 3]
+        lines = np.array([list(range(N)), list(range(N, N*2))]).T # [N, 2]
+        line_set = o3d.geometry.LineSet(
+            points=o3d.utility.Vector3dVector(points),
+            lines=o3d.utility.Vector2iVector(lines),
+        )
+        o3d.io.write_line_set(filename, line_set)
+    except:
+        raise NotImplementedError("hand write version is not implemented, "
+                                  "please use open3d version")
+

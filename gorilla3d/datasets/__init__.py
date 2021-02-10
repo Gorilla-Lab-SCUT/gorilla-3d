@@ -2,7 +2,7 @@
 from .utils import (elastic, pc_aug, pc_jitter, pc_flipper, pc_rotator)
 from .scannetv2 import (ScanNetV2Inst, ScanNetV2InstTrainVal, ScanNetV2InstTest,
                         visualize_instance_mask)
-# from .s3dis import S3DISInst
+from .s3dis import S3DISInst
 from .shapenet import ShapeNetPartNormal, ShapenetImplicitRecon
 
 import torch

@@ -13,6 +13,31 @@ import numpy as np
 
 import gorilla
 
+
+G_LABEL_NAMES = [
+    "unannotated",
+    "wall",
+    "floor",
+    "chair",
+    "table",
+    "desk",
+    "bed",
+    "bookshelf",
+    "sofa",
+    "sink",
+    "bathtub",
+    "toilet",
+    "curtain",
+    "counter",
+    "door",
+    "window",
+    "shower curtain",
+    "refridgerator",
+    "picture",
+    "cabinet",
+    "otherfurniture"
+]
+
 def f_test(scene):
     fn = f"scans_test/{scene}/{scene}_vh_clean_2.ply"
     print(fn)
@@ -84,8 +109,19 @@ def f(scene):
     print("Saving to " + osp.join(split, scene + "_inst_nostuff.pth"))
 
 
+def get_parser():
+    parser = argparse.ArgumentParser(description="ScanNet data prepare")
+    parser.add_argument("--data_split",
+                        default="test",
+                        help="data split (train / val / test)")
+
+    args_cfg = parser.parse_args()
+
+    return args_cfg
+
+
 if __name__ == "__main__":
-    G_LABEL_NAMES = ["unannotated", "wall", "floor", "chair", "table", "desk", "bed", "bookshelf", "sofa", "sink", "bathtub", "toilet", "curtain", "counter", "door", "window", "shower curtain", "refridgerator", "picture", "cabinet", "otherfurniture"]
+    args = get_parser()
 
     meta_data_dir = osp.join(osp.dirname(__file__), "meta_data")
 
@@ -117,18 +153,15 @@ if __name__ == "__main__":
     for i, x in enumerate([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39]):
         remapper[x] = i
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--data_split", help="data split (train / val / test)", default="test")
-    opt = parser.parse_args()
-
-    split = opt.data_split
+    global split
+    split = args.data_split
     os.makedirs(split, exist_ok=True)
     print(f"data split: {split}")
     scene_list = gorilla.list_from_file(osp.join(meta_data_dir, f"scannetv2_{split}.txt"))
 
     files = sorted(list(map(lambda x: f"scans/{x}/{x}_vh_clean_2.ply", scene_list)))
 
-    if opt.data_split != "test":
+    if split != "test":
         files2 = sorted(list(map(lambda x: f"scans/{x}/{x}_vh_clean_2.labels.ply", scene_list)))
         files3 = sorted(list(map(lambda x: f"scans/{x}/{x}_vh_clean_2.0.010000.segs.json", scene_list)))
         files4 = sorted(list(map(lambda x: f"scans/{x}/{x}.aggregation.json", scene_list)))
@@ -137,7 +170,7 @@ if __name__ == "__main__":
         assert len(files) == len(files4), f"{len(files)} {len(files4)}"
 
     p = mp.Pool(processes=mp.cpu_count())
-    if opt.data_split == "test":
+    if split == "test":
         p.map(f_test, scene_list)
     else:
         p.map(f, scene_list)
