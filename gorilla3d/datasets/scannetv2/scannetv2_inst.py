@@ -130,7 +130,7 @@ class ScanNetV2InstTrainVal(ScanNetV2Inst):
         self.split = split
 
     def getitem(self, index):
-        xyz_origin, rgb, faces, label, instance_label, coords_shift, scene = self.files[index]
+        xyz_origin, rgb, faces, semantic_label, instance_label, coords_shift, scene = self.files[index]
 
         # read overseg
         with open(osp.join(self.data_root, self.dataset, "scans", scene, scene+"_vh_clean_2.0.010000.segs.json"), "r") as f:
@@ -161,7 +161,7 @@ class ScanNetV2InstTrainVal(ScanNetV2Inst):
         xyz_middle = xyz_middle[valid_idxs]
         xyz = xyz[valid_idxs]
         rgb = rgb[valid_idxs]
-        label = label[valid_idxs]
+        semantic_label = semantic_label[valid_idxs]
         overseg = overseg[valid_idxs]
         _, overseg = np.unique(overseg, return_inverse=True)
         instance_label = self.get_cropped_inst_label(instance_label, valid_idxs)
@@ -177,20 +177,20 @@ class ScanNetV2InstTrainVal(ScanNetV2Inst):
         feat = torch.from_numpy(rgb)
         if self.mode == "train":
             feat += torch.randn(3) * 0.1
-        label = torch.from_numpy(label)
+        semantic_label = torch.from_numpy(semantic_label)
         instance_label = torch.from_numpy(instance_label)
         overseg = torch.from_numpy(overseg)
 
         inst_info = torch.from_numpy(inst_info)
 
-        return scene, loc, loc_offset, loc_float, feat, label, instance_label, overseg, inst_num, inst_info, inst_pointnum
+        return scene, loc, loc_offset, loc_float, feat, semantic_label, instance_label, overseg, inst_num, inst_info, inst_pointnum
 
     def collate_fn(self, batch):
         locs = []
         loc_offset_list = []
         locs_float = []
         feats = []
-        labels = []
+        semantic_labels = []
         instance_labels = []
 
         instance_infos = []  # [N, 9]
@@ -203,7 +203,7 @@ class ScanNetV2InstTrainVal(ScanNetV2Inst):
 
         total_inst_num = 0
         for i, data in enumerate(batch):
-            scene, loc, loc_offset, loc_float, feat, label, instance_label, overseg, inst_num, inst_info, inst_pointnum = data
+            scene, loc, loc_offset, loc_float, feat, semantic_label, instance_label, overseg, inst_num, inst_info, inst_pointnum = data
             
             scene_list.append(scene)
             overseg += overseg_bias
@@ -220,7 +220,7 @@ class ScanNetV2InstTrainVal(ScanNetV2Inst):
             loc_offset_list.append(loc_offset)
             locs_float.append(loc_float)
             feats.append(feat)
-            labels.append(label)
+            semantic_labels.append(semantic_label)
             instance_labels.append(instance_label)
             overseg_list.append(overseg)
 
@@ -234,7 +234,7 @@ class ScanNetV2InstTrainVal(ScanNetV2Inst):
         locs_float = torch.cat(locs_float, 0).to(torch.float32)  # float [N, 3]
         overseg = torch.cat(overseg_list, 0).long()               # long[N]
         feats = torch.cat(feats, 0)                              # float [N, C]
-        labels = torch.cat(labels, 0).long()                     # long [N]
+        semantic_labels = torch.cat(semantic_labels, 0).long()                     # long [N]
         instance_labels = torch.cat(instance_labels, 0).long()   # long [N]
         locs_offset = torch.stack(loc_offset_list)               # long [B, 3]
 
@@ -249,7 +249,8 @@ class ScanNetV2InstTrainVal(ScanNetV2Inst):
 
         return {"locs": locs, "locs_offset": locs_offset, "voxel_locs": voxel_locs,
                 "scene_list": scene_list, "p2v_map": p2v_map, "v2p_map": v2p_map,
-                "locs_float": locs_float, "feats": feats, "labels": labels, "instance_labels": instance_labels,
+                "locs_float": locs_float, "feats": feats,
+                "semantic_labels": semantic_labels, "instance_labels": instance_labels,
                 "instance_info": instance_infos, "instance_pointnum": instance_pointnum,
                 "offsets": batch_offsets, "spatial_shape": spatial_shape, "overseg": overseg}
 
@@ -262,7 +263,7 @@ class ScanNetV2InstTest(ScanNetV2Inst):
 
     def getitem(self, index):
         if "val" in self.task or "train" in self.task:
-            xyz_origin, rgb, faces, label, instance_label, coords_shift, scene = self.files[index]
+            xyz_origin, rgb, faces, semantic_label, instance_label, coords_shift, scene = self.files[index]
             sub_dir = "scans"
         elif "test" in self.task:
             xyz_origin, rgb, faces, scene = self.files[index]
@@ -303,12 +304,12 @@ class ScanNetV2InstTest(ScanNetV2Inst):
         overseg = torch.from_numpy(overseg)
         
         if "val" in self.task or "train" in self.task:
-            label = torch.from_numpy(label)
+            semantic_label = torch.from_numpy(semantic_label)
             instance_label = torch.from_numpy(instance_label)
             inst_info = torch.from_numpy(inst_info)
 
         if "val" in self.task or "train" in self.task:
-            return scene, loc, loc_offset, loc_float, feat, label, instance_label, overseg, inst_num, inst_info, inst_pointnum
+            return scene, loc, loc_offset, loc_float, feat, semantic_label, instance_label, overseg, inst_num, inst_info, inst_pointnum
         else:
             return scene, loc, loc_offset, loc_float, feat, overseg
 
@@ -325,14 +326,14 @@ class ScanNetV2InstTest(ScanNetV2Inst):
 
         # with gt
         total_inst_num = 0
-        labels = []
+        semantic_labels = []
         instance_labels = []
         instance_infos = []  # [N, 9]
         instance_pointnum = []  # [total_num_inst], int
 
         for i, data in enumerate(batch):
             if "val" in self.task or "train" in self.task:
-                scene, loc, loc_offset, loc_float, feat, label, instance_label, overseg, inst_num, inst_info, inst_pointnum = data
+                scene, loc, loc_offset, loc_float, feat, semantic_label, instance_label, overseg, inst_num, inst_info, inst_pointnum = data
             else:
                 scene, loc, loc_offset, loc_float, feat, overseg = data
             
@@ -352,7 +353,7 @@ class ScanNetV2InstTest(ScanNetV2Inst):
             if "val" in self.task or "train" in self.task:
                 instance_label[np.where(instance_label != -100)] += total_inst_num
                 total_inst_num += inst_num
-                labels.append(label)
+                semantic_labels.append(semantic_label)
                 instance_labels.append(instance_label)
                 instance_infos.append(inst_info)
                 instance_pointnum.extend(inst_pointnum)
@@ -367,7 +368,7 @@ class ScanNetV2InstTest(ScanNetV2Inst):
         locs_offset = torch.stack(loc_offset_list)               # long [B, 3]
 
         if "val" in self.task or "train" in self.task:
-            labels = torch.cat(labels, 0).long()                     # long [N]
+            semantic_labels = torch.cat(semantic_labels, 0).long()                     # long [N]
             instance_labels = torch.cat(instance_labels, 0).long()   # long [N]
             instance_infos = torch.cat(instance_infos, 0).to(torch.float32)       # float [N, 9] (meanxyz, minxyz, maxxyz)
             instance_pointnum = torch.tensor(instance_pointnum, dtype=torch.int)  # int [total_num_inst]
@@ -382,7 +383,8 @@ class ScanNetV2InstTest(ScanNetV2Inst):
             return {"locs": locs, "locs_offset": locs_offset, "voxel_locs": voxel_locs,
                     "scene_list": scene_list, "p2v_map": p2v_map, "v2p_map": v2p_map,
                     "locs_float": locs_float, "feats": feats,
-                    "instance_labels": instance_labels, "instance_info": instance_infos, "instance_pointnum": instance_pointnum,
+                    "semantic_labels": semantic_labels, "instance_labels": instance_labels,
+                    "instance_info": instance_infos, "instance_pointnum": instance_pointnum,
                     "offsets": batch_offsets, "spatial_shape": spatial_shape,
                     "overseg": overseg}
         else:

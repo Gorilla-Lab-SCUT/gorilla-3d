@@ -33,6 +33,7 @@ class S3DISInst(Dataset):
         self.max_npoint = cfg.data.max_npoint
         self.mode = cfg.data.mode
         self.workers = cfg.data.workers
+        self.ignore_label = cfg.data.ignore_label
         # self.workers = 0 # for debug merge
 
         # special paramters
@@ -52,43 +53,62 @@ class S3DISInst(Dataset):
         return len(self.files)
 
     def __getitem__(self, index):
-        xyz_origin, rgb, label, instance_label, room_label, scene = self.files[index]
-        
-        rgb = (rgb.astype(np.float32) / 127.5) - 1.
-        
-        if self.with_overseg:
-            overseg_file = osp.join(self.data_root, self.dataset, "overseg", f"{scene}.npy")
-            overseg = np.load(overseg_file)
+        # get the scene which is not empty
+        flag = True
+        while flag:
+            xyz_origin, rgb, semantic_label, instance_label, room_label, scene = self.files[index]
 
-        ### jitter / flip x / rotation
-        if self.split=="train":
-            xyz_middle = pc_aug(xyz_origin, True, True, True)
-        else:
-            xyz_middle = pc_aug(xyz_origin, False, False, False)
+            rgb = (rgb.astype(np.float32) / 127.5) - 1.
+            
+            if self.with_overseg:
+                overseg_file = osp.join(self.data_root, self.dataset, "overseg", f"{scene}.npy")
+                overseg = np.load(overseg_file)
 
-        ### scale
-        xyz = xyz_middle * self.scale
+            ### jitter / flip x / rotation
+            if "train" in self.split:
+                xyz_middle = pc_aug(xyz_origin, True, True, True)
+            else:
+                xyz_middle = pc_aug(xyz_origin, False, False, False)
 
-        ### elastic
-        if self.with_elastic:
-            xyz = elastic(xyz, 6 * self.scale // 50, 40 * self.scale / 50)
-            xyz = elastic(xyz, 20 * self.scale // 50, 160 * self.scale / 50)
+            ### scale
+            xyz = xyz_middle * self.scale
 
-        ### offset
-        xyz_offset = xyz.min(0)
-        xyz -= xyz_offset
+            ### elastic
+            if self.with_elastic:
+                xyz = elastic(xyz, 6 * self.scale // 50, 40 * self.scale / 50)
+                xyz = elastic(xyz, 20 * self.scale // 50, 160 * self.scale / 50)
 
-        ### crop
-        # xyz, valid_idxs = self.crop(xyz)
-        valid_idxs = self.sample(xyz)
+            ### offset
+            xyz_offset = xyz.min(0)
+            xyz -= xyz_offset
 
-        xyz_middle = xyz_middle[valid_idxs]
-        xyz = xyz[valid_idxs]
-        rgb = rgb[valid_idxs]
-        label = label[valid_idxs]
-        overseg = overseg[valid_idxs]
-        overseg = np.unique(overseg, return_inverse=True)[1]
-        instance_label = self.get_cropped_inst_label(instance_label, valid_idxs)
+            ### crop
+            if "train" in self.split:
+                xyz, valid_idxs = self.crop(xyz)
+            else:
+                valid_idxs = range(xyz.shape[0])
+
+            xyz_middle = xyz_middle[valid_idxs]
+            xyz = xyz[valid_idxs]
+            rgb = rgb[valid_idxs]
+            semantic_label = semantic_label[valid_idxs]
+            overseg = overseg[valid_idxs]
+            overseg = np.unique(overseg, return_inverse=True)[1]
+            instance_label = instance_label[valid_idxs]
+            # empty judgement
+            if len(instance_label) == 0:
+                index = sample(range(len(self.files)), 1)[0]
+                continue
+            elif instance_label.max() < 0:
+                index = sample(range(len(self.files)), 1)[0]
+                continue
+            # avoid indices flag
+            elif (xyz.max(0) - xyz.min(0)).min() < 96:
+                index = sample(range(len(self.files)), 1)[0]
+                continue
+            else:
+                flag = False
+            instance_label = self.get_inst_label(instance_label)
 
         ### get instance information
         inst_num, inst_infos = self.get_instance_info(xyz_middle, instance_label.astype(np.int32))
@@ -101,20 +121,20 @@ class S3DISInst(Dataset):
         feat = torch.from_numpy(rgb)
         if self.mode == "train":
             feat += torch.randn(3) * 0.1
-        label = torch.from_numpy(label)
+        semantic_label = torch.from_numpy(semantic_label)
         instance_label = torch.from_numpy(instance_label)
         overseg = torch.from_numpy(overseg)
 
         inst_info = torch.from_numpy(inst_info)
 
-        return scene, loc, loc_offset, loc_float, feat, label, instance_label, overseg, inst_num, inst_info, inst_pointnum
+        return scene, loc, loc_offset, loc_float, feat, semantic_label, instance_label, overseg, inst_num, inst_info, inst_pointnum
 
     def collate_fn(self, batch):
         locs = []
         loc_offset_list = []
         locs_float = []
         feats = []
-        labels = []
+        semantic_labels = []
         instance_labels = []
 
         instance_infos = []  # [N, 9]
@@ -127,7 +147,7 @@ class S3DISInst(Dataset):
 
         total_inst_num = 0
         for i, data in enumerate(batch):
-            scene, loc, loc_offset, loc_float, feat, label, instance_label, overseg, inst_num, inst_info, inst_pointnum = data
+            scene, loc, loc_offset, loc_float, feat, semantic_label, instance_label, overseg, inst_num, inst_info, inst_pointnum = data
             
             scene_list.append(scene)
             overseg += overseg_bias
@@ -144,7 +164,7 @@ class S3DISInst(Dataset):
             loc_offset_list.append(loc_offset)
             locs_float.append(loc_float)
             feats.append(feat)
-            labels.append(label)
+            semantic_labels.append(semantic_label)
             instance_labels.append(instance_label)
             overseg_list.append(overseg)
 
@@ -158,7 +178,7 @@ class S3DISInst(Dataset):
         locs_float = torch.cat(locs_float, 0).to(torch.float32)  # float [N, 3]
         overseg = torch.cat(overseg_list, 0).long()               # long[N]
         feats = torch.cat(feats, 0)                              # float [N, C]
-        labels = torch.cat(labels, 0).long()                     # long [N]
+        semantic_labels = torch.cat(semantic_labels, 0).long()                     # long [N]
         instance_labels = torch.cat(instance_labels, 0).long()   # long [N]
         locs_offset = torch.stack(loc_offset_list)               # long [B, 3]
 
@@ -173,21 +193,14 @@ class S3DISInst(Dataset):
 
         return {"locs": locs, "locs_offset": locs_offset, "voxel_locs": voxel_locs,
                 "scene_list": scene_list, "p2v_map": p2v_map, "v2p_map": v2p_map,
-                "locs_float": locs_float, "feats": feats, "labels": labels, "instance_labels": instance_labels,
+                "locs_float": locs_float, "feats": feats,
+                "semantic_labels": semantic_labels, "instance_labels": instance_labels,
                 "instance_info": instance_infos, "instance_pointnum": instance_pointnum,
                 "offsets": batch_offsets, "spatial_shape": spatial_shape, "overseg": overseg}
 
     def dataloader(self, shuffle=True):
         return DataLoader(self, batch_size=self.batch_size, collate_fn=self.collate_fn, num_workers=self.workers,
                           shuffle=shuffle, sampler=None, drop_last=True, pin_memory=True)
-
-    def sample(self, xyz):
-        valid_idxs = (xyz.min(1) >= 0)
-        assert valid_idxs.sum() == xyz.shape[0]
-        if valid_idxs.sum() > self.max_npoint:
-            valid_idxs[:] = False
-            valid_idxs[sample(range(xyz.shape[0]), self.max_npoint)] = True
-        return valid_idxs
 
     def crop(self, xyz):
         """
@@ -237,12 +250,8 @@ class S3DISInst(Dataset):
         return instance_num, {"instance_info": instance_info, "instance_pointnum": instance_pointnum}
 
 
-    def get_cropped_inst_label(self, instance_label, valid_idxs):
-        instance_label = instance_label[valid_idxs]
-        j = 0
-        while (j < instance_label.max()):
-            if (len(np.where(instance_label == j)[0]) == 0):
-                instance_label[instance_label == instance_label.max()] = j
-            j += 1
+    def get_inst_label(self, instance_label):
+        inst_idxs = (instance_label != self.ignore_label)
+        instance_label[inst_idxs] = np.unique(instance_label[inst_idxs], return_inverse=True)[1]
         return instance_label
 
