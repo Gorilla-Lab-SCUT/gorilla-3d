@@ -1,4 +1,4 @@
-# Modified from ScanNet evaluation script: https://github.com/ScanNet/ScanNet/blob/master/BenchmarkScripts/3d_evaluation/evaluate_semantic_label.py
+# modify from ScanNet function
 
 import os, sys
 import inspect
@@ -11,20 +11,11 @@ parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
 
 CLASS_LABELS = [
-    "wall", "floor", "cabinet", "bed", "chair", "sofa", "table", "door",
-    "window", "bookshelf", "picture", "counter", "desk", "curtain",
-    "refrigerator", "shower curtain", "toilet", "sink", "bathtub",
-    "otherfurniture"
+    "ceiling", "floor", "wall", "beam", "column", "window", "door",
+    "table", "chair", "sofa", "bookcase", "board", "clutter"
 ]
-VALID_CLASS_IDS = np.array(
-    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39])
+VALID_CLASS_IDS = np.array(range(len(CLASS_LABELS)))
 UNKNOWN_ID = np.max(VALID_CLASS_IDS) + 1
-
-
-def read_gt(origin_root, scene_name):
-    label = np.load(
-        os.path.join(origin_root, scene_name + ".txt_sem_label.npy"))
-    return label
 
 
 # TODO: move out
@@ -58,7 +49,7 @@ def evaluate_scan(data, confusion):
     np.add.at(confusion, (gt_ids, pred_ids), 1)
 
 
-def evaluate(matches, logger=None):
+def evaluate_s3dis(matches, logger=None):
     if logger is not None:
         assert isinstance(logger, logging.Logger)
     max_id = UNKNOWN_ID
@@ -95,3 +86,4 @@ def evaluate(matches, logger=None):
         mean_iou += class_ious[label_name][0]
     mean_iou = mean_iou / len(VALID_CLASS_IDS)
     info(f"mean: {mean_iou:>5.3f}")
+
