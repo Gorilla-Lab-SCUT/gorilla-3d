@@ -11,22 +11,20 @@ from ..instance_utils import evaluate_matches, compute_averages, assign_instance
 
 # ---------- Label info ---------- #
 CLASS_LABELS = [
-    "cabinet", "bed", "chair", "sofa", "table", "door", "window", "bookshelf",
-    "picture", "counter", "desk", "curtain", "refrigerator", "shower curtain",
-    "toilet", "sink", "bathtub", "otherfurniture"
+    "beam", "column", "window", "door",
+    "table", "chair", "sofa", "bookcase", "board", "clutter"
 ]
-VALID_CLASS_IDS = np.array(
-    [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39])
+VALID_CLASS_IDS = np.array(range(len(CLASS_LABELS))) + 3
 ID_TO_LABEL = {}
 for i in range(len(VALID_CLASS_IDS)):
     ID_TO_LABEL[VALID_CLASS_IDS[i]] = CLASS_LABELS[i]
 
 
-evaluate_matches_scannet = partial(evaluate_matches, class_labels=CLASS_LABELS)
-compute_averages_scannet = partial(compute_averages, class_labels=CLASS_LABELS)
-assign_instances_for_scan_scannet = partial(assign_instances_for_scan,
+evaluate_matches_s3dis = partial(evaluate_matches, class_labels=CLASS_LABELS)
+compute_averages_s3dis = partial(compute_averages, class_labels=CLASS_LABELS)
+assign_instances_for_scan_s3dis = partial(assign_instances_for_scan,
                                             valid_class_ids=VALID_CLASS_IDS,
                                             class_labels=CLASS_LABELS,
                                             id_to_label=ID_TO_LABEL)
-print_results_scannet = partial(print_results, class_labels=CLASS_LABELS)
+print_results_s3dis = partial(print_results, class_labels=CLASS_LABELS)
 

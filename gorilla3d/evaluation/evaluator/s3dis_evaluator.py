@@ -1,16 +1,15 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
-import os
 import os.path as osp
 
 import torch
 import numpy as np
 
 from gorilla.evaluation import DatasetEvaluator, DatasetEvaluators
-from ..metric import (evaluate_semantic_scannet, assign_instances_for_scan_scannet,
-                      evaluate_matches_scannet, compute_averages_scannet, print_results_scannet)
+from ..metric import (evaluate_semantic_s3dis, assign_instances_for_scan_s3dis,
+                      evaluate_matches_s3dis, compute_averages_s3dis, print_results_s3dis)
 
 
-class ScanNetSemanticEvaluator(DatasetEvaluator):
+class S3DISSemanticEvaluator(DatasetEvaluator):
     """
     Evaluate semantic segmentation metrics.
     """
@@ -38,7 +37,7 @@ class ScanNetSemanticEvaluator(DatasetEvaluator):
         """
         for input, output in zip(inputs, outputs):
             scene_name = input["scene_name"]
-            semantic_gt = self.read_gt(osp.join(self._dataset_root, scene_name), scene_name)
+            semantic_gt = input["semantic_gt"].cpu().numpy()
             semantic_pred = output["semantic_pred"].cpu().numpy()
             self._gt[scene_name] = semantic_gt
             self._predictions[scene_name] = semantic_pred
@@ -58,15 +57,10 @@ class ScanNetSemanticEvaluator(DatasetEvaluator):
             matches[scene_name]["semantic_pred"] = self._predictions[
                 scene_name]
 
-        evaluate_semantic_scannet(matches, self.logger)
+        evaluate_semantic_s3dis(matches, self.logger)
 
-    @staticmethod
-    def read_gt(origin_root, scene_name):
-        label = np.load(
-            os.path.join(origin_root, scene_name + ".txt_sem_label.npy"))
-        return label
 
-class ScanNetInstanceEvaluator(DatasetEvaluator):
+class S3DISInstanceEvaluator(DatasetEvaluator):
     """
     Evaluate semantic segmentation metrics.
     """
@@ -95,7 +89,7 @@ class ScanNetInstanceEvaluator(DatasetEvaluator):
         for input, output in zip(inputs, outputs):
             scene_name = input["scene_name"]
             gt_file = osp.join(self._dataset_root, scene_name + ".txt")
-            gt2pred, pred2gt = assign_instances_for_scan_scannet(
+            gt2pred, pred2gt = assign_instances_for_scan_s3dis(
                 scene_name, output, gt_file)
             self._gt[scene_name] = gt2pred
             self._predictions[scene_name] = pred2gt
@@ -114,10 +108,10 @@ class ScanNetInstanceEvaluator(DatasetEvaluator):
             matches[scene_name]["gt"] = self._gt[scene_name]
             matches[scene_name]["pred"] = self._predictions[scene_name]
 
-        ap_scores = evaluate_matches_scannet(matches)
-        avgs = compute_averages_scannet(ap_scores)
-        print_results_scannet(avgs, self.logger)
+        ap_scores = evaluate_matches_s3dis(matches)
+        avgs = compute_averages_s3dis(ap_scores)
+        print_results_s3dis(avgs, self.logger)
 
 
-ScanNetEvaluator = DatasetEvaluators(
-    [ScanNetSemanticEvaluator, ScanNetInstanceEvaluator])
+S3DISEvaluator = DatasetEvaluators(
+    [S3DISSemanticEvaluator, S3DISInstanceEvaluator])
