@@ -60,6 +60,10 @@ def f(scene):
     fn4 = f"scans/{scene}/{scene}.aggregation.json"
     print(fn)
 
+    save_path = osp.join(split, scene + "_inst_nostuff.pth")
+    if osp.exists(save_path):
+        return
+
     f = plyfile.PlyData().read(fn)
     points = np.array([list(x) for x in f.elements[0]])
     coords_shift = -points[:, :3].mean(0)
@@ -69,7 +73,7 @@ def f(scene):
     faces = np.ascontiguousarray(faces)
 
     f2 = plyfile.PlyData().read(fn2)
-    sem_labels = remapper[np.array(f2.elements[0]["label"])]
+    semantic_labels = remapper[np.array(f2.elements[0]["label"])]
 
     with open(fn3) as jsondata:
         d = json.load(jsondata)
@@ -95,23 +99,23 @@ def f(scene):
     for i in range(len(instance_segids)): check += instance_segids[i]
     assert len(np.unique(check)) == len(check)
 
-    instance_labels = np.ones(sem_labels.shape[0]) * -100
+    instance_labels = np.ones(semantic_labels.shape[0]) * -100
     for i in range(len(instance_segids)):
         segids = instance_segids[i]
         pointids = []
         for segid in segids:
             pointids += segid_to_pointid[segid]
         instance_labels[pointids] = i
-        assert(len(np.unique(sem_labels[pointids])) == 1)
+        assert(len(np.unique(semantic_labels[pointids])) == 1)
 
     save_dir = split
-    torch.save((coords, colors, faces, sem_labels, instance_labels, coords_shift, scene), osp.join(split, scene + "_inst_nostuff.pth"))
+    torch.save((coords, colors, faces, semantic_labels, instance_labels, coords_shift, scene), save_path)
     print("Saving to " + osp.join(split, scene + "_inst_nostuff.pth"))
 
 
 def get_parser():
     parser = argparse.ArgumentParser(description="ScanNet data prepare")
-    parser.add_argument("--data_split",
+    parser.add_argument("--data-split",
                         default="test",
                         help="data split (train / val / test)")
 
