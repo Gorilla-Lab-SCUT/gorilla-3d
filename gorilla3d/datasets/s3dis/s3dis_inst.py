@@ -57,8 +57,6 @@ class S3DISInst(Dataset):
         flag = True
         while flag:
             xyz_origin, rgb, semantic_label, instance_label, room_label, scene = self.files[index]
-
-            rgb = (rgb.astype(np.float32) / 127.5) - 1.
             
             if self.with_overseg:
                 overseg_file = osp.join(self.data_root, self.dataset, "overseg", f"{scene}.npy")
@@ -83,10 +81,11 @@ class S3DISInst(Dataset):
             xyz -= xyz_offset
 
             ### crop
+            valid_idxs = range(xyz.shape[0])
             if "train" in self.split:
-                xyz, valid_idxs = self.crop(xyz)
-            else:
-                valid_idxs = range(xyz.shape[0])
+                if len(valid_idxs) > self.max_npoint:
+                    valid_idxs = sample(range(len(xyz)), self.max_npoint)
+                # xyz, valid_idxs = self.crop(xyz)
 
             xyz_middle = xyz_middle[valid_idxs]
             xyz = xyz[valid_idxs]
@@ -96,16 +95,19 @@ class S3DISInst(Dataset):
             overseg = np.unique(overseg, return_inverse=True)[1]
             instance_label = instance_label[valid_idxs]
             # empty judgement
-            if len(instance_label) == 0:
-                index = sample(range(len(self.files)), 1)[0]
-                continue
-            elif instance_label.max() < 0:
-                index = sample(range(len(self.files)), 1)[0]
-                continue
-            # avoid indices flag
-            elif (xyz.max(0) - xyz.min(0)).min() < 96:
-                index = sample(range(len(self.files)), 1)[0]
-                continue
+            if "train" in self.split:
+                if len(instance_label) == 0:
+                    index = sample(range(len(self.files)), 1)[0]
+                    continue
+                elif instance_label.max() < 0:
+                    index = sample(range(len(self.files)), 1)[0]
+                    continue
+                # avoid indices flag
+                elif (xyz.max(0) - xyz.min(0)).min() < 32:
+                    index = sample(range(len(self.files)), 1)[0]
+                    continue
+                else:
+                    flag = False
             else:
                 flag = False
             instance_label = self.get_inst_label(instance_label)
@@ -198,8 +200,14 @@ class S3DISInst(Dataset):
                 "instance_info": instance_infos, "instance_pointnum": instance_pointnum,
                 "offsets": batch_offsets, "spatial_shape": spatial_shape, "overseg": overseg}
 
-    def dataloader(self, shuffle=True):
-        return DataLoader(self, batch_size=self.batch_size, collate_fn=self.collate_fn, num_workers=self.workers,
+    def dataloader(self, shuffle=True, times=1):
+        times = int(times)
+        assert times >= 1
+        if times > 1:
+            dataset = torch.utils.data.dataset.ConcatDataset([self] * times)
+        else:
+            dataset = self
+        return DataLoader(dataset, batch_size=self.batch_size, collate_fn=self.collate_fn, num_workers=self.workers,
                           shuffle=shuffle, sampler=None, drop_last=True, pin_memory=True)
 
     def crop(self, xyz):

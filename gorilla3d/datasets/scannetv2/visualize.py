@@ -234,3 +234,20 @@ def get_coords_color(opt):
 
     return xyz, rgb
 
+
+def visualize_instance_mask_lite(clusters: np.ndarray,
+                                 points: np.ndarray,
+                                 visual_path: str,
+                                 color: int=20,):
+    assert color in [20, 40]
+    colors = globals()[f"COLOR{color}"]
+    inst_label_pred_rgb = np.zeros_like(points)  # np.ones(rgb.shape) * 255 #
+    for cluster_id, cluster in enumerate(clusters):
+        inst_label_pred_rgb[cluster == 1] = colors[cluster_id % len(colors)]
+    rgb = inst_label_pred_rgb
+
+    pc = o3d.geometry.PointCloud()
+    pc.points = o3d.utility.Vector3dVector(points)
+    pc.colors = o3d.utility.Vector3dVector(rgb / 255)
+    o3d.io.write_point_cloud(visual_path, pc)
+
