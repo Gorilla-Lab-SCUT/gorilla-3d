@@ -2,10 +2,10 @@
 
 import sys
 import logging
-from functools import partial
 from typing import Dict, List, Optional
 
 import numpy as np
+import scipy.stats as stats
 
 from ...structures.instances import VertInstance
 
@@ -27,12 +27,16 @@ def evaluate_matches(matches: Dict,
                      dist_threshes: List[float]=[DISTANCE_THRESHES[0]],
                      dist_confs: List[float]=[DISTANCE_CONFS[0]]) -> np.ndarray:
 
+    # initialization
+    prec_recall_total = {}
+
     # results: class x overlap
     ap = np.zeros((len(dist_threshes), len(class_labels), len(overlaps)),
                   np.float)
     for di, (min_region_size, distance_thresh, distance_conf) in enumerate(
             zip(min_region_sizes, dist_threshes, dist_confs)):
         for oi, overlap_th in enumerate(overlaps):
+            prec_recall_total[overlap_th] = {}
             pred_visited = {}
             for m in matches:
                 for p in matches[m]["pred"]:
@@ -173,6 +177,8 @@ def evaluate_matches(matches: Dict,
                     precision[-1] = 1.
                     recall[-1] = 0.
 
+                    prec_recall_total[overlap_th][label_name] = [precision, recall]
+
                     # compute average of precision-recall curve
                     recall_for_conv = np.copy(recall)
                     recall_for_conv = np.append(recall_for_conv[0],
@@ -189,7 +195,7 @@ def evaluate_matches(matches: Dict,
                 else:
                     ap_current = float("nan")
                 ap[di, li, oi] = ap_current
-    return ap
+    return ap, prec_recall_total
 
 def compute_averages(aps: np.ndarray,
                      class_labels: List[str],
@@ -265,6 +271,7 @@ def assign_instances_for_scan(scene_name: str,
         if num < min_region_sizes[0]:
             continue  # skip if empty
 
+        # record pred instance as dict
         pred_instance = {}
         pred_instance["filename"] = f"{scene_name}_{num_pred_instances:03d}"
         pred_instance["pred_id"] = num_pred_instances
@@ -297,9 +304,6 @@ def assign_instances_for_scan(scene_name: str,
 def print_results(avgs: Dict,
                   logger: Optional[logging.Logger]=None,
                   class_labels: List[str]=["class"]):
-    if logger is not None:
-        assert isinstance(logger, logging.Logger)
-
     sep = ""
     col1 = ":"
     lineLen = 64
@@ -342,3 +346,37 @@ def print_results(avgs: Dict,
     info(line)
     info("")
 
+
+def print_prec_recall(prec_recall: Dict,
+                      logger: Optional[logging.Logger]=None):
+    
+    sep = ""
+    col1 = ":"
+    lineLen = 50
+
+    def info(message):
+        if logger is not None:
+            logger.info(message)
+        else:
+            print(message)
+
+    overlap_th = 0.5
+
+    prec_recall_overlap = prec_recall[overlap_th]
+
+    info("")
+    info("#" * lineLen)
+
+    info(f"{'what  ':<15}: {'precision':>15} {'recall':>15}")
+    class_precisions = []
+    class_recalls = []
+    for class_name, [precision, recall] in prec_recall_overlap.items():
+        mean_precision = precision.mean()
+        mean_recall = recall.mean()
+        class_precisions.append(mean_precision)
+        class_recalls.append(mean_recall)
+        info(f"{class_name:<15}： {mean_precision:>15.3f} {mean_recall:>15.3f}")
+
+    info("-" * lineLen)
+    info(f"{'average':<15}: {np.mean(class_precisions):>15.3f} {np.mean(class_recalls):>15.3f}")
+    info("")

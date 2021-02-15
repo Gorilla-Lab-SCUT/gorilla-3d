@@ -6,7 +6,8 @@ import numpy as np
 
 from gorilla.evaluation import DatasetEvaluator, DatasetEvaluators
 from ..metric import (evaluate_semantic_s3dis, assign_instances_for_scan_s3dis,
-                      evaluate_matches_s3dis, compute_averages_s3dis, print_results_s3dis)
+                      evaluate_matches_s3dis, compute_averages_s3dis, print_results_s3dis,
+                      print_prec_recall)
 
 
 class S3DISSemanticEvaluator(DatasetEvaluator):
@@ -108,9 +109,10 @@ class S3DISInstanceEvaluator(DatasetEvaluator):
             matches[scene_name]["gt"] = self._gt[scene_name]
             matches[scene_name]["pred"] = self._predictions[scene_name]
 
-        ap_scores = evaluate_matches_s3dis(matches)
+        ap_scores, prec_recall_total = evaluate_matches_s3dis(matches)
         avgs = compute_averages_s3dis(ap_scores)
         print_results_s3dis(avgs, self.logger)
+        print_prec_recall(prec_recall_total, self.logger)
 
 
 S3DISEvaluator = DatasetEvaluators(

@@ -10,5 +10,6 @@ from .s3dis import (# semantic segmentation
                     assign_instances_for_scan_s3dis, evaluate_matches_s3dis,
                     compute_averages_s3dis, print_results_s3dis)
 
+from .instance_utils import print_prec_recall
 
 __all__ = [k for k in globals().keys() if not k.startswith("_")]
