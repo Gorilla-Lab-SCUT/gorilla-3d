@@ -37,9 +37,9 @@ def get_parser():
                         type=int,
                         default=None,
                         help="number of sample points, default is None(do not sample)")
-    parser.add_argument("--with-overseg",
+    parser.add_argument("--with-superpoint",
                         action="store_true",
-                        help="process overseg or not")
+                        help="process superpoint or not")
     parser.add_argument("--verbose",
                         action="store_true",
                         help="show partition information or not")
@@ -65,10 +65,10 @@ if __name__ == "__main__":
     # for data_file in glob.glob(osp.join(data_dir, "*.pth")):
         (coords, colors, semantic_labels, instance_labels, room_label, scene) = torch.load(data_file)
 
-        overseg = None
-        if args.with_overseg:
-            overseg_file = osp.join(data_root, "overseg_origin", f"{scene}.npy")
-            overseg = np.load(overseg_file).astype(np.int32)
+        superpoint = None
+        if args.with_superpoint:
+            superpoint_file = osp.join(data_root, "superpoint_origin", f"{scene}.npy")
+            superpoint = np.load(superpoint_file).astype(np.int32)
 
         if args.verbose:
             print(f"processing: {scene}")
@@ -111,9 +111,9 @@ if __name__ == "__main__":
                     room_label,
                     scene), osp.join(save_dir, f"{scene}.pth"))
 
-        if overseg is not None:
-            overseg = torch.from_numpy(overseg).float().cuda().view(-1, 1) # [num_point, 1]
-            overseg = pointgroup_ops.voxelization(overseg, v2p_map, 4).cpu().view(-1) # [num_voxel]
-            overseg = torch.round(overseg).long().numpy() # [num_voxel]
-            np.save(osp.join(data_root, "overseg", f"{scene}.npy"), overseg)
+        if superpoint is not None:
+            superpoint = torch.from_numpy(superpoint).float().cuda().view(-1, 1) # [num_point, 1]
+            superpoint = pointgroup_ops.voxelization(superpoint, v2p_map, 4).cpu().view(-1) # [num_voxel]
+            superpoint = torch.round(superpoint).long().numpy() # [num_voxel]
+            np.save(osp.join(data_root, "superpoint", f"{scene}.npy"), superpoint)
 

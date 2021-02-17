@@ -5,7 +5,7 @@ from .visualize import get_coords_color, visualize_pts_rgb
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_root", help="path to the input dataset files", default="../../data/scannetv2")
-    parser.add_argument("--result_root", help="path to the predicted results", default="../../log/bn_overseg/result/epoch512_nmst0.3_scoret0.009_npointt100")
+    parser.add_argument("--result_root", help="path to the predicted results", default="../../log/default/result/epoch400_nmst0.3_scoret0.009_npointt100")
     parser.add_argument("--output_dir", help="path to output visual result", default="./vis")
     parser.add_argument("--room_name", help="room_name", default="scene0707_00")
     parser.add_argument("--room_split", help="train / val / test", default="test")

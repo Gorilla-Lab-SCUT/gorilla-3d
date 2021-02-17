@@ -25,7 +25,7 @@ def room_to_blocks(coords: np.ndarray,
                    colors: np.ndarray,
                    semantic_labels: np.ndarray,
                    instance_labels: np.ndarray,
-                   overseg: Optional[np.ndarray]=None,
+                   superpoint: Optional[np.ndarray]=None,
                    size: float=1.0,
                    stride: float=0.5,
                    threshold: int=4096,
@@ -35,8 +35,8 @@ def room_to_blocks(coords: np.ndarray,
     upper_bound = coords.max(axis=0) # get upper bound of coordinates
     lower_bound = coords.min(axis=0) # get lower bound of coordinates
 
-    if overseg is not None:
-        assert overseg.shape[0] == coords.shape[0]
+    if superpoint is not None:
+        assert superpoint.shape[0] == coords.shape[0]
 
     # partition into x-y axis blocks according to size and stride
     width = max(1, int(np.ceil((upper_bound[0] - lower_bound[0]) / stride)))
@@ -72,9 +72,9 @@ def room_to_blocks(coords: np.ndarray,
         if block_instance_labels.max() < 0:
             continue
         concat_list = [block_coords, block_colors, block_semantic_labels, block_instance_labels]
-        if overseg is not None:
-            block_overseg = overseg[block_indices, None] # [num_block, 1]
-            concat_list.append(block_overseg)
+        if superpoint is not None:
+            block_superpoint = superpoint[block_indices, None] # [num_block, 1]
+            concat_list.append(block_superpoint)
 
         block = np.concatenate(concat_list, axis=1) # [num_block, 8/9]
         block_list.append(block)
@@ -109,9 +109,9 @@ def get_parser():
                         type=int,
                         default=None,
                         help="number of sample points, default is None(do not sample)")
-    parser.add_argument("--with-overseg",
+    parser.add_argument("--with-superpoint",
                         action="store_true",
-                        help="process overseg or not")
+                        help="process superpoint or not")
     parser.add_argument("--verbose",
                         action="store_true",
                         help="show partition information or not")
@@ -133,10 +133,10 @@ if __name__ == "__main__":
     for data_file in gorilla.track(glob.glob(osp.join(data_dir, "*.pth"))):
     # for data_file in glob.glob(osp.join(data_dir, "*.pth")):
         (coords, colors, semantic_labels, instance_labels, room_label, scene) = torch.load(data_file)
-        overseg = None
-        if args.with_overseg:
-            overseg_file = osp.join(data_root, "overseg", f"{scene}.npy")
-            overseg = np.load(overseg_file)
+        superpoint = None
+        if args.with_superpoint:
+            superpoint_file = osp.join(data_root, "superpoint", f"{scene}.npy")
+            superpoint = np.load(superpoint_file)
 
         if args.verbose:
             print(f"processing: {scene}")
@@ -145,7 +145,7 @@ if __name__ == "__main__":
                                     colors,
                                     semantic_labels,
                                     instance_labels,
-                                    overseg=overseg,
+                                    superpoint=superpoint,
                                     size=args.size,
                                     stride=args.stride,
                                     threshold=args.threshold,
@@ -164,7 +164,7 @@ if __name__ == "__main__":
                         block_instance_labels,
                         room_label,
                         scene_idx), osp.join(save_dir, f"{scene_idx}.pth"))
-            if overseg is not None:
-                block_overseg = block[:, 8]
-                np.save(osp.join(data_root, "overseg", f"{scene_idx}.npy"), block_overseg)
+            if superpoint is not None:
+                block_superpoint = block[:, 8]
+                np.save(osp.join(data_root, "superpoint", f"{scene_idx}.npy"), block_superpoint)
 
