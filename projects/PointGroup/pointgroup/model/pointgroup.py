@@ -15,7 +15,6 @@ from torch_scatter import scatter_min, scatter_mean, scatter_max
 import pointgroup_ops
 from ..util import get_batch_offsets
 from .func_helper import *
-from .dynamic_conv import DynamicConv
 
 
 class PointGroup(nn.Module):
@@ -85,12 +84,6 @@ class PointGroup(nn.Module):
         )
         self.score_linear = nn.Linear(m, 1)
 
-        #### dynamic conv
-        self.dynamic = cfg.model.dynamic
-        if self.dynamic:
-            self.param_generator = gorilla3d.UBlock([m, 2*m], norm_fn, 2, block, indice_key_id=1)
-            self.dynamic_conv = DynamicConv(m, 1)
-
         self.apply(self.set_bn_init)
 
         #### fix parameter
@@ -125,25 +118,6 @@ class PointGroup(nn.Module):
                 m.bias.data.fill_(0.0)
             except:
                 pass
-
-    def aggregate_features(self, clusters_idx, feats, mode=0):
-        """
-        :param clusters_idx: [SumNPoint, 2], int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N, cpu
-        :param feats: [N, C], float, cuda
-        :mode: int [0:max-pooling 1:mean-pooling]
-        :return:
-        :cluster_feats: [nCluster, C]
-        """
-        c_idxs = clusters_idx[:, 1].cuda() # [sum_points]
-        clusters_feats = feats[c_idxs.long()] # [sum_points, C]
-        if mode == 0:  # max-pooling
-            clusters_feats = scatter_max(clusters_feats, clusters_idx[:, 0].cuda().long(), dim=0)[0] # [nCluster, C]
-        elif mode == 1: # mean-pooling
-            clusters_feats = scatter_mean(clusters_feats, clusters_idx[:, 0].cuda().long(), dim=0) # [nCluster, C]
-        else:
-            raise ValueError(f"mode must be '0' or '1', but got {mode}")
-
-        return clusters_feats
 
 
     def clusters_voxelization(self, clusters_idx, feats, coords, fullscale, scale, mode):
@@ -244,6 +218,7 @@ class PointGroup(nn.Module):
                 shifted_coords = coords_ + pt_offsets_
                 semantic_preds_cpu = semantic_preds_filter[object_idx_filter].int().cpu()
 
+                ### the superpint_fusion will employ superpoint to refine mask and boost performance
                 #### shift coordinates region grow
                 idx_shift, start_len_shift = pointgroup_ops.ballquery_batch_p(shifted_coords, batch_idxs_, batch_offsets_, self.cluster_radius_shift, int(self.cluster_shift_meanActive/2))
                 proposals_idx_shift, proposals_offset_shift = pointgroup_ops.bfs_cluster(semantic_preds_cpu, idx_shift.cpu(), start_len_shift.cpu(), self.cluster_npoint_thre)
@@ -255,7 +230,6 @@ class PointGroup(nn.Module):
                 proposals_idx = proposals_idx_shift
                 proposals_offset = proposals_offset_shift
 
-                """
                 #### origin coordinates region grow
                 idx, start_len = pointgroup_ops.ballquery_batch_p(coords_, batch_idxs_, batch_offsets_, self.cluster_radius, self.cluster_meanActive)
                 proposals_idx_origin, proposals_offset_origin = pointgroup_ops.bfs_cluster(semantic_preds_cpu, idx.cpu(), start_len.cpu(), self.cluster_npoint_thre)
@@ -270,33 +244,9 @@ class PointGroup(nn.Module):
                 proposals_offset = torch.cat((proposals_offset, proposals_offset_origin[1:]))
                 # proposals_idx, [sum_points, 2]: int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
                 # proposals_offset, [num_prop + 1]: int
-                """
 
             #### proposals voxelization again
             input_feats, inp_map = self.clusters_voxelization(proposals_idx, output_feats, coords, self.score_fullscale, self.score_scale, self.mode)
-
-            #### aggregate and dynamic conv
-            if self.dynamic:
-                aggre_feats = self.param_generator(input_feats) 
-                aggre_feats = aggre_feats.features[inp_map.long()] # [sum_points, C]
-                aggre_feats = scatter_max(aggre_feats, proposals_idx[:, 0].cuda().long(), dim=0)[0] # [num_prop, C]
-
-                aggre_coords = coords[inp_map.long()] # [sum_points, 3]
-                cluster_centers = scatter_mean(aggre_coords, proposals_idx[:, 0].cuda().long(), dim=0) # [num_prop, 3]
-
-                shifted_coords = coords + pt_offsets # [N, 3]
-                output_features = output.features[input_map.long()] # [N, C]
-                batch_features_list, batch_proposals_ids = \
-                    self.dynamic_conv(aggre_feats,
-                                      output_features,
-                                      coords,
-                                      cluster_centers,
-                                      proposals_idx,
-                                      batch_offsets) # [num_prop, N, 1]
-
-                mask_pred_list = [torch.sigmoid(feat).squeeze() for feat in batch_features_list]
-
-                ret["proposal_dynamic"] = (mask_pred_list, batch_proposals_ids)
 
             #### score
             score = self.score_unet(input_feats)

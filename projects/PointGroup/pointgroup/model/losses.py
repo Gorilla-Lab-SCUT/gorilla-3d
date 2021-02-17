@@ -14,7 +14,6 @@ class PointGroupLoss(nn.Module):
         self.fg_thresh = cfg.model.fg_thresh
         self.bg_thresh = cfg.model.bg_thresh
         self.loss_weight = cfg.model.loss_weight
-        self.dynamic = cfg.model.dynamic
 
         #### criterion
         self.semantic_criterion = nn.CrossEntropyLoss(ignore_index=self.ignore_label)
@@ -76,39 +75,11 @@ class PointGroupLoss(nn.Module):
 
             loss_out["score_loss"] = (score_loss, gt_ious.shape[0])
 
-            if self.dynamic:
-                mask_pred_list, batch_proposals_ids = loss_inp["proposal_dynamic"]
-                batch_offsets = loss_inp["batch_offsets"]
-                # mask_pred_list: [(num_batch_prop, num_batch)], mask pred of each proposals in each batch
-                # batch_proposals_ids: [(num_batch_prop)], proposals ids of each batch
-                # batch_offset: (bs + 1)
-
-                # get the binary mask (TODO: not elegant and slow)
-                mask_loss = 0
-                mask_count = 0
-                for b_idx, (start, end) in enumerate(zip(batch_offsets[:-1], batch_offsets[1:])):
-                    batch_instance_labels = instance_labels[start: end] # [num_batch]
-                    mask_pred = mask_pred_list[b_idx] # [num_batch_prop, num_batch]
-                    proposals_ids = batch_proposals_ids[b_idx] # [num_batch_prop]
-                    # get the match instance mask
-                    batch_gt_inst_idxs = gt_inst_idxs[proposals_ids] # [num_batch_prop]
-                    mask_gt = mask_pred.new_zeros(mask_pred.shape) # [num_batch_prop, num_batch]
-                    for mask_i, inst_idx in enumerate(batch_gt_inst_idxs):
-                        # TODO: fix here
-                        mask_gt[mask_i, :] = (batch_instance_labels == inst_idx).float()
-                    mask_loss += F.binary_cross_entropy(mask_pred, mask_gt, reduction="sum")
-                    mask_count += mask_pred.shape[0] * mask_pred.shape[1]
-                mask_loss = mask_loss / mask_count
-
-                loss_out["mask_loss"] = (mask_loss, mask_count)
-
         """total loss"""
         # loss = mask_loss
         loss = self.loss_weight[0] * semantic_loss + self.loss_weight[1] * offset_norm_loss + self.loss_weight[2] * offset_dir_loss
         if prepare_flag:
             loss += (self.loss_weight[3] * score_loss)
-            if self.dynamic:
-                loss += (self.loss_weight[4] * mask_loss)
 
         return loss, loss_out
 

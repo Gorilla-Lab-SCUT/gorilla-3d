@@ -147,11 +147,6 @@ class PointGroupSolver(gorilla.BaseSolver):
                                            proposals_offset,
                                            instance_pointnum)
 
-            if self.cfg.model.dynamic:
-                ## dynamic conv
-                mask_pred_list, batch_proposals_ids = ret["proposal_dynamic"]
-                loss_inp["proposal_dynamic"] = (mask_pred_list, batch_proposals_ids)
-
         loss, loss_out = self.criterion(loss_inp, self.epoch)
 
         ##### accuracy / meter_dict
