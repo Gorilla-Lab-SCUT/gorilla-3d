@@ -73,7 +73,7 @@ optimizer:
 # lr_scheduler
 lr_scheduler:
   name: PolyLR
-  max_iters: 153600
+  max_iters: 512
   power: 0.9
   constant_ending: 0.0
 

@@ -68,6 +68,10 @@ class PointGroupSolver(gorilla.BaseSolver):
 
     def build_criterion(self):
         self.criterion = PointGroupLoss(self.cfg)
+    
+    def build_dataloaders(self):
+        self.train_data_loader = self.dataloaders[0]
+        self.val_data_loader = self.dataloaders[1]
 
     def step(self, batch, mode="train"):
         # model_fn defined in PointGroup
@@ -190,7 +194,6 @@ class PointGroupSolver(gorilla.BaseSolver):
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
-            self.lr_scheduler.step()
             lr = self.optimizer.param_groups[0]["lr"]
 
             ##### time and print
@@ -217,6 +220,8 @@ class PointGroupSolver(gorilla.BaseSolver):
                 f"iter_time: {iter_time.latest:.2f}({iter_time.avg:.2f}) remain_time: {remain_time}\n")
                 
             if (i == len(self.train_data_loader) - 1): print()
+
+        self.lr_scheduler.step()
 
         self.logger.info(
             "epoch: {}/{}, train loss: {:.4f}, time: {}s".format(
@@ -288,5 +293,11 @@ if __name__ == "__main__":
     checkpoint, epoch = get_checkpoint(cfg.log_dir)
     Trainer.epoch = epoch
     if gorilla.is_filepath(checkpoint):
-        Trainer.resume(checkpoint, strict=False)
+        Trainer.resume(
+            checkpoint,
+            strict=False,
+            # choice
+            resume_optimizer=False,
+            resume_scheduler=False
+        )
     Trainer.solve()
