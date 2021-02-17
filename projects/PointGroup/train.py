@@ -1,8 +1,5 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
-import ipdb
-import open3d as o3d
 import sys
-import time
 import argparse
 import os.path as osp
 
@@ -10,9 +7,9 @@ import torch
 import gorilla
 import gorilla3d
 import spconv
-from torch_scatter import scatter_mean
 
-from pointgroup import (get_checkpoint, pointgroup_ops, PointGroupLoss, PointGroup)
+import pointgroup_ops
+from pointgroup import (get_checkpoint, PointGroupLoss, PointGroup)
 
 
 def get_parser():
@@ -39,22 +36,22 @@ def get_parser():
 
 def init():
     args = get_parser()
-    exp_name = osp.splitext(args.config.split("/")[-1])[0]
     cfg = gorilla.Config.fromfile(args.config)
-    cfg.exp_name = exp_name
     cfg.pretrain = args.pretrain
     cfg.semantic = args.semantic
-    cfg.exp_path = osp.join("exp", exp_name)
 
     #### get logger file
-    log_file = osp.join(
-        cfg.exp_path,
-        f"{cfg.task}-{time.strftime("%Y%m%d_%H%M%S", time.localtime())}.log")
-    if not gorilla.is_filepath(osp.dirname(log_file)):
-        gorilla.mkdir_or_exist(log_file)
-    logger = gorilla.get_root_logger(log_file)
-    logger.info(
-        "************************ Start Logging ************************")
+    log_dir, logger = gorilla.collect_logger(
+        prefix=osp.splitext(args.config.split("/")[-1])[0])
+    backup_list = ["train.py", "test.py", "pointgroup", args.config]
+    gorilla.backup(log_dir, backup_list, logger)
+
+    cfg.log_dir = log_dir
+    
+    seed = cfg.get("seed", 0)
+    gorilla.set_random_seed(seed, logger=logger)
+
+    logger.info("****************** Start Logging *******************")
 
     # log the config
     logger.info(cfg)
@@ -75,8 +72,7 @@ class PointGroupSolver(gorilla.BaseSolver):
     def step(self, batch, mode="train"):
         # model_fn defined in PointGroup
         ##### prepare input and forward
-        coords = batch["locs"].cuda(
-        )  ]N, 1 + 3], long, cuda, dimension 0 for batch_idx
+        coords = batch["locs"].cuda() # [N, 1 + 3], long, cuda, dimension 0 for batch_idx
         locs_offset = batch["locs_offset"].cuda()  # [B, 3], long, cuda
         voxel_coords = batch["voxel_locs"].cuda()  # [M, 1 + 3], long, cuda
         p2v_map = batch["p2v_map"].cuda()  # [N], int, cuda
@@ -84,7 +80,7 @@ class PointGroupSolver(gorilla.BaseSolver):
 
         coords_float = batch["locs_float"].cuda()  # [N, 3], float32, cuda
         feats = batch["feats"].cuda()  # [N, C], float32, cuda
-        labels = batch["labels"].cuda()  # [N], long, cuda
+        semantic_labels = batch["semantic_labels"].cuda()  # [N], long, cuda
         instance_labels = batch["instance_labels"].cuda(
         )  # [N], long, cuda, 0~total_num_inst, -100
 
@@ -94,14 +90,14 @@ class PointGroupSolver(gorilla.BaseSolver):
         )  # [total_num_inst], int, cuda
 
         batch_offsets = batch["offsets"].cuda()  # [B + 1], int, cuda
-        overseg = batch["overseg"].cuda()  # [N], long, cuda
-        _, overseg = torch.unique(overseg, return_inverse=True)  # [N], long, cuda
+        superpoint = batch["superpoint"].cuda()  # [N], long, cuda
+        superpoint = torch.unique(superpoint, return_inverse=True)[1]  # [N], long, cuda
 
         prepare_flag = (self.epoch > cfg.model.prepare_epochs)
         scene_list = batch["scene_list"]
         spatial_shape = batch["spatial_shape"]
 
-        extra_data = {"overseg": overseg,
+        extra_data = {"superpoint": superpoint,
                       "locs_offset": locs_offset,
                       "scene_list": scene_list}
 
@@ -128,12 +124,12 @@ class PointGroupSolver(gorilla.BaseSolver):
 
         loss_inp = {}
         loss_inp["batch_idxs"] = coords[:, 0].int()
-        loss_inp["overseg"] = overseg
+        loss_inp["superpoint"] = superpoint
         loss_inp["feats"] = feats
         loss_inp["scene_list"] = scene_list
         loss_inp["batch_offsets"] = batch_offsets
 
-        loss_inp["semantic_scores"] = (semantic_scores, labels)
+        loss_inp["semantic_scores"] = (semantic_scores, semantic_labels)
         loss_inp["pt_offsets"] = (pt_offsets,
                                   coords_float,
                                   instance_info,
@@ -227,16 +223,17 @@ class PointGroupSolver(gorilla.BaseSolver):
                 
             if (i == len(self.train_data_loader) - 1): print()
 
-        logger.info(
-            f"epoch: {self.epoch}/{self.cfg.data.epochs}, train loss: {loss_buffer.avg:.4f}, time: {epoch_timer.since_start}s")
+        self.logger.info(
+            "epoch: {}/{}, train loss: {:.4f}, time: {}s".format(
+                self.epoch, self.cfg.data.epochs, loss_buffer.avg,
+                epoch_timer.since_start()))
 
         meta = {"epoch": self.epoch}
-        filename = osp.join(self.cfg.exp_path,
-                            self.cfg.exp_name + "-%09d" % self.epoch + ".pth")
-        gorilla.save_checkpoint(self.model, filename, self.optimizer,
+        checkpoint = osp.join(self.cfg.log_dir, "epoch_{0:05d}.pth".format(self.epoch))
+        gorilla.save_checkpoint(self.model, checkpoint, self.optimizer,
                                 self.lr_scheduler, meta)
 
-        self.logger.info("Saving " + filename)
+        self.logger.info("Saving " + checkpoint)
         self.write()
 
     def evaluate(self):
@@ -283,18 +280,17 @@ if __name__ == "__main__":
     # get the real data root
     cfg.data.data_root = osp.join(osp.dirname(__file__), cfg.data.data_root)
     train_dataset = gorilla3d.ScanNetV2InstTrainVal(cfg, logger)
-    train_dataloader = train_dataset.dataloader
+    train_dataloader = train_dataset.dataloader()
     cfg.task = "val"  # change task
     val_dataset = gorilla3d.ScanNetV2InstTrainVal(cfg, logger)
-    val_dataloader = val_dataset.dataloader
+    val_dataloader = val_dataset.dataloader()
 
-    cfg.log = cfg.exp_path
     Trainer = PointGroupSolver(model,
                                [train_dataloader, val_dataloader],
                                cfg,
                                logger)
 
-    checkpoint, epoch = get_checkpoint(cfg.exp_path, cfg.exp_name)
+    checkpoint, epoch = get_checkpoint(cfg.log_dir)
     Trainer.epoch = epoch
     if gorilla.is_filepath(checkpoint):
         Trainer.resume(checkpoint, strict=False)

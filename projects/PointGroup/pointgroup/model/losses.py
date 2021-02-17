@@ -3,9 +3,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import gorilla
-from torch_scatter import scatter_mean
 
-from ..lib.pointgroup_ops.functions import pointgroup_ops
+import pointgroup_ops
 
 class PointGroupLoss(nn.Module):
     def __init__(self, cfg):

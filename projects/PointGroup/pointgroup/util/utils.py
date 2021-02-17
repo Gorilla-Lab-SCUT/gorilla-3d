@@ -6,19 +6,18 @@ sys.path.append("../")
 import gorilla
 
 
-def get_checkpoint(exp_path, exp_name, epoch=0, f=""):
-    if not f:
+def get_checkpoint(log_dir, epoch=0, checkpoint=""):
+    if not checkpoint:
         if epoch > 0:
-            f = osp.join(exp_path, exp_name + "-%09d"%epoch + ".pth")
-            assert osp.isfile(f)
+            checkpoint = osp.join(log_dir, "epoch_{0:05d}.pth".format(epoch))
+            assert osp.isfile(checkpoint)
         else:
-            f = sorted(glob.glob(osp.join(exp_path, exp_name + "-*.pth")))
-            if len(f) > 0:
-                f = f[-1]
-                epoch = int(f.split("-")[-1].split(".")[0])
-                # epoch = int(f[len(exp_path) + len(exp_name) + 2 : -4])
+            checkpoint = sorted(glob.glob(osp.join(log_dir, "*.pth")))
+            if len(checkpoint) > 0:
+                checkpoint = checkpoint[-1]
+                epoch = int(checkpoint.split("_")[-1].split(".")[0])
 
-    return f, epoch + 1
+    return checkpoint, epoch + 1
 
 
 def write_obj(points, colors, out_filename):

@@ -10,10 +10,9 @@ import gorilla
 import gorilla3d
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch_scatter import scatter_min, scatter_mean, scatter_max
 
-from ..lib.pointgroup_ops.functions import pointgroup_ops
+import pointgroup_ops
 from ..util import get_batch_offsets
 from .func_helper import *
 from .dynamic_conv import DynamicConv
@@ -234,10 +233,6 @@ class PointGroup(nn.Module):
         # if True:
         if (epoch > self.prepare_epochs) and not semantic_only:
             #### get prooposal clusters
-            # from copy import deepcopy
-            # semantic_preds_filter = refine_semantic_segmentation(semantic_preds, overseg)
-            # semantic_scores = F.one_hot(semantic_preds_filter.long(), 20).float()
-            # ret["semantic_scores"] = semantic_scores
             semantic_preds_filter = semantic_preds
             object_idx_filter = torch.nonzero(semantic_preds_filter > 1).view(-1)
 
@@ -253,7 +248,7 @@ class PointGroup(nn.Module):
                 idx_shift, start_len_shift = pointgroup_ops.ballquery_batch_p(shifted_coords, batch_idxs_, batch_offsets_, self.cluster_radius_shift, int(self.cluster_shift_meanActive/2))
                 proposals_idx_shift, proposals_offset_shift = pointgroup_ops.bfs_cluster(semantic_preds_cpu, idx_shift.cpu(), start_len_shift.cpu(), self.cluster_npoint_thre)
                 proposals_idx_shift[:, 1] = object_idx_filter[proposals_idx_shift[:, 1].long()].int()
-                # proposals_idx_shift, proposals_offset_shift = overseg_fusion(proposals_idx_shift, proposals_offset_shift, overseg, thr_filter=0.25, thr_fusion=0.25)
+                # proposals_idx_shift, proposals_offset_shift = superpoint_fusion(proposals_idx_shift, proposals_offset_shift, superpoint, thr_filter=0.25, thr_fusion=0.25)
                 # proposals_idx_shift: [sum_points, 2], int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
                 # proposals_offset_shift: [num_prop + 1], int
 
@@ -265,7 +260,7 @@ class PointGroup(nn.Module):
                 idx, start_len = pointgroup_ops.ballquery_batch_p(coords_, batch_idxs_, batch_offsets_, self.cluster_radius, self.cluster_meanActive)
                 proposals_idx_origin, proposals_offset_origin = pointgroup_ops.bfs_cluster(semantic_preds_cpu, idx.cpu(), start_len.cpu(), self.cluster_npoint_thre)
                 proposals_idx_origin[:, 1] = object_idx_filter[proposals_idx_origin[:, 1].long()].int()
-                # proposals_idx_origin, proposals_offset_origin = overseg_fusion(proposals_idx_origin, proposals_offset_origin, overseg, thr_filter=0.4, thr_fusion=0.4)
+                # proposals_idx_origin, proposals_offset_origin = superpoint_fusion(proposals_idx_origin, proposals_offset_origin, superpoint, thr_filter=0.4, thr_fusion=0.4)
                 # proposals_idx_origin, [sum_points, 2], int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
                 # proposals_offset_origin, [num_prop + 1], int
 

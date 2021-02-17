@@ -131,10 +131,10 @@ def test(model, cfg, logger):
 
             batch_offsets = batch["offsets"].cuda()    # [B + 1], int, cuda
             scene_list = batch["scene_list"]
-            overseg = batch["overseg"].cuda() # [N], long, cuda
-            _, overseg = torch.unique(overseg, return_inverse=True)  # [N], long, cuda
+            superpoint = batch["superpoint"].cuda() # [N], long, cuda
+            superpoint = torch.unique(superpoint, return_inverse=True)[1]  # [N], long, cuda
 
-            extra_data = {"overseg": overseg,
+            extra_data = {"superpoint": superpoint,
                           "locs_offset": locs_offset,
                           "scene_list": scene_list}
 
