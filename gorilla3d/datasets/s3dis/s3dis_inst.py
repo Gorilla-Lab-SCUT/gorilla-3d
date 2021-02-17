@@ -83,8 +83,9 @@ class S3DISInst(Dataset):
             ### crop
             valid_idxs = range(xyz.shape[0])
             if "train" in self.split:
-                if len(valid_idxs) > self.max_npoint:
-                    valid_idxs = sample(range(len(xyz)), self.max_npoint)
+                valid_idxs = self.crop_lite(xyz)
+                # if len(valid_idxs) > self.max_npoint:
+                #     valid_idxs = sample(range(len(xyz)), self.max_npoint)
                 # xyz, valid_idxs = self.crop(xyz)
 
             xyz_middle = xyz_middle[valid_idxs]
@@ -228,6 +229,22 @@ class S3DISInst(Dataset):
 
         return xyz_offset, valid_idxs
 
+
+    def crop_lite(self, xyz: np.ndarray):
+        """
+        :param xyz: (n, 3) >= 0
+        """
+        valid_idxs = (xyz.min(1) >= 0)
+        assert valid_idxs.sum() == xyz.shape[0]
+
+        # get the room_range
+        room_range = (xyz.max(0) - xyz.min(0)).astype(np.float32)
+        while valid_idxs.sum() > self.max_npoint:
+            ratio = self.max_npoint / valid_idxs.sum()
+            room_range[:2] *= np.sqrt(ratio)
+            valid_idxs = ((xyz < room_range).sum(1) == 3)
+
+        return valid_idxs
 
     def get_instance_info(self, xyz, instance_label):
         """
