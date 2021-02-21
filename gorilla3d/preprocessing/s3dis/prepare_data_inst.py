@@ -112,6 +112,12 @@ def get_parser():
     parser.add_argument("--patch",
                         action="store_true",
                         help="patch data or not (just patch at first time running)")
+    parser.add_argument("--align",
+                        action="store_true",
+                        help="processing aligned dataset or not")
+    parser.add_argument("--verbose",
+                        action="store_true",
+                        help="show processing room name or not")
 
     args_cfg = parser.parse_args()
 
@@ -126,7 +132,15 @@ if __name__ == "__main__":
     save_dir = args.save_dir
     os.makedirs(save_dir, exist_ok=True)
     if args.patch:
-        os.system(f"patch -ruN -p0 -d  {data_root} < {osp.join(osp.dirname(__file__), 's3dis.patch')}")
+        if args.align: # processing aligned s3dis dataset
+            # os.system(f"cd {data_root} && git apply {osp.join(osp.dirname(__file__), 's3dis_align.diff')}")
+            os.system(f"patch -ruN -p0 -d  {data_root} < {osp.join(osp.dirname(__file__), 's3dis_align.patch')}")
+            # rename to avoid room_name conflict
+            if osp.exists(osp.join(data_root, "Area_6", "copyRoom_1", "copy_Room_1.txt")):
+                os.rename(osp.join(data_root, "Area_6", "copyRoom_1", "copy_Room_1.txt"),
+                          osp.join(data_root, "Area_6", "copyRoom_1", "copyRoom_1.txt"))
+        else:
+            os.system(f"patch -ruN -p0 -d  {data_root} < {osp.join(osp.dirname(__file__), 's3dis.patch')}")
 
     area_list = ["Area_1", "Area_2", "Area_3", "Area_4", "Area_5", "Area_6"]
 
@@ -135,10 +149,15 @@ if __name__ == "__main__":
         area_dir = osp.join(data_root, area_id)
         # get the room name list for each area
         room_name_list = os.listdir(area_dir)
-        room_name_list.remove(f"{area_id}_alignmentAngle.txt")
-        room_name_list.remove(".DS_Store")
+        try:
+            room_name_list.remove(f"{area_id}_alignmentAngle.txt")
+            room_name_list.remove(".DS_Store")
+        except:
+            pass
         for room_name in gorilla.track(room_name_list):
             scene = f"{area_id}_{room_name}"
+            if args.verbose:
+                print(f"processing: {scene}")
             save_path = osp.join(save_dir, scene + ".pth")
             if osp.exists(save_path):
                 continue

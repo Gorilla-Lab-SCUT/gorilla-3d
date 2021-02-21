@@ -25,7 +25,6 @@ def room_to_blocks(coords: np.ndarray,
                    colors: np.ndarray,
                    semantic_labels: np.ndarray,
                    instance_labels: np.ndarray,
-                   superpoint: Optional[np.ndarray]=None,
                    size: float=1.0,
                    stride: float=0.5,
                    threshold: int=4096,
@@ -34,9 +33,6 @@ def room_to_blocks(coords: np.ndarray,
     assert coords.shape[0] == colors.shape[0] == semantic_labels.shape[0] == instance_labels.shape[0]
     upper_bound = coords.max(axis=0) # get upper bound of coordinates
     lower_bound = coords.min(axis=0) # get lower bound of coordinates
-
-    if superpoint is not None:
-        assert superpoint.shape[0] == coords.shape[0]
 
     # partition into x-y axis blocks according to size and stride
     width = max(1, int(np.ceil((upper_bound[0] - lower_bound[0]) / stride)))
@@ -72,9 +68,6 @@ def room_to_blocks(coords: np.ndarray,
         if block_instance_labels.max() < 0:
             continue
         concat_list = [block_coords, block_colors, block_semantic_labels, block_instance_labels]
-        if superpoint is not None:
-            block_superpoint = superpoint[block_indices, None] # [num_block, 1]
-            concat_list.append(block_superpoint)
 
         block = np.concatenate(concat_list, axis=1) # [num_block, 8/9]
         block_list.append(block)
@@ -89,17 +82,13 @@ def get_parser():
                         default=".",
                         help="root dir save data(different from --data-root in "
                              "prepare_data_inst.py)")
-    parser.add_argument("--data-split",
-                        type=str,
-                        default="train",
-                        help="data split (train / val)")
     parser.add_argument("--size",
                         type=float,
-                        default=1.0,
+                        default=5,
                         help="parition block size")
     parser.add_argument("--stride",
                         type=float,
-                        default=0.5,
+                        default=2.5,
                         help="parition block stride")
     parser.add_argument("--threshold",
                         type=int,
@@ -109,9 +98,6 @@ def get_parser():
                         type=int,
                         default=None,
                         help="number of sample points, default is None(do not sample)")
-    parser.add_argument("--with-superpoint",
-                        action="store_true",
-                        help="process superpoint or not")
     parser.add_argument("--verbose",
                         action="store_true",
                         help="show partition information or not")
@@ -125,18 +111,14 @@ if __name__ == "__main__":
     args = get_parser()
 
     data_root = args.data_root
-    split = args.data_split
-    data_dir = osp.join(data_root, split)
+    data_dir = args.data_dir
+    # add suffix
     save_dir = f"{data_dir}_blocks"
     os.makedirs(save_dir, exist_ok=True)
 
     for data_file in gorilla.track(glob.glob(osp.join(data_dir, "*.pth"))):
     # for data_file in glob.glob(osp.join(data_dir, "*.pth")):
         (coords, colors, semantic_labels, instance_labels, room_label, scene) = torch.load(data_file)
-        superpoint = None
-        if args.with_superpoint:
-            superpoint_file = osp.join(data_root, "superpoint", f"{scene}.npy")
-            superpoint = np.load(superpoint_file)
 
         if args.verbose:
             print(f"processing: {scene}")
@@ -145,7 +127,6 @@ if __name__ == "__main__":
                                     colors,
                                     semantic_labels,
                                     instance_labels,
-                                    superpoint=superpoint,
                                     size=args.size,
                                     stride=args.stride,
                                     threshold=args.threshold,
@@ -164,7 +145,4 @@ if __name__ == "__main__":
                         block_instance_labels,
                         room_label,
                         scene_idx), osp.join(save_dir, f"{scene_idx}.pth"))
-            if superpoint is not None:
-                block_superpoint = block[:, 8]
-                np.save(osp.join(data_root, "superpoint", f"{scene_idx}.npy"), block_superpoint)
 
