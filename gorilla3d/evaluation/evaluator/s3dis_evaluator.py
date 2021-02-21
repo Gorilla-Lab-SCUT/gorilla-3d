@@ -1,4 +1,5 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
+from logging import debug
 import os.path as osp
 
 import torch
@@ -19,7 +20,6 @@ class S3DISSemanticEvaluator(DatasetEvaluator):
         Args:
             num_classes, ignore_label: deprecated argument
         """
-        self._dataset_root = dataset_root
         self.logger = logger
         self.reset()
 

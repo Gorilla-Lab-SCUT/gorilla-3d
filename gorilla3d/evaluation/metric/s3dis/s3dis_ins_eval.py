@@ -11,10 +11,10 @@ from ..instance_utils import evaluate_matches, compute_averages, assign_instance
 
 # ---------- Label info ---------- #
 CLASS_LABELS = [
-    "beam", "column", "window", "door",
+    "ceiling", "floor", "wall", "beam", "column", "window", "door",
     "table", "chair", "sofa", "bookcase", "board", "clutter"
 ]
-VALID_CLASS_IDS = np.array(range(len(CLASS_LABELS))) + 3
+VALID_CLASS_IDS = np.array(range(len(CLASS_LABELS)))
 ID_TO_LABEL = {}
 for i in range(len(VALID_CLASS_IDS)):
     ID_TO_LABEL[VALID_CLASS_IDS[i]] = CLASS_LABELS[i]
@@ -23,8 +23,8 @@ for i in range(len(VALID_CLASS_IDS)):
 evaluate_matches_s3dis = partial(evaluate_matches, class_labels=CLASS_LABELS)
 compute_averages_s3dis = partial(compute_averages, class_labels=CLASS_LABELS)
 assign_instances_for_scan_s3dis = partial(assign_instances_for_scan,
-                                            valid_class_ids=VALID_CLASS_IDS,
-                                            class_labels=CLASS_LABELS,
-                                            id_to_label=ID_TO_LABEL)
+                                          valid_class_ids=VALID_CLASS_IDS,
+                                          class_labels=CLASS_LABELS,
+                                          id_to_label=ID_TO_LABEL)
 print_results_s3dis = partial(print_results, class_labels=CLASS_LABELS)
 

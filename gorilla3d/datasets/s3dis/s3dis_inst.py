@@ -5,7 +5,7 @@ from random import sample
 
 import gorilla
 import numpy as np
-from numpy import random
+from numpy.core.fromnumeric import sort
 import torch
 from torch.utils.data import (Dataset, DataLoader)
 
@@ -20,12 +20,16 @@ class S3DISInst(Dataset):
     def __init__(self, cfg=None, logger=None, split="train"):
         self.logger = logger
         self.split = split
+        self.areas = getattr(cfg.data, f"{split}_area")
 
         # dataset parameters
         self.data_root = cfg.data.data_root
         self.dataset = "s3dis"
         self.batch_size = cfg.data.batch_size
+        self.data_dir = cfg.data.data_dir
         self.with_superpoint = cfg.data.with_superpoint
+        if self.with_superpoint:
+            self.superpoint_dir = cfg.data.superpoint_dir
 
         # voxelization parameters
         self.full_scale = cfg.data.full_scale
@@ -38,16 +42,17 @@ class S3DISInst(Dataset):
 
         # special paramters
         self.train_mini = cfg.data.train_mini 
-        self.task = cfg.task
         self.with_elastic = cfg.data.with_elastic
         
         # load files
         self.load_files()
     
     def load_files(self):
-        file_names = sorted(glob.glob(osp.join(self.data_root, self.dataset, self.task, "*.pth")))
+        file_names = []
+        for area in self.areas:
+            file_names.extend(sorted(glob.glob(osp.join(self.data_root, self.dataset, self.data_dir, f"Area_{area}*.pth"))))
         self.files = [torch.load(i) for i in gorilla.track(file_names)]
-        self.logger.info(f"{self.task} samples: {len(self.files)}")
+        self.logger.info(f"{self.split} samples: {len(self.files)}")
 
     def __len__(self):
         return len(self.files)
@@ -59,7 +64,7 @@ class S3DISInst(Dataset):
             xyz_origin, rgb, semantic_label, instance_label, room_label, scene = self.files[index]
             
             if self.with_superpoint:
-                superpoint_file = osp.join(self.data_root, self.dataset, "superpoint", f"{scene}.npy")
+                superpoint_file = osp.join(self.data_root, self.dataset, self.superpoint_dir, f"{scene}.npy")
                 superpoint = np.load(superpoint_file)
 
             ### jitter / flip x / rotation
@@ -215,8 +220,7 @@ class S3DISInst(Dataset):
         :param xyz: (n, 3) >= 0
         """
         xyz_offset = xyz.copy()
-        valid_idxs = (xyz_offset.min(1) >= 0)
-        assert valid_idxs.sum() == xyz.shape[0]
+        valid_idxs = (xyz_offset.min(1) >= 0) * ((xyz < self.full_scale[1]).sum(1) == 3)
 
         full_scale = np.array([self.full_scale[1]] * 3)
         room_range = xyz.max(0) - xyz.min(0)
@@ -233,14 +237,14 @@ class S3DISInst(Dataset):
         """
         :param xyz: (n, 3) >= 0
         """
-        valid_idxs = (xyz.min(1) >= 0)
-        assert valid_idxs.sum() == xyz.shape[0]
+        valid_idxs = (xyz.min(1) >= 0) * ((xyz < self.full_scale[1]).sum(1) == 3)
 
         # get the room_range
         room_range = (xyz.max(0) - xyz.min(0)).astype(np.float32)
-        while valid_idxs.sum() > self.max_npoint:
+        if valid_idxs.sum() > self.max_npoint:
             ratio = self.max_npoint / valid_idxs.sum()
-            room_range[:2] *= np.sqrt(ratio)
+            # room_range[:2] *= np.sqrt(ratio)
+            room_range[:2] *= ratio
             valid_idxs = ((xyz < room_range).sum(1) == 3)
 
         return valid_idxs

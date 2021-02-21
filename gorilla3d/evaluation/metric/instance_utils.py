@@ -5,7 +5,6 @@ import logging
 from typing import Dict, List, Optional
 
 import numpy as np
-import scipy.stats as stats
 
 from ...structures.instances import VertInstance
 
@@ -56,7 +55,7 @@ def evaluate_matches(matches: Dict,
                     # filter groups in ground truth
                     gt_instances = [
                         gt for gt in gt_instances
-                        if gt["instance_id"] >= 1000 and gt["instance_count"] >=
+                        if gt["instance_id"] >= 0 and gt["instance_count"] >=
                         min_region_size and gt["med_dist"] <= distance_thresh
                         and gt["dist_conf"] >= distance_conf
                     ]
