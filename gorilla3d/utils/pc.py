@@ -111,7 +111,7 @@ def save_pc(points: Union[np.ndarray, torch.Tensor],
         pc.points = o3d.utility.Vector3dVector(points)
         if colors is not None and colors.max() > 1:
             colors = colors / 255
-            pc.colors = o3d.utility.Vector3dVector(colors)
+        pc.colors = o3d.utility.Vector3dVector(colors)
         o3d.io.write_point_cloud(filename, pc)
     except:
         if colors is not None and colors.max() < 1:
