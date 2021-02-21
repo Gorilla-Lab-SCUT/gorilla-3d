@@ -18,28 +18,15 @@ except:
 
 
 def get_parser():
-    parser = argparse.ArgumentParser(description="s3dis room partition "
-                                                 "refer to jsis3d")
-    parser.add_argument("--data-root",
+    parser = argparse.ArgumentParser(description="downsample s3dis by voxelization")
+    parser.add_argument("--data-dir",
                         type=str,
-                        default=".",
-                        help="root dir save data(different from --data-root in "
-                             "prepare_data_inst.py)")
-    parser.add_argument("--data-split",
-                        type=str,
-                        default="train",
-                        help="data split (train / val)")
+                        default="./inputs",
+                        help="directory save processed data")
     parser.add_argument("--voxel-size",
                         type=float,
                         default=0.01,
                         help="voxelization size")
-    parser.add_argument("--sample",
-                        type=int,
-                        default=None,
-                        help="number of sample points, default is None(do not sample)")
-    parser.add_argument("--with-superpoint",
-                        action="store_true",
-                        help="process superpoint or not")
     parser.add_argument("--verbose",
                         action="store_true",
                         help="show partition information or not")
@@ -52,26 +39,21 @@ def get_parser():
 if __name__ == "__main__":
     args = get_parser()
 
-    data_root = args.data_root
-    split = args.data_split
-    data_dir = osp.join(data_root, split)
-    if "train" in split:
-        save_dir = osp.join(data_root, "train")
-    elif "val" in split:
-        save_dir = osp.join(data_root, "val")
+    data_dir = args.data_dir
+    save_dir = f"{data_dir}_voxelize"
     os.makedirs(save_dir, exist_ok=True)
 
+    # for data_file in [osp.join(data_dir, "Area_6_office_17.pth")]:
     for data_file in gorilla.track(glob.glob(osp.join(data_dir, "*.pth"))):
     # for data_file in glob.glob(osp.join(data_dir, "*.pth")):
         (coords, colors, semantic_labels, instance_labels, room_label, scene) = torch.load(data_file)
 
-        superpoint = None
-        if args.with_superpoint:
-            superpoint_file = osp.join(data_root, "superpoint_origin", f"{scene}.npy")
-            superpoint = np.load(superpoint_file).astype(np.int32)
-
         if args.verbose:
             print(f"processing: {scene}")
+
+        save_path = osp.join(save_dir, f"{scene}.pth")
+        if os.path.exists(save_path):
+            continue
 
         # move to positive area
         coords -= coords.min(0)
@@ -109,11 +91,5 @@ if __name__ == "__main__":
                     semantic_labels,
                     instance_labels,
                     room_label,
-                    scene), osp.join(save_dir, f"{scene}.pth"))
-
-        if superpoint is not None:
-            superpoint = torch.from_numpy(superpoint).float().cuda().view(-1, 1) # [num_point, 1]
-            superpoint = pointgroup_ops.voxelization(superpoint, v2p_map, 4).cpu().view(-1) # [num_voxel]
-            superpoint = torch.round(superpoint).long().numpy() # [num_voxel]
-            np.save(osp.join(data_root, "superpoint", f"{scene}.npy"), superpoint)
+                    scene), save_path)
 

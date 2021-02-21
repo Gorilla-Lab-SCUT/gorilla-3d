@@ -26,18 +26,31 @@ INV_OBJECT_LABEL = {
     12: "clutter",
 }
 
-if __name__ == "__main__":
-    semantic_label_idxs = list(range(13))
+def get_parser():
+    parser = argparse.ArgumentParser(description="s3dis data prepare")
+    parser.add_argument("--data-dir",
+                        type=str,
+                        default="./inputs",
+                        help="directory save processed data")
+    parser.add_argument("--save-dir",
+                        type=str,
+                        default="./labels",
+                        help="directory save ground truth")
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--data-split", help="data split (train / val)", default="val")
-    opt = parser.parse_args()
-    split = opt.data_split
-    files = sorted(glob.glob(f"{split}/*.pth"))
+    args_cfg = parser.parse_args()
+
+    return args_cfg
+
+
+if __name__ == "__main__":
+    args = get_parser()
+    data_dir = args.data_dir
+    save_dir = args.save_dir
+    files = sorted(glob.glob(f"{data_dir}/*.pth"))
     rooms = [torch.load(i) for i in gorilla.track(files)]
 
-    if not os.path.exists(split + "_gt"):
-        os.mkdir(split + "_gt")
+    if not os.path.exists(save_dir):
+        os.mkdir(save_dir)
 
     for i in range(len(rooms)):
         (xyz, rgb, semantic_labels, instance_labels, room_label, scene) = rooms[i] # semantic label 0-12 instance_labels 0~instance_num-1 -100
@@ -53,10 +66,10 @@ if __name__ == "__main__":
             instance_mask = np.where(instance_labels == inst_id)[0]
             sem_id = int(semantic_labels[instance_mask[0]])
             if(sem_id == -100): sem_id = 0
-            semantic_label = semantic_label_idxs[sem_id]
+            semantic_label = sem_id
             instance_labels_new[instance_mask] = semantic_label * 1000 + inst_id
 
-        np.savetxt(os.path.join(split + "_gt", scene + ".txt"), instance_labels_new, fmt="%d")
+        np.savetxt(os.path.join(save_dir, scene + ".txt"), instance_labels_new, fmt="%d")
 
 
 

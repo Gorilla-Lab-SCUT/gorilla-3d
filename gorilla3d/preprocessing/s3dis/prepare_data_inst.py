@@ -85,8 +85,8 @@ def read_s3dis_format(area_id: str,
         obj_ver = pd.read_csv(single_object, sep=" ", header=None).values
         _, obj_ind = nn.kneighbors(obj_ver[:, 0:3])
         semantic_labels[obj_ind] = object_label
-        if object_label < 3: # background object
-            continue
+        # if object_label < 3: # background object
+        #     continue
         instance_labels[obj_ind] = i_object
         i_object = i_object + 1
 
@@ -101,14 +101,14 @@ def read_s3dis_format(area_id: str,
 
 def get_parser():
     parser = argparse.ArgumentParser(description="s3dis data prepare")
-    parser.add_argument("--data-split",
-                        type=str,
-                        default="train",
-                        help="data split (train / val)")
     parser.add_argument("--data-root",
                         type=str,
                         default="./data",
                         help="root dir save data")
+    parser.add_argument("--save-dir",
+                        type=str,
+                        default="./inputs",
+                        help="directory save processed data")
     parser.add_argument("--patch",
                         action="store_true",
                         help="patch data or not (just patch at first time running)")
@@ -121,19 +121,14 @@ def get_parser():
 # patch -ruN -p0 -d  raw < s3dis.patch
 if __name__ == "__main__":
     args = get_parser()
-    global split
-    split = args.data_split
     data_root = args.data_root
-    os.makedirs(split, exist_ok=True)
+    # processed data output dir
+    save_dir = args.save_dir
+    os.makedirs(save_dir, exist_ok=True)
     if args.patch:
         os.system(f"patch -ruN -p0 -d  {data_root} < {osp.join(osp.dirname(__file__), 's3dis.patch')}")
 
-    if split == "train":
-        area_list = ["Area_1", "Area_2", "Area_3", "Area_4", "Area_6"]
-    elif split == "val":
-        area_list = ["Area_5"]
-    else:
-        raise ValueError(f"data_split must be 'train' or 'test', but got {split}")
+    area_list = ["Area_1", "Area_2", "Area_3", "Area_4", "Area_5", "Area_6"]
 
     for area_id in area_list:
         print(f"Processing: {area_id}")
@@ -144,7 +139,7 @@ if __name__ == "__main__":
         room_name_list.remove(".DS_Store")
         for room_name in gorilla.track(room_name_list):
             scene = f"{area_id}_{room_name}"
-            save_path = osp.join(split, scene + ".pth")
+            save_path = osp.join(save_dir, scene + ".pth")
             if osp.exists(save_path):
                 continue
             (xyz, rgb, semantic_labels, instance_labels, room_label) = read_s3dis_format(area_id, room_name, data_root)
