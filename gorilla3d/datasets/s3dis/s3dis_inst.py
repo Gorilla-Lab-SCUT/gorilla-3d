@@ -24,7 +24,7 @@ class S3DISInst(Dataset):
 
         # dataset parameters
         self.data_root = cfg.data.data_root
-        self.dataset = "s3dis"
+        self.dataset = cfg.data.dataset
         self.batch_size = cfg.data.batch_size
         self.data_dir = cfg.data.data_dir
         self.with_superpoint = cfg.data.with_superpoint
@@ -51,8 +51,8 @@ class S3DISInst(Dataset):
         file_names = []
         for area in self.areas:
             file_names.extend(sorted(glob.glob(osp.join(self.data_root, self.dataset, self.data_dir, f"Area_{area}*.pth"))))
+        self.logger.info(f"processing {self.split} samples: {len(file_names)}")
         self.files = [torch.load(i) for i in gorilla.track(file_names)]
-        self.logger.info(f"{self.split} samples: {len(self.files)}")
 
     def __len__(self):
         return len(self.files)
@@ -88,7 +88,8 @@ class S3DISInst(Dataset):
             ### crop
             valid_idxs = range(xyz.shape[0])
             if "train" in self.split:
-                valid_idxs = self.crop_lite(xyz)
+                xyz, valid_idxs = self.crop(xyz)
+                # valid_idxs = self.crop_lite(xyz)
                 # if len(valid_idxs) > self.max_npoint:
                 #     valid_idxs = sample(range(len(xyz)), self.max_npoint)
                 # xyz, valid_idxs = self.crop(xyz)
@@ -124,8 +125,8 @@ class S3DISInst(Dataset):
         
         loc = torch.from_numpy(xyz).long()
         loc_offset = torch.from_numpy(xyz_offset).long()
-        loc_float = torch.from_numpy(xyz_middle)
-        feat = torch.from_numpy(rgb)
+        loc_float = torch.from_numpy(xyz_middle).float()
+        feat = torch.from_numpy(rgb).float()
         if self.mode == "train":
             feat += torch.randn(3) * 0.1
         semantic_label = torch.from_numpy(semantic_label)
@@ -197,7 +198,7 @@ class S3DISInst(Dataset):
         ### voxelize
         batch_size = len(batch)
         voxel_locs, p2v_map, v2p_map = pointgroup_ops.voxelization_idx(locs, batch_size, 4)
-
+        
         return {"locs": locs, "locs_offset": locs_offset, "voxel_locs": voxel_locs,
                 "scene_list": scene_list, "p2v_map": p2v_map, "v2p_map": v2p_map,
                 "locs_float": locs_float, "feats": feats,
@@ -215,7 +216,7 @@ class S3DISInst(Dataset):
         return DataLoader(dataset, batch_size=self.batch_size, collate_fn=self.collate_fn, num_workers=self.workers,
                           shuffle=shuffle, sampler=None, drop_last=True, pin_memory=True)
 
-    def crop(self, xyz):
+    def crop(self, xyz, step=64):
         """
         :param xyz: (n, 3) >= 0
         """
@@ -225,10 +226,13 @@ class S3DISInst(Dataset):
         full_scale = np.array([self.full_scale[1]] * 3)
         room_range = xyz.max(0) - xyz.min(0)
         while (valid_idxs.sum() > self.max_npoint):
+            step_temp = step
+            if valid_idxs.sum() > 1e6:
+                step_temp = step * 2
             offset = np.clip(full_scale - room_range + 0.001, None, 0) * np.random.rand(3)
             xyz_offset = xyz + offset
             valid_idxs = (xyz_offset.min(1) >= 0) * ((xyz_offset < full_scale).sum(1) == 3)
-            full_scale[:2] -= 32
+            full_scale[:2] -= step_temp
 
         return xyz_offset, valid_idxs
 
@@ -243,9 +247,9 @@ class S3DISInst(Dataset):
         room_range = (xyz.max(0) - xyz.min(0)).astype(np.float32)
         if valid_idxs.sum() > self.max_npoint:
             ratio = self.max_npoint / valid_idxs.sum()
-            # room_range[:2] *= np.sqrt(ratio)
-            room_range[:2] *= ratio
-            valid_idxs = ((xyz < room_range).sum(1) == 3)
+            room_range[:2] *= np.sqrt(ratio)
+            # room_range[:2] *= ratio
+            valid_idxs = ((xyz < room_range).sum(1) == 3) * ((xyz < self.full_scale[1]).sum(1) == 3)
 
         return valid_idxs
 

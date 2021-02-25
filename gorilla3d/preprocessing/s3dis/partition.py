@@ -35,8 +35,8 @@ def room_to_blocks(coords: np.ndarray,
     lower_bound = coords.min(axis=0) # get lower bound of coordinates
 
     # partition into x-y axis blocks according to size and stride
-    width = max(1, int(np.ceil((upper_bound[0] - lower_bound[0]) / stride)))
-    depth = max(1, int(np.ceil((upper_bound[1] - lower_bound[1]) / stride)))
+    width = max(1, int(np.ceil((upper_bound[0] - lower_bound[0]) / stride + 1)))
+    depth = max(1, int(np.ceil((upper_bound[1] - lower_bound[1]) / stride + 1)))
     cells = [xy for xy in product(range(width), range(depth))]
 
     if verbose:
@@ -46,8 +46,8 @@ def room_to_blocks(coords: np.ndarray,
     block_list = []
     for (x, y) in cells:
         # get the inner block points' indices
-        x_bound = (x * stride + lower_bound[0] + size / 2)
-        y_bound = (y * stride + lower_bound[1] + size / 2)
+        x_bound = (x * stride + lower_bound[0] - size / 2)
+        y_bound = (y * stride + lower_bound[1] - size / 2)
         xcond = (coords[:, 0] >= x_bound) & (coords[:, 0] <= x_bound + size)
         ycond = (coords[:, 1] >= y_bound) & (coords[:, 1] <= y_bound + size)
         cond  = xcond & ycond
@@ -77,22 +77,21 @@ def room_to_blocks(coords: np.ndarray,
 def get_parser():
     parser = argparse.ArgumentParser(description="s3dis room partition "
                                                  "refer to jsis3d")
-    parser.add_argument("--data-root",
+    parser.add_argument("--data-dir",
                         type=str,
-                        default=".",
-                        help="root dir save data(different from --data-root in "
-                             "prepare_data_inst.py)")
+                        default="./inputs",
+                        help="directory save origin data")
     parser.add_argument("--size",
                         type=float,
                         default=5,
                         help="parition block size")
     parser.add_argument("--stride",
                         type=float,
-                        default=2.5,
+                        default=3.5,
                         help="parition block stride")
     parser.add_argument("--threshold",
                         type=int,
-                        default=4096,
+                        default=10000,
                         help="parition number threshold")
     parser.add_argument("--sample",
                         type=int,
@@ -110,8 +109,9 @@ def get_parser():
 if __name__ == "__main__":
     args = get_parser()
 
-    data_root = args.data_root
     data_dir = args.data_dir
+    if data_dir.endswith("/"):
+        data_dir = data_dir[:-1]
     # add suffix
     save_dir = f"{data_dir}_blocks"
     os.makedirs(save_dir, exist_ok=True)
@@ -133,12 +133,18 @@ if __name__ == "__main__":
                                     num_sample=args.sample,
                                     verbose=args.verbose)
 
-        for idx, block in enumerate(block_list):
+        idx = 0
+        for block in block_list:
             block_coords = block[:, 0:3] # [num_block, 3]
             block_colors = block[:, 3:6] # [num_block, 3]
             block_semantic_labels = block[:, 6] # [num_block]
+            if block_semantic_labels.max() < 2:
+                continue
+            if not ((block_coords.max(0) - block_coords.min(0)) > 0.5).all():
+                continue
             block_instance_labels = block[:, 7] # [num_block]
             scene_idx = f"{scene}_{idx}"
+            idx += 1
             torch.save((block_coords,
                         block_colors,
                         block_semantic_labels,

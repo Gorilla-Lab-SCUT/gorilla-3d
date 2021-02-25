@@ -2,4 +2,7 @@ python -m gorilla3d.preprocessing.s3dis.prepare_data_inst --data-root ./data --s
 python -m gorilla3d.preprocessing.s3dis.prepare_data_inst_gttxt --data-dir ./inputs --save-dir ./labels 
 
 # # voxelize down-sample
-# python -m gorilla3d.preprocessing.s3dis.voxelize --data-dir ./inputs
+# CUDA_VISIBLE_DEVICES=0 python -m gorilla3d.preprocessing.s3dis.downsample --data-dir ./inputs
+# # partition down-sample
+# python -m gorilla3d.preprocessing.s3dis.partition --data-dir ./inputs
+
