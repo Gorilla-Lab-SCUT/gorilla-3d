@@ -205,15 +205,22 @@ class S3DISInst(Dataset):
                 "instance_info": instance_infos, "instance_pointnum": instance_pointnum,
                 "offsets": batch_offsets, "spatial_shape": spatial_shape, "superpoint": superpoint}
 
-    def dataloader(self, shuffle=True, times=1):
+    def dataloader(self, shuffle=True, times=1, prefetch=False):
         times = int(times)
         assert times >= 1
         if times > 1:
             dataset = torch.utils.data.dataset.ConcatDataset([self] * times)
         else:
             dataset = self
-        return DataLoader(dataset, batch_size=self.batch_size, collate_fn=self.collate_fn, num_workers=self.workers,
-                          shuffle=shuffle, sampler=None, drop_last=True, pin_memory=True)
+        dataloader_caller = gorilla.DataLoaderX if prefetch else DataLoader
+        return dataloader_caller(dataset,
+                                 batch_size=self.batch_size,
+                                 collate_fn=self.collate_fn,
+                                 num_workers=self.workers,
+                                 shuffle=shuffle,
+                                 sampler=None,
+                                 drop_last=True,
+                                 pin_memory=True)
 
     def crop(self, xyz, step=64):
         """
