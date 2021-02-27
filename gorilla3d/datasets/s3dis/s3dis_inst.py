@@ -53,6 +53,10 @@ class S3DISInst(Dataset):
             file_names.extend(sorted(glob.glob(osp.join(self.data_root, self.dataset, self.data_dir, f"Area_{area}*.pth"))))
         self.logger.info(f"processing {self.split} samples: {len(file_names)}")
         self.files = [torch.load(i) for i in gorilla.track(file_names)]
+        if self.with_superpoint:
+            self.logger.info(f"loading superpoint: {len(file_names)}")
+            self.superpoints = [np.load(file_name.replace(self.data_dir, self.superpoint_dir).replace(".pth", ".npy")) \
+                for file_name in gorilla.track(file_names)]
 
     def __len__(self):
         return len(self.files)
@@ -62,10 +66,6 @@ class S3DISInst(Dataset):
         flag = True
         while flag:
             xyz_origin, rgb, semantic_label, instance_label, room_label, scene = self.files[index]
-            
-            if self.with_superpoint:
-                superpoint_file = osp.join(self.data_root, self.dataset, self.superpoint_dir, f"{scene}.npy")
-                superpoint = np.load(superpoint_file)
 
             ### jitter / flip x / rotation
             if "train" in self.split:
@@ -98,18 +98,10 @@ class S3DISInst(Dataset):
             xyz = xyz[valid_idxs]
             rgb = rgb[valid_idxs]
             semantic_label = semantic_label[valid_idxs]
-            superpoint = np.unique(superpoint[valid_idxs], return_inverse=True)[1]
             instance_label = instance_label[valid_idxs]
             # empty judgement
             if "train" in self.split:
-                if len(instance_label) == 0:
-                    index = sample(range(len(self.files)), 1)[0]
-                    continue
-                elif instance_label.max() < 0:
-                    index = sample(range(len(self.files)), 1)[0]
-                    continue
-                # avoid indices flag
-                elif (xyz.max(0) - xyz.min(0)).min() < 32:
+                if valid_idxs.sum() == 0:
                     index = sample(range(len(self.files)), 1)[0]
                     continue
                 else:
@@ -131,7 +123,14 @@ class S3DISInst(Dataset):
             feat += torch.randn(3) * 0.1
         semantic_label = torch.from_numpy(semantic_label)
         instance_label = torch.from_numpy(instance_label)
-        superpoint = torch.from_numpy(superpoint)
+
+        if self.with_superpoint:
+            superpoint = self.superpoints[index]
+            superpoint = np.unique(superpoint[valid_idxs], return_inverse=True)[1]
+            superpoint = torch.from_numpy(superpoint)
+        else:
+            # fake superpoint
+            superpoint = torch.ones_like(semantic_label)
 
         inst_info = torch.from_numpy(inst_info)
 
