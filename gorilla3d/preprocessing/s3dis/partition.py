@@ -83,15 +83,15 @@ def get_parser():
                         help="directory save origin data")
     parser.add_argument("--size",
                         type=float,
-                        default=5,
+                        default=1,
                         help="parition block size")
     parser.add_argument("--stride",
                         type=float,
-                        default=3.5,
+                        default=0.5,
                         help="parition block stride")
     parser.add_argument("--threshold",
                         type=int,
-                        default=10000,
+                        default=4096,
                         help="parition number threshold")
     parser.add_argument("--sample",
                         type=int,

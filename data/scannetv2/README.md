@@ -20,7 +20,6 @@ dataset
         └── ...
 ```
 
-
 - Refer to [PointGroup](https://github.com/Jia-Research-Lab/PointGroup), we've modify the code, and it can generate input files `[scene_id]_inst_nostuff.pth` for instance segmentation directly, you don't need to split the origin data into `train/val/test`, the script refer to `gorilla3d/preprocessing/scannetv2/inst_seg`.
 - And we package these command. You just running:
 ```sh
