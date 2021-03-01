@@ -127,7 +127,7 @@ def get_parser():
 if __name__ == "__main__":
     args = get_parser()
 
-    meta_data_dir = osp.join(osp.dirname(__file__), "meta_data")
+    meta_data_dir = osp.join(osp.dirname(__file__), "..", "meta_data")
 
     def get_raw2scannetv2_label_map():
         lines = [line.rstrip() for line in open(osp.join(meta_data_dir, "scannetv2-labels.combined.tsv"))]
