@@ -8,7 +8,7 @@ import numpy as np
 from gorilla.evaluation import DatasetEvaluator, DatasetEvaluators
 from ..metric import (evaluate_semantic_scannet, assign_instances_for_scan_scannet,
                       evaluate_matches_scannet, compute_averages_scannet, print_results_scannet,
-                      print_prec_recall)
+                      print_prec_recall_scannet)
 
 
 class ScanNetSemanticEvaluator(DatasetEvaluator):
@@ -118,7 +118,7 @@ class ScanNetInstanceEvaluator(DatasetEvaluator):
         ap_scores, prec_recall_total = evaluate_matches_scannet(matches)
         avgs = compute_averages_scannet(ap_scores)
         print_results_scannet(avgs, self.logger)
-        print_prec_recall(prec_recall_total, self.logger)
+        print_prec_recall_scannet(matches, logger=self.logger)
 
 
 ScanNetEvaluator = DatasetEvaluators(

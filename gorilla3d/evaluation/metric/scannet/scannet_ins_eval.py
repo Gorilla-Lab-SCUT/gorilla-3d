@@ -7,7 +7,7 @@ from typing import Dict, List, Optional
 
 import numpy as np
 
-from ..instance_utils import evaluate_matches, compute_averages, assign_instances_for_scan, print_results
+from ..instance_utils import evaluate_matches, compute_averages, assign_instances_for_scan, print_results, print_prec_recall
 
 # ---------- Label info ---------- #
 CLASS_LABELS = [
@@ -29,4 +29,4 @@ assign_instances_for_scan_scannet = partial(assign_instances_for_scan,
                                             class_labels=CLASS_LABELS,
                                             id_to_label=ID_TO_LABEL)
 print_results_scannet = partial(print_results, class_labels=CLASS_LABELS)
-
+print_prec_recall_scannet = partial(print_prec_recall, valid_class_ids=VALID_CLASS_IDS, class_labels=CLASS_LABELS)

@@ -1,6 +1,7 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
 from logging import debug
 import os.path as osp
+from re import match
 
 import torch
 import numpy as np
@@ -8,7 +9,7 @@ import numpy as np
 from gorilla.evaluation import DatasetEvaluator, DatasetEvaluators
 from ..metric import (evaluate_semantic_s3dis, assign_instances_for_scan_s3dis,
                       evaluate_matches_s3dis, compute_averages_s3dis, print_results_s3dis,
-                      print_prec_recall)
+                      print_prec_recall_s3dis)
 
 
 class S3DISSemanticEvaluator(DatasetEvaluator):
@@ -112,7 +113,7 @@ class S3DISInstanceEvaluator(DatasetEvaluator):
         ap_scores, prec_recall_total = evaluate_matches_s3dis(matches)
         avgs = compute_averages_s3dis(ap_scores)
         print_results_s3dis(avgs, self.logger)
-        print_prec_recall(prec_recall_total, self.logger)
+        print_prec_recall_s3dis(matches, logger=self.logger)
 
 
 S3DISEvaluator = DatasetEvaluators(

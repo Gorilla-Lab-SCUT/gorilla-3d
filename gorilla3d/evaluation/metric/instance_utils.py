@@ -1,9 +1,10 @@
 # Modified from ScanNet evaluation script: https://github.com/ScanNet/ScanNet/blob/master/BenchmarkScripts/3d_evaluation/evaluate_semantic_instance.py
-
+from re import match
 import sys
 import logging
 from typing import Dict, List, Optional
 
+import gorilla
 import numpy as np
 
 from ...structures.instances import VertInstance
@@ -252,6 +253,7 @@ def assign_instances_for_scan(scene_name: str,
     bool_void = np.logical_not(np.in1d(gt_ids // 1000, valid_class_ids))
     # go thru all prediction masks
     nMask = pred_info["label_id"].shape[0]
+
     for i in range(nMask):
         label_id = int(pred_info["label_id"][i])
         conf = pred_info["conf"][i]
@@ -277,6 +279,7 @@ def assign_instances_for_scan(scene_name: str,
         pred_instance["label_id"] = label_id
         pred_instance["instance_count"] = num
         pred_instance["confidence"] = conf
+        pred_instance["pred_mask"] = pred_mask
         pred_instance["void_intersection"] = np.count_nonzero(
             np.logical_and(bool_void, pred_mask))
 
@@ -346,11 +349,57 @@ def print_results(avgs: Dict,
     info("")
 
 
-def print_prec_recall(prec_recall: Dict,
+# modify from https://github.com/Yang7879/3D-BoNet/blob/master/main_eval.py
+def print_prec_recall(matches: Dict,
+                      valid_class_ids: List[int]=[0],
+                      class_labels: List[str]=["class"],
+                      threshold: float=0.5,
                       logger: Optional[logging.Logger]=None):
-    
-    sep = ""
-    col1 = ":"
+    # init the confusion matrix dict
+    TP_FP_Total = {}
+    for class_id in valid_class_ids:
+        TP_FP_Total[class_id] = {}
+        TP_FP_Total[class_id]["TP"] = 0
+        TP_FP_Total[class_id]["FP"] = 0
+        TP_FP_Total[class_id]["Total"] = 0
+
+    for m in gorilla.track(matches):
+        # pred ins
+        ins_pred_by_sem = {}
+        ins_gt_by_sem = {}
+        for class_id, class_label in zip(valid_class_ids, class_labels):
+            # pred ins
+            ins_pred_by_sem[class_id] = []
+            pred_instances = matches[m]["pred"][class_label]
+            for pred in pred_instances:
+                ins_pred_by_sem[class_id].append(pred["pred_mask"])
+            # gt ins
+            ins_gt_by_sem[class_id] = []
+            gt_instances = matches[m]["gt"][class_label]
+            for gt in gt_instances:
+                ins_gt_by_sem[class_id].append(gt["gt_mask"])
+
+        # to associate
+        for class_id, class_label in zip(valid_class_ids, class_labels):
+            ins_pred_tp = ins_pred_by_sem[class_id]
+            ins_gt_tp = ins_gt_by_sem[class_id]
+
+            flag_pred = np.zeros(len(ins_pred_tp), dtype=np.int8)
+            for i_p, ins_p in enumerate(ins_pred_tp):
+                iou_max = -1
+                for i_g, ins_g in enumerate(ins_gt_tp):
+                    u = ins_g | ins_p
+                    i = ins_g & ins_p
+                    iou_tp = float(np.sum(i)) / (np.sum(u) + 1e-8)
+                    if iou_tp > iou_max:
+                        iou_max = iou_tp
+                if iou_max >= threshold:
+                    flag_pred[i_p] = 1
+            ###
+            TP_FP_Total[class_id]["TP"] += np.sum(flag_pred)
+            TP_FP_Total[class_id]["FP"] += len(flag_pred) - np.sum(flag_pred)
+            TP_FP_Total[class_id]["Total"] += len(ins_gt_tp)
+
     lineLen = 50
 
     def info(message):
@@ -359,23 +408,23 @@ def print_prec_recall(prec_recall: Dict,
         else:
             print(message)
 
-    overlap_th = 0.5
-
-    prec_recall_overlap = prec_recall[overlap_th]
-
+    pre_all = []
+    rec_all = []
     info("")
     info("#" * lineLen)
 
     info(f"{'what  ':<15}: {'precision':>15} {'recall':>15}")
-    class_precisions = []
-    class_recalls = []
-    for class_name, [precision, recall] in prec_recall_overlap.items():
-        mean_precision = precision.mean()
-        mean_recall = recall.mean()
-        class_precisions.append(mean_precision)
-        class_recalls.append(mean_recall)
-        info(f"{class_name:<15}： {mean_precision:>15.3f} {mean_recall:>15.3f}")
+    for class_id, class_label in zip(valid_class_ids, class_labels):
+        TP = TP_FP_Total[class_id]["TP"]
+        FP = TP_FP_Total[class_id]["FP"]
+        Total = TP_FP_Total[class_id]["Total"]
+        pre = float(TP) / (TP + FP + 1e-8)
+        rec = float(TP) / (Total + 1e-8)
+        info(f"{class_label:<15}： {pre:>15.3f} {rec:>15.3f}")
+        pre_all.append(pre)
+        rec_all.append(rec)
 
     info("-" * lineLen)
-    info(f"{'average':<15}: {np.mean(class_precisions):>15.3f} {np.mean(class_recalls):>15.3f}")
+    info(f"{'average':<15}: {np.mean(pre_all):>15.3f} {np.mean(rec_all):>15.3f}")
     info("")
+

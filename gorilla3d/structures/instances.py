@@ -6,7 +6,6 @@ import numpy as np
 
 class VertInstance(object):
     instance_id = 0
-    label_id = 0
     instance_count = 0
     med_dist = -1
     dist_conf = 0.0
@@ -28,6 +27,7 @@ class VertInstance(object):
         if (instance_id == -1):
             return
         self.instance_id = int(instance_id)
+        self.gt_mask = (instance_ids == instance_id)
         self.instance_count = int((instance_ids == instance_id).sum())
 
     @property
@@ -39,6 +39,7 @@ class VertInstance(object):
     def dict(self):
         r"""return a dict represent instance"""
         dict = {}
+        dict["gt_mask"] = self.gt_mask
         dict["instance_id"] = self.instance_id
         dict["label_id"] = self.label_id
         dict["instance_count"] = self.instance_count
