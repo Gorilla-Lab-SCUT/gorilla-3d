@@ -280,7 +280,7 @@ if __name__ == "__main__":
     # get the real data root
     cfg.data.data_root = osp.join(osp.dirname(__file__), cfg.data.data_root)
     train_dataset = gorilla3d.ScanNetV2InstTrainVal(cfg, logger)
-    train_dataloader = train_dataset.dataloader()
+    train_dataloader = train_dataset.dataloader(True)
     cfg.task = "val"  # change task
     val_dataset = gorilla3d.ScanNetV2InstTrainVal(cfg, logger)
     val_dataloader = val_dataset.dataloader()
@@ -296,8 +296,8 @@ if __name__ == "__main__":
         Trainer.resume(
             checkpoint,
             strict=False,
-            # choice
-            resume_optimizer=False,
-            resume_scheduler=False
+            # # choice
+            # resume_optimizer=False,
+            # resume_scheduler=False
         )
     Trainer.solve()

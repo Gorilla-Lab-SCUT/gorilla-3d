@@ -15,7 +15,8 @@ import gorilla
 import gorilla3d
 import scipy.stats as stats
 
-from pointgroup import (pointgroup_ops, PointGroup)
+from pointgroup import PointGroup
+import pointgroup_ops
 
 def get_parser():
     parser = argparse.ArgumentParser(description="Point Cloud Instance Segmentation")
@@ -32,6 +33,16 @@ def get_parser():
     parser.add_argument("--semantic",
                         action="store_true",
                         help="only evaluate semantic segmentation")
+    ### visualize
+    parser.add_argument("--visual",
+                        type=str,
+                        default=None,
+                        help="visual path")
+    ### log file path
+    parser.add_argument("--log-file",
+                        type=str,
+                        default=None,
+                        help="log_file path")
 
     args_cfg = parser.parse_args()
 
@@ -40,30 +51,31 @@ def get_parser():
 
 def init():
     args = get_parser()
-    exp_name = args.config.split("/")[-1][:-5]
     cfg = gorilla.Config.fromfile(args.config)
     cfg.pretrain = args.pretrain
     cfg.semantic = args.semantic
-    cfg.exp_path = osp.join("exp", exp_name)
     cfg.task = cfg.data.split # the task of test is defined in as data.split
+    cfg.visual = args.visual
 
     gorilla.set_random_seed(cfg.data.test_seed)
 
     #### get logger file
+    params_dict = dict(
+        epoch=cfg.data.test_epoch,
+        optim=cfg.optimizer.name,
+        lr=cfg.optimizer.lr,
+        scheduler=cfg.lr_scheduler.name
+    )
     if cfg.data.split == "test":
-        log_file = os.path.join(
-            cfg.exp_path, f"result",
-            "epoch{cfg.data.test_epoch}_nmst{cfg.data.TEST_NMS_THRESH}_scoret{cfg.data.TEST_SCORE_THRESH}_npointt{cfg.data.TEST_NPOINT_THRESH}",
-            cfg.data.split, f"test-{time.strftime("%Y%m%d_%H%M%S", time.localtime())}.log"
-        )
-    else:
-        log_file = osp.join(
-            cfg.exp_path,
-            f"{cfg.data.split}-{time.strftime("%Y%m%d_%H%M%S", time.localtime())}.log"
-        )
-    if not gorilla.is_filepath(osp.dirname(log_file)):
-        gorilla.mkdir_or_exist(log_file)
-    logger = gorilla.get_root_logger(log_file)
+        params_dict["suffix"] = "test"
+
+    log_dir, logger = gorilla.collect_logger(
+        prefix=osp.splitext(args.config.split("/")[-1])[0],
+        log_name="test",
+        log_file=args.log_file,
+        # **params_dict
+    )
+
     logger.info(
         "************************ Start Logging ************************")
 
@@ -72,11 +84,11 @@ def init():
 
     global result_dir
     result_dir = osp.join(
-        cfg.exp_path, "result",
-        f"epoch{cfg.data.test_epoch,}_"
-        f"nmst{cfg.data.TEST_NMS_THRESH}_"
-        f"scoret{cfg.data.TEST_SCORE_THRESH}_"
-        f"npointt{cfg.data.TEST_NPOINT_THRESH}",
+        log_dir, "result",
+        "epoch{}_nmst{}_scoret{}_npointt{}".format(cfg.data.test_epoch,
+                                                   cfg.data.TEST_NMS_THRESH,
+                                                   cfg.data.TEST_SCORE_THRESH,
+                                                   cfg.data.TEST_NPOINT_THRESH),
         cfg.data.split)
     os.makedirs(osp.join(result_dir, "predicted_masks"), exist_ok=True)
 
@@ -96,7 +108,7 @@ def test(model, cfg, logger):
     semantic = cfg.semantic
 
     test_dataset = gorilla3d.ScanNetV2InstTest(cfg, logger)
-    test_dataloader = test_dataset.dataloader
+    test_dataloader = test_dataset.dataloader(False)
 
     with torch.no_grad():
         model = model.eval()
