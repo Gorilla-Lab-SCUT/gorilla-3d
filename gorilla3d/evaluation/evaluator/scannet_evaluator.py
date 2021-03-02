@@ -101,7 +101,7 @@ class ScanNetInstanceEvaluator(DatasetEvaluator):
             self._gt[scene_name] = gt2pred
             self._predictions[scene_name] = pred2gt
 
-    def evaluate(self):
+    def evaluate(self, ap=True, prec_rec=True):
         """
         Evaluates standard semantic segmentation metrics (http://cocodataset.org/#stuff-eval):
         * Mean intersection-over-union averaged across classes (mIoU)
@@ -115,10 +115,12 @@ class ScanNetInstanceEvaluator(DatasetEvaluator):
             matches[scene_name]["gt"] = self._gt[scene_name]
             matches[scene_name]["pred"] = self._predictions[scene_name]
 
-        ap_scores, prec_recall_total = evaluate_matches_scannet(matches)
-        avgs = compute_averages_scannet(ap_scores)
-        print_results_scannet(avgs, self.logger)
-        print_prec_recall_scannet(matches, logger=self.logger)
+        if ap:
+            ap_scores, prec_recall_total = evaluate_matches_scannet(matches)
+            avgs = compute_averages_scannet(ap_scores)
+            print_results_scannet(avgs, self.logger)
+        if prec_rec:
+            print_prec_recall_scannet(matches, logger=self.logger)
 
 
 ScanNetEvaluator = DatasetEvaluators(

@@ -96,8 +96,8 @@ class S3DISInstanceEvaluator(DatasetEvaluator):
             self._gt[scene_name] = gt2pred
             self._predictions[scene_name] = pred2gt
 
-    def evaluate(self):
-        """
+    def evaluate(self, ap=True, prec_rec=True):
+        """TODO: modify it
         Evaluates standard semantic segmentation metrics (http://cocodataset.org/#stuff-eval):
         * Mean intersection-over-union averaged across classes (mIoU)
         * Frequency Weighted IoU (fwIoU)
@@ -110,10 +110,12 @@ class S3DISInstanceEvaluator(DatasetEvaluator):
             matches[scene_name]["gt"] = self._gt[scene_name]
             matches[scene_name]["pred"] = self._predictions[scene_name]
 
-        ap_scores, prec_recall_total = evaluate_matches_s3dis(matches)
-        avgs = compute_averages_s3dis(ap_scores)
-        print_results_s3dis(avgs, self.logger)
-        print_prec_recall_s3dis(matches, logger=self.logger)
+        if ap:
+            ap_scores, prec_recall_total = evaluate_matches_s3dis(matches)
+            avgs = compute_averages_s3dis(ap_scores)
+            print_results_s3dis(avgs, self.logger)
+        if prec_rec:
+            print_prec_recall_s3dis(matches, logger=self.logger)
 
 
 S3DISEvaluator = DatasetEvaluators(
