@@ -113,7 +113,7 @@ class PointGroupSolver(gorilla.BaseSolver):
         input_ = spconv.SparseConvTensor(voxel_feats,
                                          voxel_coords.int(),
                                          spatial_shape,
-                                         cfg.data.batch_size)
+                                         cfg.dataloader.batch_size)
 
         ret = self.model(input_,
                          p2v_map,
@@ -278,12 +278,14 @@ if __name__ == "__main__":
 
     ##### dataset
     # get the real data root
-    cfg.data.data_root = osp.join(osp.dirname(__file__), cfg.data.data_root)
-    train_dataset = gorilla3d.ScanNetV2InstTrainVal(cfg, logger)
-    train_dataloader = train_dataset.dataloader(True)
-    cfg.task = "val"  # change task
-    val_dataset = gorilla3d.ScanNetV2InstTrainVal(cfg, logger)
-    val_dataloader = val_dataset.dataloader()
+    cfg.dataset.task = "train"  # change task
+    train_dataloader = gorilla.build_dataloader(cfg.dataset,
+                                                cfg.dataloader,
+                                                shuffle=True,
+                                                drop_last=True)
+    cfg.dataset.task = "val"  # change task
+    val_dataloader = gorilla.build_dataloader(cfg.dataset,
+                                              cfg.dataloader)
 
     Trainer = PointGroupSolver(model,
                                [train_dataloader, val_dataloader],

@@ -1,19 +1,21 @@
 task: train  # train, test
 seed: 123
 
-data:
-  data_root: data
-  filename_suffix: _inst_nostuff.pth
-
-  ignore_label: -100
-  with_elastic: False
-  train_mini: False
-  workers: 16 # data loader workers
-
-  scale: 50   # voxel_size = 1 / scale, scale 50(2cm)
-  batch_size: 4
+dataset:
+  name: ScanNetV2InstDev
+  data_root: data/scannetv2
   full_scale: [128, 512]
+  scale: 50   # voxel_size = 1 / scale, scale 50(2cm)
   max_npoint: 250000
+  with_elastic: False
+
+dataloader:
+  batch_size: 4
+  num_workers: 8
+  pin_memory: True
+
+data:
+  ignore_label: -100
   mode: 4 # 4=mean
 
   # train mode

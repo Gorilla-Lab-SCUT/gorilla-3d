@@ -107,8 +107,11 @@ def test(model, cfg, logger):
     epoch = cfg.data.test_epoch
     semantic = cfg.semantic
 
-    test_dataset = gorilla3d.ScanNetV2InstTest(cfg, logger)
-    test_dataloader = test_dataset.dataloader(False)
+    cfg.dataset.task = cfg.data.split  # change task
+    cfg.dataset.test_mode = True
+    cfg.dataloader.batch_size = 1
+    test_dataloader = gorilla.build_dataloader(cfg.dataset,
+                                               cfg.dataloader)
 
     with torch.no_grad():
         model = model.eval()
@@ -118,9 +121,9 @@ def test(model, cfg, logger):
 
         # define evaluator
         # get the real data root
-        data_root = osp.join(osp.dirname(__file__), cfg.data.data_root)
-        semantic_dataset_root = osp.join(data_root, "scannetv2", "scans")
-        instance_dataset_root = osp.join(data_root, "scannetv2", cfg.data.split + "_gt")
+        data_root = osp.join(osp.dirname(__file__), cfg.dataset.data_root)
+        semantic_dataset_root = osp.join(data_root, "scans")
+        instance_dataset_root = osp.join(data_root, cfg.data.split + "_gt")
         evaluator = gorilla3d.ScanNetSemanticEvaluator(semantic_dataset_root,
                                                        logger=logger)
         inst_evaluator = gorilla3d.ScanNetInstanceEvaluator(instance_dataset_root,
@@ -156,7 +159,7 @@ def test(model, cfg, logger):
                 feats = torch.cat((feats, coords_float), 1)
             voxel_feats = pointgroup_ops.voxelization(feats, v2p_map, cfg.data.mode)  # [M, C], float, cuda
 
-            input_ = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, cfg.data.batch_size)
+            input_ = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, cfg.dataloader.batch_size)
 
             data_time = timer.since_last()
 
@@ -314,12 +317,12 @@ def test(model, cfg, logger):
             ##### print
             if semantic:
                 logger.info(
-                    f"instance iter: {i + 1}/{len(test_dataset)} point_num: {N} "
+                    f"instance iter: {i + 1}/{len(test_dataloader)} point_num: {N} "
                     f"time: total {total_time:.2f}s data: {data_time:.2f}s "
                     f"inference {inference_time:.2f}s save {save_time:.2f}s")
             else:
                 logger.info(
-                    f"instance iter: {i + 1}/{len(test_dataset)} point_num: {N} "
+                    f"instance iter: {i + 1}/{len(test_dataloader)} point_num: {N} "
                     f"ncluster: {nclusters} time: total {total_time:.2f}s data: {data_time:.2f}s "
                     f"inference {inference_time:.2f}s save {save_time:.2f}s")
 
