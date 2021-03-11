@@ -373,13 +373,11 @@ def print_prec_recall(matches: Dict,
             pred_instances = matches[m]["pred"][class_label]
             for pred in pred_instances:
                 ins_pred_by_sem[class_id].append(pred["pred_mask"])
-            ins_pred_by_sem[class_id] = np.stack(ins_pred_by_sem[class_id]) # [num_pred, N]
             # gt ins
             ins_gt_by_sem[class_id] = []
             gt_instances = matches[m]["gt"][class_label]
             for gt in gt_instances:
                 ins_gt_by_sem[class_id].append(gt["gt_mask"])
-            ins_gt_by_sem[class_id] = np.stack(ins_gt_by_sem[class_id]) # [num_gt, N]
 
         # to associate
         for class_id, class_label in zip(valid_class_ids, class_labels):
@@ -387,19 +385,17 @@ def print_prec_recall(matches: Dict,
             ins_gt_tp = ins_gt_by_sem[class_id] # [num_gt, N]
 
             flag_pred = np.zeros(len(ins_pred_tp), dtype=np.int8)
-            
-            num_ins_pred = ins_pred_tp.shape[0]
-            num_ins_gt = ins_gt_tp.shape[0]
 
-            ins_pred_tp_append = np.tile(ins_pred_tp[:, None, :], (1, num_ins_gt, 1)) # [num_pred, num_gt, N]
-            ins_gt_tp_append = np.tile(ins_gt_tp[None, :, :], (num_ins_pred, 1, 1)) # [num_pred, num_gt, N]
+            for i_p, ins_p in enumerate(ins_pred_tp):
+                for i_g, ins_g in enumerate(ins_gt_tp):
+                    u = ins_g | ins_p
+                    i = ins_g & ins_p
+                    iou_tp = float(np.sum(i)) / (np.sum(u) + 1e-8)
+                    if iou_tp > threshold:
+                        flag_pred[i_p] = 1
+                        break
 
-            inter = np.sum(ins_pred_tp_append & ins_gt_tp_append, axis=-1) # [num_pred, num_gt]
-            union = np.sum(ins_pred_tp_append | ins_gt_tp_append, axis=-1) # [num_pred, num_gt]
-            iou_map = inter / (union + 1e-8) # [num_pred, num_gt]
-
-            flag_pred[iou_map.max(1) > threshold] = 1
-            ###
+            # fullfil
             TP_FP_Total[class_id]["TP"] += np.sum(flag_pred)
             TP_FP_Total[class_id]["FP"] += len(flag_pred) - np.sum(flag_pred)
             TP_FP_Total[class_id]["Total"] += len(ins_gt_tp)
