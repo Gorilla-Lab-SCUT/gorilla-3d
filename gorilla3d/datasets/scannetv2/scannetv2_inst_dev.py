@@ -18,7 +18,7 @@ try:
 except:
     pass
 
-class ScanNetV2Inst(Dataset, metaclass=ABCMeta):
+class ScanNetV2Inst(Dataset):
     def __init__(self,
                  data_root,
                  full_scale: List[int]=[128, 512],
