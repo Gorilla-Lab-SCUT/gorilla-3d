@@ -8,8 +8,8 @@ import gorilla
 import gorilla3d
 import spconv
 
+import pointgroup
 import pointgroup_ops
-from pointgroup import (get_checkpoint, PointGroupLoss, PointGroup)
 
 
 def get_parser():
@@ -67,7 +67,7 @@ class PointGroupSolver(gorilla.BaseSolver):
                 self.epoch)
 
     def build_criterion(self):
-        self.criterion = PointGroupLoss(self.cfg)
+        self.criterion = gorilla.build_loss(self.cfg.loss)
     
     def build_dataloaders(self):
         self.train_data_loader = self.dataloaders[0]
@@ -266,7 +266,7 @@ if __name__ == "__main__":
     ##### model
     logger.info("=> creating model ...")
 
-    model = PointGroup(cfg)
+    model = gorilla.build_model(cfg.model)
 
     use_cuda = torch.cuda.is_available()
     logger.info(f"cuda available: {use_cuda}")
@@ -292,7 +292,7 @@ if __name__ == "__main__":
                                cfg,
                                logger)
 
-    checkpoint, epoch = get_checkpoint(cfg.log_dir)
+    checkpoint, epoch = pointgroup.get_checkpoint(cfg.log_dir)
     Trainer.epoch = epoch
     if gorilla.is_filepath(checkpoint):
         Trainer.resume(

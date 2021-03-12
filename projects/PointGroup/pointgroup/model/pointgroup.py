@@ -4,6 +4,7 @@ Written by Li Jiang
 """
 import sys
 import functools
+from typing import List
 
 import spconv
 import gorilla
@@ -14,75 +15,85 @@ from torch_scatter import scatter_min, scatter_mean, scatter_max
 
 import pointgroup_ops
 from ..util import get_batch_offsets
-from .func_helper import *
 
-
+@gorilla.MODELS.register_module()
 class PointGroup(nn.Module):
-    def __init__(self, cfg):
+    def __init__(self,
+                 input_channel: int=3,
+                 use_coords: bool=True,
+                 blocks: int=5,
+                 media: int=3,
+                 classes: int=20,
+                 block_reps: int=2,
+                 score_scale: int=50,
+                 score_fullscale: int=14,
+                 score_mode: int=4,
+                 prepare_epochs: int=128,
+                 cluster_radius: float=0.04,
+                 cluster_radius_shift: float=0.03,
+                 cluster_meanActive: int=50,
+                 cluster_shift_meanActive: int=300,
+                 cluster_npoint_thre: int=50,
+                 fix_module: List[str]=[],
+                 **kwargs):
         super().__init__()
 
-        input_c = cfg.model.input_channel
-        blocks = cfg.model.blocks
-        m = cfg.model.m
-        classes = cfg.model.classes
-        block_reps = cfg.model.block_reps
+        self.cluster_radius = cluster_radius
+        self.cluster_radius_shift = cluster_radius_shift
+        self.cluster_meanActive = cluster_meanActive
+        self.cluster_shift_meanActive = cluster_shift_meanActive
+        self.cluster_npoint_thre = cluster_npoint_thre
 
-        self.cluster_radius = cfg.cluster.cluster_radius
-        self.cluster_radius_shift = cfg.cluster.cluster_radius_shift
-        self.cluster_meanActive = cfg.cluster.cluster_meanActive
-        self.cluster_shift_meanActive = cfg.cluster.cluster_shift_meanActive
-        self.cluster_npoint_thre = cfg.cluster.cluster_npoint_thre
+        self.score_scale = score_scale
+        self.score_fullscale = score_fullscale
+        self.score_mode = score_mode
 
-        self.score_scale = cfg.model.score_scale
-        self.score_fullscale = cfg.model.score_fullscale
-        self.mode = cfg.model.score_mode
+        self.prepare_epochs = prepare_epochs
 
-        self.prepare_epochs = cfg.model.prepare_epochs
-
-        self.fix_module = cfg.model.fix_module
+        self.fix_module = fix_module
 
 
         norm_fn = functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1)
 
         block = gorilla3d.ResidualBlock
 
-        if cfg.model.use_coords:
-            input_c += 3
+        if use_coords:
+            input_channel += 3
 
         #### backbone
         self.input_conv = spconv.SparseSequential(
-            spconv.SubMConv3d(input_c, m, kernel_size=3, padding=1, bias=False, indice_key="subm1")
+            spconv.SubMConv3d(input_channel, media, kernel_size=3, padding=1, bias=False, indice_key="subm1")
         )
 
-        block_list = [m * (i + 1) for i in range(blocks)]
+        block_list = [media * (i + 1) for i in range(blocks)]
         self.unet = gorilla3d.UBlockBottom(block_list, norm_fn, block_reps, block, indice_key_id=1)
 
         # #### self attention module
         # self.self_attn = nn.MultiheadAttention(m * blocks, 8)
 
         self.output_layer = spconv.SparseSequential(
-            norm_fn(m),
+            norm_fn(media),
             nn.ReLU()
         )
 
         #### semantic segmentation
-        self.linear = nn.Linear(m, classes) # bias(default): True
+        self.linear = nn.Linear(media, classes) # bias(default): True
 
         #### offset
         self.offset = nn.Sequential(
-            nn.Linear(m, m, bias=True),
-            norm_fn(m),
+            nn.Linear(media, media, bias=True),
+            norm_fn(media),
             nn.ReLU()
         )
-        self.offset_linear = nn.Linear(m, 3, bias=True)
+        self.offset_linear = nn.Linear(media, 3, bias=True)
 
         #### score branch
-        self.score_unet = gorilla3d.UBlock([m, 2*m], norm_fn, 2, block, indice_key_id=1)
+        self.score_unet = gorilla3d.UBlock([media, 2*media], norm_fn, 2, block, indice_key_id=1)
         self.score_outputlayer = spconv.SparseSequential(
-            norm_fn(m),
+            norm_fn(media),
             nn.ReLU()
         )
-        self.score_linear = nn.Linear(m, 1)
+        self.score_linear = nn.Linear(media, 1)
 
         self.apply(self.set_bn_init)
 
@@ -218,12 +229,10 @@ class PointGroup(nn.Module):
                 shifted_coords = coords_ + pt_offsets_
                 semantic_preds_cpu = semantic_preds_filter[object_idx_filter].int().cpu()
 
-                ### the superpint_fusion will employ superpoint to refine mask and boost performance
                 #### shift coordinates region grow
                 idx_shift, start_len_shift = pointgroup_ops.ballquery_batch_p(shifted_coords, batch_idxs_, batch_offsets_, self.cluster_radius_shift, int(self.cluster_shift_meanActive/2))
                 proposals_idx_shift, proposals_offset_shift = pointgroup_ops.bfs_cluster(semantic_preds_cpu, idx_shift.cpu(), start_len_shift.cpu(), self.cluster_npoint_thre)
                 proposals_idx_shift[:, 1] = object_idx_filter[proposals_idx_shift[:, 1].long()].int()
-                # proposals_idx_shift, proposals_offset_shift = superpoint_fusion(proposals_idx_shift, proposals_offset_shift, superpoint, thr_filter=0.25, thr_fusion=0.25)
                 # proposals_idx_shift: [sum_points, 2], int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
                 # proposals_offset_shift: [num_prop + 1], int
 
@@ -234,7 +243,6 @@ class PointGroup(nn.Module):
                 idx, start_len = pointgroup_ops.ballquery_batch_p(coords_, batch_idxs_, batch_offsets_, self.cluster_radius, self.cluster_meanActive)
                 proposals_idx_origin, proposals_offset_origin = pointgroup_ops.bfs_cluster(semantic_preds_cpu, idx.cpu(), start_len.cpu(), self.cluster_npoint_thre)
                 proposals_idx_origin[:, 1] = object_idx_filter[proposals_idx_origin[:, 1].long()].int()
-                # proposals_idx_origin, proposals_offset_origin = superpoint_fusion(proposals_idx_origin, proposals_offset_origin, superpoint, thr_filter=0.4, thr_fusion=0.4)
                 # proposals_idx_origin, [sum_points, 2], int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
                 # proposals_offset_origin, [num_prop + 1], int
 
@@ -246,7 +254,7 @@ class PointGroup(nn.Module):
                 # proposals_offset, [num_prop + 1]: int
 
             #### proposals voxelization again
-            input_feats, inp_map = self.clusters_voxelization(proposals_idx, output_feats, coords, self.score_fullscale, self.score_scale, self.mode)
+            input_feats, inp_map = self.clusters_voxelization(proposals_idx, output_feats, coords, self.score_fullscale, self.score_scale, self.score_mode)
 
             #### score
             score = self.score_unet(input_feats)

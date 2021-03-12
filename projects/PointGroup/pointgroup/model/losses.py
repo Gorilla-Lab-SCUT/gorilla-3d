@@ -1,4 +1,6 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
+from typing import List
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -6,14 +8,21 @@ import gorilla
 
 import pointgroup_ops
 
+@gorilla.LOSSES.register_module()
 class PointGroupLoss(nn.Module):
-    def __init__(self, cfg):
+    def __init__(self,
+                 ignore_label: int=-100,
+                 prepare_epochs: int=128,
+                 fg_thresh: float=0.75,
+                 bg_thresh: float=0.25,
+                 loss_weight: List[float]=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+                 **kwargs):
         super().__init__()
-        self.ignore_label = cfg.data.ignore_label
-        self.prepare_epochs = cfg.model.prepare_epochs
-        self.fg_thresh = cfg.model.fg_thresh
-        self.bg_thresh = cfg.model.bg_thresh
-        self.loss_weight = cfg.model.loss_weight
+        self.ignore_label = ignore_label
+        self.prepare_epochs = prepare_epochs
+        self.fg_thresh = fg_thresh
+        self.bg_thresh = bg_thresh
+        self.loss_weight = loss_weight
 
         #### criterion
         self.semantic_criterion = nn.CrossEntropyLoss(ignore_index=self.ignore_label)

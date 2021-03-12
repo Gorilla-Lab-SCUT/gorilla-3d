@@ -15,7 +15,7 @@ import gorilla
 import gorilla3d
 import scipy.stats as stats
 
-from pointgroup import PointGroup
+import pointgroup
 import pointgroup_ops
 
 def get_parser():
@@ -329,7 +329,7 @@ def test(model, cfg, logger):
         ##### evaluation
         if cfg.data.eval:
             if not semantic:
-                inst_evaluator.evaluate()
+                inst_evaluator.evaluate(prec_rec=False)
             evaluator.evaluate()
 
 
@@ -340,7 +340,7 @@ if __name__ == "__main__":
     logger.info("=> creating model ...")
     logger.info(f"Classes: {cfg.model.classes}")
 
-    model = PointGroup(cfg)
+    model = gorilla.build_model(cfg.model)
 
     use_cuda = torch.cuda.is_available()
     logger.info(f"cuda available: {use_cuda}")
