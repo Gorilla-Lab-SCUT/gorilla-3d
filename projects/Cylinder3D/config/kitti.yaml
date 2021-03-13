@@ -1,0 +1,85 @@
+# Config format schema number
+format_version: 4
+
+###################
+## Model options
+model:
+  name: CylinderAsym
+  cylin_model_cfg:
+    name: CylinderFea
+    grid_size:
+      - 480
+      - 360
+      - 32
+    fea_dim: 9
+    out_pt_fea_dim: 256
+    fea_compre: 16
+  segmentator_spconv_cfg:
+    name: Asymm3dSpconv
+    output_shape:
+      - 480
+      - 360
+      - 32
+    num_input_features: 16
+    nclasses: 20
+    init_size: 32
+
+loss:
+  name: CylinderLoss
+  num_class: 20
+  ignore_label: 255
+
+###################
+## Dataset options
+dataset:
+  name: KittiSem
+  data_root: data/kitti/dataset/sequences/
+  label_mapping: data/kitti/semantic-kitti.yaml
+  task: train
+  return_ref: True
+  return_test: False
+  transform_cfg:
+    rotate_aug: True
+    flip_aug: True
+    scale_aug: True
+    transform: True
+    trans_std:
+      - 0.1
+      - 0.1
+      - 0.1
+  grid_cfg:
+    grid_size:
+      - 480
+      - 360
+      - 32
+    fixed_volume_space: True
+    min_volume_space:
+      - 0
+      - -3.1415926
+      - -4
+    max_volume_space:
+      - 50
+      - 3.1415926
+      - 2
+
+dataloader:
+  batch_size: 2
+  num_workers: 4
+
+# optimizer
+optimizer:
+  lr: 0.001
+  # name: Adam
+  name: AdamW
+  weight_decay: 0.0001
+  # amsgrad: False
+
+# lr_scheduler
+lr_scheduler:
+  name: StepLR
+  step_size: 40
+
+solver:
+  # train mode
+  epochs: 40
+  save_freq: 4599  # also eval_freq
