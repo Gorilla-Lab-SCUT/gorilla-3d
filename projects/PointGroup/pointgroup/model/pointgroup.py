@@ -11,10 +11,10 @@ import gorilla
 import gorilla3d
 import torch
 import torch.nn as nn
+import numpy as np
 from torch_scatter import scatter_min, scatter_mean, scatter_max
 
 import pointgroup_ops
-from ..util import get_batch_offsets
 
 @gorilla.MODELS.register_module()
 class PointGroup(nn.Module):
@@ -223,7 +223,7 @@ class PointGroup(nn.Module):
 
             if len(object_idx_filter) > 0:
                 batch_idxs_ = batch_idxs[object_idx_filter]
-                batch_offsets_ = get_batch_offsets(batch_idxs_, input.batch_size)
+                batch_offsets_ = self.get_batch_offsets(batch_idxs_, input.batch_size)
                 coords_ = coords[object_idx_filter]
                 pt_offsets_ = pt_offsets[object_idx_filter]
                 shifted_coords = coords_ + pt_offsets_
@@ -268,4 +268,15 @@ class PointGroup(nn.Module):
 
         return ret
 
+    @staticmethod
+    def get_batch_offsets(batch_idxs, bs):
+        """
+        :param batch_idxs: (N), int
+        :param bs: int
+        :return: batch_offsets: (bs + 1)
+        """
+        batch_idxs_np = batch_idxs.cpu().numpy()
+        batch_offsets = np.append(np.searchsorted(batch_idxs_np, range(bs)), len(batch_idxs_np))
+        batch_offsets = torch.Tensor(batch_offsets).int().to(batch_idxs.device)
+        return batch_offsets
 

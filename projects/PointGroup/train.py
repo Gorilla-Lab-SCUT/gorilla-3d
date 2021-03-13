@@ -1,5 +1,6 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
 import sys
+import glob
 import argparse
 import os.path as osp
 
@@ -63,7 +64,7 @@ class PointGroupSolver(gorilla.BaseSolver):
     @property
     def val_flag(self):
         return gorilla.is_multiple(
-            self.epoch, self.cfg.data.save_freq) or gorilla.is_power2(
+            self.epoch, self.cfg.solver.save_freq) or gorilla.is_power2(
                 self.epoch)
 
     def build_criterion(self):
@@ -168,7 +169,7 @@ class PointGroupSolver(gorilla.BaseSolver):
         self.build_criterion()
         self.train_data_loader = self.dataloaders[0]
         self.val_data_loader = self.dataloaders[1]
-        while self.epoch <= self.cfg.data.epochs:
+        while self.epoch <= self.cfg.solver.epochs:
             self.train()
             if self.val_flag:
                 self.evaluate()
@@ -199,7 +200,7 @@ class PointGroupSolver(gorilla.BaseSolver):
             ##### time and print
             current_iter = (self.epoch - 1) * len(
                 self.train_data_loader) + i + 1
-            max_iter = self.cfg.data.epochs * len(self.train_data_loader)
+            max_iter = self.cfg.solver.epochs * len(self.train_data_loader)
             remain_iter = max_iter - current_iter
 
             iter_time.update(iter_timer.since_start())
@@ -214,7 +215,7 @@ class PointGroupSolver(gorilla.BaseSolver):
 
             loss_buffer = self.log_buffer.get("loss_train")
             sys.stdout.write(
-                f"epoch: {self.epoch}/{self.cfg.data.epochs} iter: {i + 1}/{len(self.train_data_loader)} "
+                f"epoch: {self.epoch}/{self.cfg.solver.epochs} iter: {i + 1}/{len(self.train_data_loader)} "
                 f"lr: {lr:4f} loss: {loss_buffer.latest:.4f}({loss_buffer.avg:.4f}) "
                 f"data_time: {data_time.latest:.2f}({data_time.avg:.2f}) "
                 f"iter_time: {iter_time.latest:.2f}({iter_time.avg:.2f}) remain_time: {remain_time}\n")
@@ -225,12 +226,16 @@ class PointGroupSolver(gorilla.BaseSolver):
 
         self.logger.info(
             "epoch: {}/{}, train loss: {:.4f}, time: {}s".format(
-                self.epoch, self.cfg.data.epochs, loss_buffer.avg,
+                self.epoch, self.cfg.solver.epochs, loss_buffer.avg,
                 epoch_timer.since_start()))
 
         meta = {"epoch": self.epoch}
         checkpoint = osp.join(self.cfg.log_dir, "epoch_{0:05d}.pth".format(self.epoch))
+        latest_checkpoint = osp.join(self.cfg.log_dir, "epoch_latest.pth")
         gorilla.save_checkpoint(self.model, checkpoint, self.optimizer,
+                                self.lr_scheduler, meta)
+        # save as latest checkpoint
+        gorilla.save_checkpoint(self.model, latest_checkpoint, self.optimizer,
                                 self.lr_scheduler, meta)
 
         self.logger.info("Saving " + checkpoint)
@@ -253,10 +258,28 @@ class PointGroupSolver(gorilla.BaseSolver):
                                  f"loss: {loss_buffer.latest:.4f}({loss_buffer.avg:.4f})")
                 if (i == len(self.val_data_loader) - 1): print()
 
-            logger.info(f"epoch: {self.epoch}/{self.cfg.data.epochs}, "
+            logger.info(f"epoch: {self.epoch}/{self.cfg.solver.epochs}, "
                         f"val loss: {loss_buffer.avg:.4f}, time: {epoch_timer.since_start()}s")
 
             self.write()
+
+
+def get_checkpoint(log_dir, epoch=0, checkpoint=""):
+    if not checkpoint:
+        if epoch > 0:
+            checkpoint = osp.join(log_dir, "epoch_{0:05d}.pth".format(epoch))
+            assert osp.isfile(checkpoint)
+        else:
+            latest_checkpoint = glob.glob(osp.join(log_dir, "*latest*.pth"))
+            if len(latest_checkpoint) > 0:
+                checkpoint = latest_checkpoint[0]
+            else:
+                checkpoint = sorted(glob.glob(osp.join(log_dir, "*.pth")))
+                if len(checkpoint) > 0:
+                    checkpoint = checkpoint[-1]
+                    epoch = int(checkpoint.split("_")[-1].split(".")[0])
+
+    return checkpoint, epoch + 1
 
 
 if __name__ == "__main__":
@@ -292,7 +315,7 @@ if __name__ == "__main__":
                                cfg,
                                logger)
 
-    checkpoint, epoch = pointgroup.get_checkpoint(cfg.log_dir)
+    checkpoint, epoch = get_checkpoint(cfg.log_dir)
     Trainer.epoch = epoch
     if gorilla.is_filepath(checkpoint):
         Trainer.resume(

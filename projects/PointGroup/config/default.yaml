@@ -14,13 +14,13 @@ dataloader:
   num_workers: 8
   pin_memory: True
 
-data:
-  mode: 4 # 4=mean
-
+solver:
   # train mode
   epochs: 384
   save_freq: 16  # also eval_freq
 
+data:
+  mode: 4 # 4=mean
   # test mode
   split: val
   test_epoch: 384
