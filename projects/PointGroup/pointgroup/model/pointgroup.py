@@ -4,7 +4,7 @@ Written by Li Jiang
 """
 import sys
 import functools
-from typing import List
+from typing import Dict, List
 
 import spconv
 import gorilla
@@ -29,21 +29,16 @@ class PointGroup(nn.Module):
                  score_fullscale: int=14,
                  score_mode: int=4,
                  prepare_epochs: int=128,
-                 cluster_radius: float=0.04,
-                 cluster_radius_shift: float=0.03,
-                 cluster_meanActive: int=50,
-                 cluster_shift_meanActive: int=300,
-                 cluster_npoint_thre: int=50,
+                 cluster_cfg: Dict = dict(
+                    radius=0.04,
+                    radius_shift=0.03,
+                    mean_active=50,
+                    shift_mean_active=300,
+                    npoint_thresh=50
+                 ),
                  fix_module: List[str]=[],
                  **kwargs):
         super().__init__()
-
-        self.cluster_radius = cluster_radius
-        self.cluster_radius_shift = cluster_radius_shift
-        self.cluster_meanActive = cluster_meanActive
-        self.cluster_shift_meanActive = cluster_shift_meanActive
-        self.cluster_npoint_thre = cluster_npoint_thre
-
         self.score_scale = score_scale
         self.score_fullscale = score_fullscale
         self.score_mode = score_mode
@@ -52,6 +47,11 @@ class PointGroup(nn.Module):
 
         self.fix_module = fix_module
 
+        self.cluster_radius = cluster_cfg["radius"]
+        self.cluster_radius_shift = cluster_cfg["radius_shift"]
+        self.cluster_mean_active = cluster_cfg["mean_active"]
+        self.cluster_shift_mean_active = cluster_cfg["shift_mean_active"]
+        self.cluster_npoint_thresh = cluster_cfg["npoint_thresh"]
 
         norm_fn = functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1)
 
@@ -66,7 +66,7 @@ class PointGroup(nn.Module):
         )
 
         block_list = [media * (i + 1) for i in range(blocks)]
-        self.unet = gorilla3d.UBlockBottom(block_list, norm_fn, block_reps, block, indice_key_id=1)
+        self.unet = gorilla3d.UBlock(block_list, norm_fn, block_reps, block, indice_key_id=1)
 
         # #### self attention module
         # self.self_attn = nn.MultiheadAttention(m * blocks, 8)
@@ -199,7 +199,7 @@ class PointGroup(nn.Module):
             mod.eval()
 
         output = self.input_conv(input)
-        output, bottom = self.unet(output)
+        output = self.unet(output)
 
         output = self.output_layer(output)
         output_feats = output.features[input_map.long()] # [N, m]
@@ -230,8 +230,8 @@ class PointGroup(nn.Module):
                 semantic_preds_cpu = semantic_preds_filter[object_idx_filter].int().cpu()
 
                 #### shift coordinates region grow
-                idx_shift, start_len_shift = pointgroup_ops.ballquery_batch_p(shifted_coords, batch_idxs_, batch_offsets_, self.cluster_radius_shift, int(self.cluster_shift_meanActive/2))
-                proposals_idx_shift, proposals_offset_shift = pointgroup_ops.bfs_cluster(semantic_preds_cpu, idx_shift.cpu(), start_len_shift.cpu(), self.cluster_npoint_thre)
+                idx_shift, start_len_shift = pointgroup_ops.ballquery_batch_p(shifted_coords, batch_idxs_, batch_offsets_, self.cluster_radius_shift, int(self.cluster_shift_mean_active/2))
+                proposals_idx_shift, proposals_offset_shift = pointgroup_ops.bfs_cluster(semantic_preds_cpu, idx_shift.cpu(), start_len_shift.cpu(), self.cluster_npoint_thresh)
                 proposals_idx_shift[:, 1] = object_idx_filter[proposals_idx_shift[:, 1].long()].int()
                 # proposals_idx_shift: [sum_points, 2], int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
                 # proposals_offset_shift: [num_prop + 1], int
@@ -240,8 +240,8 @@ class PointGroup(nn.Module):
                 proposals_offset = proposals_offset_shift
 
                 #### origin coordinates region grow
-                idx, start_len = pointgroup_ops.ballquery_batch_p(coords_, batch_idxs_, batch_offsets_, self.cluster_radius, self.cluster_meanActive)
-                proposals_idx_origin, proposals_offset_origin = pointgroup_ops.bfs_cluster(semantic_preds_cpu, idx.cpu(), start_len.cpu(), self.cluster_npoint_thre)
+                idx, start_len = pointgroup_ops.ballquery_batch_p(coords_, batch_idxs_, batch_offsets_, self.cluster_radius, self.cluster_mean_active)
+                proposals_idx_origin, proposals_offset_origin = pointgroup_ops.bfs_cluster(semantic_preds_cpu, idx.cpu(), start_len.cpu(), self.cluster_npoint_thresh)
                 proposals_idx_origin[:, 1] = object_idx_filter[proposals_idx_origin[:, 1].long()].int()
                 # proposals_idx_origin, [sum_points, 2], int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
                 # proposals_offset_origin, [num_prop + 1], int

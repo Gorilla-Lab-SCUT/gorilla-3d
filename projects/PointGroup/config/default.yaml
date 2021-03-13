@@ -53,11 +53,12 @@ model:
   score_mode: 4 # mean
 
   ### point grouping cluster parameters
-  cluster_radius: 0.04
-  cluster_radius_shift: 0.03
-  cluster_meanActive: 50
-  cluster_shift_meanActive: 300
-  cluster_npoint_thre: 50
+  cluster_cfg:
+    radius: 0.04
+    radius_shift: 0.03
+    mean_active: 50
+    shift_mean_active: 300
+    npoint_thresh: 50
 
 loss:
   name: PointGroupLoss

@@ -20,7 +20,7 @@ except:
 
 class ScanNetV2Inst(Dataset):
     def __init__(self,
-                 data_root,
+                 data_root: str,
                  full_scale: List[int]=[128, 512],
                  scale: float=50.,
                  max_npoint: int=250000,

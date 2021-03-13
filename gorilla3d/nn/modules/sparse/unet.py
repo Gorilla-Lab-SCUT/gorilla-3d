@@ -12,6 +12,7 @@ except:
 from .block import ResidualBlock, VGGBlock
 
 
+# TODO: add the return bottom option to UBlock and remove UBlockBottom
 class UBlock(nn.Module):
     def __init__(self, nPlanes, norm_fn, block_reps, block, indice_key_id=1):
 
