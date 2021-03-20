@@ -48,6 +48,7 @@ dataset:
       - 0.1
       - 0.1
   grid_cfg:
+    num_class: 20
     grid_size:
       - 480
       - 360

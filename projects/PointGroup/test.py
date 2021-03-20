@@ -122,6 +122,11 @@ def test(model, cfg, logger):
         # define evaluator
         # get the real data root
         data_root = osp.join(osp.dirname(__file__), cfg.dataset.data_root)
+        if "test" in cfg.data.split:
+            split = "scans_test"
+        else:
+            split = "scans"
+
         semantic_dataset_root = osp.join(data_root, "scans")
         instance_dataset_root = osp.join(data_root, cfg.data.split + "_gt")
         evaluator = gorilla3d.ScanNetSemanticEvaluator(semantic_dataset_root,
@@ -268,6 +273,22 @@ def test(model, cfg, logger):
                     inst_evaluator.process(inputs, [pred_info])
 
             inference_time = timer.since_last()
+
+            ##### visual
+            if cfg.visual is not None:
+                # visual semantic result
+                gorilla.check_dir(cfg.visual)
+                if cfg.semantic:
+                    pass
+                # visual instance result
+                else:
+                    gorilla3d.visualize_instance_mask(clusters.cpu().numpy(),
+                                                      test_scene_name,
+                                                      cfg.visual,
+                                                      osp.join(data_root, split),
+                                                      logger,
+                                                      cluster_scores.cpu().numpy(),
+                                                      semantic_pred.cpu().numpy(),)
 
             ##### save files
             if cfg.data.save_semantic:

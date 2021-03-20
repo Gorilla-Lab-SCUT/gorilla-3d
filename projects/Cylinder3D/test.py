@@ -7,15 +7,11 @@ import glob
 import argparse
 import sys
 import gorilla
+import gorilla3d
 import torch
 import numpy as np
 
 import cylinder
-
-import warnings
-
-warnings.filterwarnings("ignore")
-
 
 
 def get_parser():
@@ -101,10 +97,12 @@ def test(model, cfg, logger):
         timer = gorilla.Timer()
         for i, batch in enumerate(test_dataloader):
             data_time = timer.since_last()
-            (_, voxel_labels, grids, pt_labels, pt_features) = batch
+            (_, voxel_labels, voxel_label_conut, grids, pt_labels, pt_xyz, pt_features) = batch
             # voxel_label: [H, W, L], the class labels of voxels
+            # voxel_label_conut: [H, W, L, num_class], the class labels count voxels
             # grids: list of [N, 3], the voxel indices of points
             # pt_labels: list of [N], the label of points
+            # pt_xyz: list of [N, 3], coordinates of points, generating from coordinates
             # pt_feature: list of [N, 9], features of points, generating from coordinates
             batch_size = len(pt_features)
             pt_features = [torch.from_numpy(i).type(torch.FloatTensor).cuda() for i in pt_features]

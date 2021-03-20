@@ -285,6 +285,7 @@ class Asymm3dSpconv(nn.Module):
         coors = coors.int()
         ret = spconv.SparseConvTensor(voxel_features, coors, self.sparse_shape,
                                       batch_size)
+        from ipdb import set_trace; set_trace()
         ret = self.downCntx(ret)
         down1c, down1b = self.resBlock2(ret)
         down2c, down2b = self.resBlock3(down1c)

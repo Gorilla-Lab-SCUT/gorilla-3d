@@ -7,14 +7,10 @@ import glob
 import argparse
 import sys
 import gorilla
+import gorilla3d
 import torch
 
 import cylinder
-
-import warnings
-
-warnings.filterwarnings("ignore")
-
 
 
 def get_parser():
@@ -74,9 +70,12 @@ class CylinderSolver(gorilla.BaseSolver):
         self.val_data_loader = self.dataloaders[1]
 
     def step(self, batch, mode="train"):
-        (_, voxel_label, grid, _, pt_feature) = batch
+        (_, voxel_label, voxel_label_conut, grid, pt_label, pt_xyz, pt_feature) = batch
+        from ipdb import set_trace; set_trace()
         # voxel_label: [H, W, L], the class labels of voxels
+        # voxel_label_conut: [H, W, L, num_class], the class labels count voxels
         # grid: list of [N, 3], the voxel indices
+        # pt_xyz: list of [N, 3], coordinates of points, generating from coordinates
         # pt_feature: list of [N, 9], features of points, generating from coordinates
         pt_features = [torch.from_numpy(i).type(torch.FloatTensor).cuda() for i in pt_feature]
         voxel_indices = [torch.from_numpy(i).cuda() for i in grid]

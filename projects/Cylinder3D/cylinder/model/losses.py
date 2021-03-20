@@ -1,6 +1,5 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
 from typing import List
-from jupyter_client.blocking import channels
 
 try:
     from itertools import  ifilterfalse
@@ -34,7 +33,7 @@ class CylinderLoss(nn.Module):
 
     def forward(self, loss_input):
         prediction = loss_input["prediction"] # [B, num_class, H, W, L]
-        softmax_prediction = F.softmax(prediction) # [B, num_class, H, W, L]
+        softmax_prediction = F.softmax(prediction, dim=1) # [B, num_class, H, W, L]
         labels = loss_input["labels"] # [B, H, W, L]
 
         # TODO: lovasz_criterion need to fix

@@ -58,8 +58,6 @@ class CylinderFea(nn.Module):
     def forward(self,
                 pt_fea: List[torch.Tensor],
                 xy_ind: List[torch.Tensor]):
-        # get the device
-        cur_dev = pt_fea[0].get_device()
 
         # concat indices with batch index on 0-dim
         cat_pt_ind = []
@@ -68,9 +66,12 @@ class CylinderFea(nn.Module):
 
         cat_pt_fea = torch.cat(pt_fea, dim=0) # [N, 8]
         cat_pt_ind = torch.cat(cat_pt_ind, dim=0) # [N, 4]
-        pt_num = cat_pt_ind.shape[0] # [N]
 
+        # NOTE: shuffle process maybe slow and seems useless
+        # get the device
+        cur_dev = pt_fea[0].get_device()
         # shuffle the data
+        pt_num = cat_pt_ind.shape[0] # [N]
         shuffled_ind = torch.randperm(pt_num, device=cur_dev)
         cat_pt_fea = cat_pt_fea[shuffled_ind, :] # [N, 8]
         cat_pt_ind = cat_pt_ind[shuffled_ind, :] # [N, 4]
@@ -83,10 +84,10 @@ class CylinderFea(nn.Module):
 
         # process feature
         processed_cat_pt_fea = self.PPmodel(cat_pt_fea) # [N, C] process point-wise features(PointNet)
-        pooled_data = torch_scatter.scatter_max(processed_cat_pt_fea, unq_inv, dim=0)[0] # [num_valid_voxel, C'] extract global feature by maxpooling
+        pooled_data = torch_scatter.scatter_max(processed_cat_pt_fea, unq_inv, dim=0)[0] # [num_valid_voxel, C'] dylindrical features
 
         if self.fea_compre:
-            processed_pooled_data = self.fea_compression(pooled_data) # [mlp]
+            processed_pooled_data = self.fea_compression(pooled_data)
         else:
             processed_pooled_data = pooled_data
 
