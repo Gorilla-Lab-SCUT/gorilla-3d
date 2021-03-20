@@ -1,13 +1,13 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
 import glob
 import os.path as osp
-from random import sample
+from pickle import NONE
+from typing import Dict, List, Optional
 
 import gorilla
 import numpy as np
-from numpy.core.fromnumeric import sort
 import torch
-from torch.utils.data import (Dataset, DataLoader)
+from torch.utils.data import Dataset
 
 from ...utils import elastic, pc_aug
 
@@ -16,33 +16,40 @@ try:
 except:
     pass
 
-class S3DISInst(Dataset):
-    def __init__(self, cfg=None, logger=None, split="train"):
-        self.logger = logger
-        self.split = split
-        self.areas = getattr(cfg.data, f"{split}_area")
-
+class S3DISInstDev(Dataset):
+    def __init__(self,
+                 data_root: str,
+                 data_dir: str,
+                 with_superpoint: bool=False,
+                 superpoint_dir: Optional[str]=None,
+                 task: str="train",
+                 areas: Dict=dict(
+                     train=[1, 2, 3, 4, 6],
+                     val=[5]
+                 ),
+                 scale: int=50,
+                 full_scale: List[int]=[128, 512],
+                 maxnpoint: int=250000,
+                 ignore_label: int=-100,
+                 with_elastic: bool=False,
+                 **kwargs):
         # dataset parameters
-        self.data_root = cfg.data.data_root
-        self.dataset = cfg.data.dataset
-        self.batch_size = cfg.data.batch_size
-        self.data_dir = cfg.data.data_dir
-        self.with_superpoint = cfg.data.with_superpoint
+        self.task = task
+        self.areas = areas[self.task]
+        self.data_root = data_root
+        self.data_dir = data_dir
+        self.with_superpoint = with_superpoint
         if self.with_superpoint:
-            self.superpoint_dir = cfg.data.superpoint_dir
+            self.superpoint_dir = superpoint_dir
 
         # voxelization parameters
-        self.full_scale = cfg.data.full_scale
-        self.scale = cfg.data.scale
-        self.max_npoint = cfg.data.max_npoint
-        self.mode = cfg.data.mode
-        self.workers = cfg.data.workers
-        self.ignore_label = cfg.data.ignore_label
-        # self.workers = 0 # for debug merge
+        self.scale = scale
+        self.full_scale = full_scale
+        self.max_npoint = maxnpoint
+        self.ignore_label = ignore_label
 
         # special paramters
-        self.train_mini = cfg.data.train_mini 
-        self.with_elastic = cfg.data.with_elastic
+        self.with_elastic = with_elastic
         
         # load files
         self.load_files()
@@ -50,11 +57,11 @@ class S3DISInst(Dataset):
     def load_files(self):
         file_names = []
         for area in self.areas:
-            file_names.extend(sorted(glob.glob(osp.join(self.data_root, self.dataset, self.data_dir, f"Area_{area}*.pth"))))
-        self.logger.info(f"processing {self.split} samples: {len(file_names)}")
+            file_names.extend(sorted(glob.glob(osp.join(self.data_root, self.data_dir, f"Area_{area}*.pth"))))
+        print(f"processing {self.split} samples: {len(file_names)}")
         self.files = [torch.load(i) for i in gorilla.track(file_names)]
         if self.with_superpoint:
-            self.logger.info(f"loading superpoint: {len(file_names)}")
+            print(f"loading superpoint: {len(file_names)}")
             self.superpoints = [np.load(file_name.replace(self.data_dir, self.superpoint_dir).replace(".pth", ".npy")) \
                 for file_name in gorilla.track(file_names)]
 
@@ -113,7 +120,7 @@ class S3DISInst(Dataset):
         loc_offset = torch.from_numpy(xyz_offset).long()
         loc_float = torch.from_numpy(xyz_middle).float()
         feat = torch.from_numpy(rgb).float()
-        if self.mode == "train":
+        if self.task == "train":
             feat += torch.randn(3) * 0.1
         semantic_label = torch.from_numpy(semantic_label)
         instance_label = torch.from_numpy(instance_label)
@@ -182,6 +189,7 @@ class S3DISInst(Dataset):
             instance_infos.append(inst_info)
             instance_pointnum.extend(inst_pointnum)
 
+        # TODO: fix the broken situation more elegant
         ### merge all the scenes in the batchd
         if not broken_flag:
             batch_offsets = torch.tensor(batch_offsets, dtype=torch.int)  # int [B+1]
@@ -212,23 +220,6 @@ class S3DISInst(Dataset):
 
         else:
             return None
-
-    def dataloader(self, shuffle=True, times=1, prefetch=False):
-        times = int(times)
-        assert times >= 1
-        if times > 1:
-            dataset = torch.utils.data.dataset.ConcatDataset([self] * times)
-        else:
-            dataset = self
-        dataloader_caller = gorilla.DataLoaderX if prefetch else DataLoader
-        return dataloader_caller(dataset,
-                                 batch_size=self.batch_size,
-                                 collate_fn=self.collate_fn,
-                                 num_workers=self.workers,
-                                 shuffle=shuffle,
-                                 sampler=None,
-                                 drop_last=True,
-                                 pin_memory=True)
 
     def crop(self, xyz, step=64):
         """

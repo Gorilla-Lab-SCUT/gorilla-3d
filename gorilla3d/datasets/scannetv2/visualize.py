@@ -173,7 +173,7 @@ def visualize_instance_mask(clusters: np.ndarray,
         inst_label_pred_rgb[cluster == 1] = colors[cluster_id % len(colors)]
     rgb = inst_label_pred_rgb
 
-    pred_mesh.vertex_colors = o3d.utility.Vector3dVector(rgb / 255)
+    # pred_mesh.vertex_colors = o3d.utility.Vector3dVector(rgb / 255)
     points[:, 1] += (points[:, 1].max() + 0.5)
     pred_mesh.vertices = o3d.utility.Vector3dVector(points)
     mesh += pred_mesh
@@ -199,24 +199,24 @@ def visualize_pts_rgb(rgb, room_name, data_root, output_dir, mode="test"):
     o3d.io.write_triangle_mesh(osp.join(output_dir, room_name+".ply"), mesh)
 
 
-def get_coords_color(opt):
-    input_file = os.path.join(opt.data_root, opt.room_split, opt.room_name + "_inst_nostuff.pth")
+def get_coords_color(args):
+    input_file = os.path.join(args.data_root, args.room_split, args.room_name + "_inst_nostuff.pth")
     assert os.path.isfile(input_file), f"File not exist - {input_file}."
-    if "test" in opt.room_split:
+    if "test" in args.room_split:
         xyz, rgb, edges, scene_idx = torch.load(input_file)
     else:
         xyz, rgb, label, inst_label = torch.load(input_file)
     rgb = (rgb + 1) * 127.5
 
-    if (opt.task == "semantic_gt"):
-        assert "test" not in opt.room_split
+    if (args.task == "semantic_gt"):
+        assert "test" not in args.room_split
         label = label.astype(np.int)
         label_rgb = np.zeros(rgb.shape)
         label_rgb[label >= 0] = np.array(itemgetter(*SEMANTIC_NAMES[label[label >= 0]])(CLASS_COLOR))
         rgb = label_rgb
 
-    elif (opt.task == "instance_gt"):
-        assert "test" not in opt.room_split
+    elif (args.task == "instance_gt"):
+        assert "test" not in args.room_split
         inst_label = inst_label.astype(np.int)
         print(f"Instance number: {inst_label.max() + 1}")
         inst_label_rgb = np.zeros(rgb.shape)
@@ -224,24 +224,24 @@ def get_coords_color(opt):
         inst_label_rgb[object_idx] = COLOR20[inst_label[object_idx] % len(COLOR20)]
         rgb = inst_label_rgb
 
-    elif (opt.task == "semantic_pred"):
-        assert opt.room_split != "train"
-        semantic_file = os.path.join(opt.result_root, opt.room_split, "semantic", opt.room_name + ".npy")
+    elif (args.task == "semantic_pred"):
+        assert args.room_split != "train"
+        semantic_file = os.path.join(args.result_root, args.room_split, "semantic", args.room_name + ".npy")
         assert os.path.isfile(semantic_file), f"No semantic result - {semantic_file}."
         label_pred = np.load(semantic_file).astype(np.int)  # 0~19
         label_pred_rgb = np.array(itemgetter(*SEMANTIC_NAMES[label_pred])(CLASS_COLOR))
         rgb = label_pred_rgb
 
-    elif (opt.task == "instance_pred"):
-        assert opt.room_split != "train"
-        instance_file = os.path.join(opt.result_root, opt.room_split, opt.room_name + ".txt")
+    elif (args.task == "instance_pred"):
+        assert args.room_split != "train"
+        instance_file = os.path.join(args.result_root, args.room_split, args.room_name + ".txt")
         assert os.path.isfile(instance_file), f"No instance result - {instance_file}."
         f = open(instance_file, "r")
         masks = f.readlines()
         masks = [mask.rstrip().split() for mask in masks]
         inst_label_pred_rgb = np.zeros(rgb.shape)  # np.ones(rgb.shape) * 255 #
         for i in range(len(masks) - 1, -1, -1):
-            mask_path = os.path.join(opt.result_root, opt.room_split, masks[i][0])
+            mask_path = os.path.join(args.result_root, args.room_split, masks[i][0])
             assert os.path.isfile(mask_path), mask_path
             if (float(masks[i][2]) < 0.09):
                 continue
@@ -250,7 +250,7 @@ def get_coords_color(opt):
             inst_label_pred_rgb[mask == 1] = COLOR20[i % len(COLOR20)]
         rgb = inst_label_pred_rgb
 
-    if "test" not in opt.room_split:
+    if "test" not in args.room_split:
         sem_valid = (label != -100)
         xyz = xyz[sem_valid]
         rgb = rgb[sem_valid]

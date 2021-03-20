@@ -23,15 +23,16 @@ class KittiSem(Dataset):
                     scale_aug=False,
                     transform=False),
                  grid_cfg: Dict=dict(
+                    num_class=20,
                     grid_size=[480, 360, 32],
                     fixed_volume_space=False,
                     min_volume_space=[0, -np.pi, -4],
                     max_volume_space=[50, np.pi, 2],
                  ),
-                 preload_labels: bool=True):
+                 preload_labels: bool=True,
+                 **kwargs):
         self.return_ref = return_ref
         self.return_test = return_test
-        from ipdb import set_trace; set_trace()
         self.semkittiyaml = gorilla.load(label_mapping)
         self.learning_map = self.semkittiyaml["learning_map"]
         assert task in ["train", "val", "test"], f"`task` must be in ['train', 'val', 'test'], but got {task}"
@@ -86,14 +87,15 @@ class KittiSem(Dataset):
 
         if self.task == "train":
             raw_data = self.pc_transformer(raw_data)
-        voxel_position, processed_label, grid_ind, labels, processed_xyz = self.polar_processer(raw_data, annotated_data)
+        voxel_position, processed_label, processed_count, grid_ind, labels, processed_xyz = self.polar_processer(raw_data, annotated_data)
+        xyz = raw_data[:, :3]
         if self.return_ref:
             sig = raw_data[:, 3]
             if len(sig.shape) == 2:
                 sig = np.squeeze(sig)
             return_fea = np.concatenate((processed_xyz, sig[..., np.newaxis]), axis=1)
 
-        data_tuple = (voxel_position, processed_label, grid_ind, labels, return_fea)
+        data_tuple = (voxel_position, processed_label, processed_count, grid_ind, labels, xyz, return_fea)
         if self.return_test:
             data_tuple += (index,)
         return data_tuple
@@ -107,37 +109,44 @@ class KittiSem(Dataset):
 
     @staticmethod
     def collate_fn(batch):
-        datas = []
+        voxel_centers = []
         labels = []
+        counts = []
         grid_inds = []
         point_labels = []
         xyzs = []
+        features = []
         for b in batch:
-            datas.append(b[0].astype(np.float32))
+            voxel_centers.append(b[0].astype(np.float32))
             labels.append(b[1].astype(np.int))
-            grid_inds.append(b[2])
-            point_labels.append(b[3])
-            xyzs.append(b[4])
+            counts.append(b[2].astype(np.int))
+            grid_inds.append(b[3])
+            point_labels.append(b[4])
+            xyzs.append(b[5])
+            features.append(b[6])
         
-        datas = torch.from_numpy(np.stack(datas))
+        voxel_centers = torch.from_numpy(np.stack(voxel_centers))
         labels = torch.from_numpy(np.stack(labels))
+        counts = torch.from_numpy(np.stack(counts))
 
-        return datas, labels, grid_inds, point_labels, xyzs
+        return voxel_centers, labels, counts, grid_inds, point_labels, xyzs, features
 
 
 class PolarProcesses(object):
     def __init__(self,
+                 num_class: int=20,
                  grid_size: List[int]=[480, 360, 32],
                  fixed_volume_space: bool=False,
                  min_volume_space: List[float]=[50, -np.pi, -4],
                  max_volume_space: List[float]=[50, np.pi, 2],
                  ignore_label: int=255):
         super().__init__()
+        self.num_class = num_class
         self.grid_size = np.asarray(grid_size)
         self.fixed_volume_space = fixed_volume_space
         self.min_volume_space = min_volume_space
         self.max_volume_space = max_volume_space
-        self.ignore_label =ignore_label
+        self.ignore_label = ignore_label
     
     def __call__(self,
                  xyz: np.ndarray,
@@ -170,22 +179,27 @@ class PolarProcesses(object):
         voxel_position = self.polar2cat(voxel_position) # [3, H, W, L]
 
         processed_label = np.ones(self.grid_size, dtype=np.uint8) * self.ignore_label # [H, W, L]
+        processed_count = np.zeros(np.append(self.grid_size, self.num_class), dtype=np.uint8) # [H, W, L, num_class]
         label_voxel_pair = np.concatenate([grid_ind, labels], axis=1) # [N, 4]
         label_voxel_pair = label_voxel_pair[np.lexsort((grid_ind[:, 0], grid_ind[:, 1], grid_ind[:, 2])), :] # [N, 4] sort the voxel label pair
-        processed_label = self.nb_process_label(np.copy(processed_label), label_voxel_pair) # [H, W, L]
+
+        processed_count = self.nb_process_count(np.copy(processed_count), label_voxel_pair) # [H, W, L, num_class]
+        non_empty_ids = (processed_count.max(-1) > 0) # [H, W, L]
+        processed_label = np.ones(self.grid_size, dtype=np.uint8) * self.ignore_label # [H, W, L]
+        processed_label[non_empty_ids] = np.argmax(processed_count[non_empty_ids, :], axis=-1) # [H, W, L]
 
         # center data on each voxel for PTnet
         voxel_centers = (grid_ind.astype(np.float32) + 0.5) * intervals + min_bound # [N, 3]
         return_xyz = xyz_pol - voxel_centers # [N, 3] realate coordinate for points in their voxels
         return_xyz = np.concatenate((return_xyz, xyz_pol, xyz[:, :2]), axis=1) # [N, 9]
 
-        return voxel_position, processed_label, grid_ind, labels, return_xyz
+        return voxel_position, processed_label, processed_count, grid_ind, labels, return_xyz
     
     @staticmethod
-    @nb.jit("u1[:,:,:](u1[:,:,:],i8[:,:])", nopython=True, cache=True, parallel=False)
-    def nb_process_label(processed_label: np.ndarray,
+    @nb.jit("u1[:,:,:,:](u1[:,:,:,:],i8[:,:])", nopython=True, cache=True, parallel=False)
+    def nb_process_count(processed_count: np.ndarray,
                          sorted_label_voxel_pair: np.ndarray):
-        label_size = 256
+        label_size = processed_count.shape[-1]
         counter = np.zeros((label_size,), dtype=np.uint16)
         counter[sorted_label_voxel_pair[0, 3]] = 1
         cur_sear_ind = sorted_label_voxel_pair[0, :3]
@@ -197,13 +211,13 @@ class PolarProcesses(object):
                 # `cur_ind != cur_sear_ind`, means we have traversed all points in `cur_sear_ind` voxle
                 # find the label with the most points within the voxel
                 # clear the counter and reset the cur_sear_ind
-                processed_label[cur_sear_ind[0], cur_sear_ind[1], cur_sear_ind[2]] = np.argmax(counter)
+                processed_count[cur_sear_ind[0], cur_sear_ind[1], cur_sear_ind[2], :] = counter
                 counter = np.zeros((label_size,), dtype=np.uint16)
                 cur_sear_ind = cur_ind
             # count the the label
             counter[sorted_label_voxel_pair[i, 3]] += 1
-        processed_label[cur_sear_ind[0], cur_sear_ind[1], cur_sear_ind[2]] = np.argmax(counter)
-        return processed_label
+        processed_count[cur_sear_ind[0], cur_sear_ind[1], cur_sear_ind[2], :] = counter
+        return processed_count
 
     # core transformation of cylindrical
     # transformation between Cartesian coordinates and polar coordinates
