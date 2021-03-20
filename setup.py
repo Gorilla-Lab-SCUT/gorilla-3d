@@ -82,6 +82,8 @@ def get_extensions():
                            module="gorilla3d.ops.gather_points"),
             make_extension(name="chamfer",
                            module="gorilla3d.ops.chamfer_distance"),
+            make_extension(name="sparse_interpolate_ext",
+                           module="gorilla3d.ops.sparse_interpolate"),
         ]
     return extensions
 
