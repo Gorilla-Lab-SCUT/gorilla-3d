@@ -1,6 +1,6 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
 
-from .unet import (UBlock, UBlockBottom)
+from .unet import UBlock
 from .block import (single_conv, double_conv, triple_conv, down_conv, up_conv,
                     ResidualBlock, VGGBlock, residual_block)
 from .transformer import TransformerSparse3D, PositionEmbeddingSine3d
