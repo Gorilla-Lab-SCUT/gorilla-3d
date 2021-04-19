@@ -97,22 +97,28 @@ def test(model, cfg, logger):
         timer = gorilla.Timer()
         for i, batch in enumerate(test_dataloader):
             data_time = timer.since_last()
-            (_, voxel_labels, voxel_label_conut, grids, pt_labels, pt_xyz, pt_features) = batch
-            # voxel_label: [H, W, L], the class labels of voxels
-            # voxel_label_conut: [H, W, L, num_class], the class labels count voxels
-            # grids: list of [N, 3], the voxel indices of points
+            voxel_centers = batch["voxel_centers"]
+            voxel_labels = batch["voxel_labels"]
+            voxel_label_counts = batch["voxel_label_counts"]
+            grid_inds = batch["grid_inds"]
+            pt_labels = batch["point_labels"]
+            pt_xyzs = batch["point_xyzs"]
+            pt_features = batch["point_features"]
+            # voxel_labels: [H, W, L], the class labels of voxels
+            # voxel_label_conuts: [H, W, L, num_class], the class labels count voxels
+            # grid_inds: list of [N, 3], the voxel indices of points
             # pt_labels: list of [N], the label of points
-            # pt_xyz: list of [N, 3], coordinates of points, generating from coordinates
-            # pt_feature: list of [N, 9], features of points, generating from coordinates
+            # pt_xyzs: list of [N, 3], coordinates of points, generating from coordinates
+            # pt_features: list of [N, 9], features of points, generating from coordinates
             batch_size = len(pt_features)
             pt_features = [torch.from_numpy(i).type(torch.FloatTensor).cuda() for i in pt_features]
-            voxel_indices = [torch.from_numpy(i).cuda() for i in grids]
+            voxel_indices = [torch.from_numpy(i).cuda() for i in grid_inds]
             voxel_labels = voxel_labels.type(torch.LongTensor).cuda()
 
             prediction = model(pt_features, voxel_indices, batch_size)
             predict_labels = torch.argmax(prediction, dim=1)
             predict_labels = predict_labels.cpu().detach().numpy()
-            for count, grid in enumerate(grids):
+            for count, grid in enumerate(grid_inds):
                 hist_list.append(cylinder.fast_hist_crop(
                     predict_labels[count, grid[:, 0], grid[:, 1], grid[:, 2]],
                     pt_labels[count],

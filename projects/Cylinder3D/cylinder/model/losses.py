@@ -37,8 +37,8 @@ class CylinderLoss(nn.Module):
         labels = loss_input["labels"] # [B, H, W, L]
 
         # TODO: lovasz_criterion need to fix
-        loss = self.ce_weight * self.ce_criterion(softmax_prediction, labels) + \
-               self.lovasz_weight * self.lovasz_criterion(prediction, labels)
+        loss = self.ce_weight * self.ce_criterion(prediction, labels) + \
+               self.lovasz_weight * self.lovasz_criterion(softmax_prediction, labels)
 
         return loss
 

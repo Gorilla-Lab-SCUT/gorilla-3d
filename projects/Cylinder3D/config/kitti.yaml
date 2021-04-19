@@ -4,9 +4,9 @@ format_version: 4
 ###################
 ## Model options
 model:
-  name: CylinderAsym
+  type: CylinderAsym
   cylin_model_cfg:
-    name: CylinderFea
+    type: CylinderFea
     grid_size:
       - 480
       - 360
@@ -15,7 +15,7 @@ model:
     out_pt_fea_dim: 256
     fea_compre: 16
   segmentator_spconv_cfg:
-    name: Asymm3dSpconv
+    type: Asymm3dSpconv
     output_shape:
       - 480
       - 360
@@ -25,14 +25,14 @@ model:
     init_size: 32
 
 loss:
-  name: CylinderLoss
+  type: CylinderLoss
   num_class: 20
   ignore_label: 255
 
 ###################
 ## Dataset options
 dataset:
-  name: KittiSem
+  type: KittiSem
   data_root: data/kitti/dataset/sequences/
   label_mapping: data/kitti/semantic-kitti.yaml
   task: train
@@ -48,6 +48,7 @@ dataset:
       - 0.1
       - 0.1
   grid_cfg:
+    type: PolarProcesses
     num_class: 20
     grid_size:
       - 480
@@ -70,14 +71,14 @@ dataloader:
 # optimizer
 optimizer:
   lr: 0.001
-  # name: Adam
-  name: AdamW
+  # type: Adam
+  type: AdamW
   weight_decay: 0.0001
   # amsgrad: False
 
 # lr_scheduler
 lr_scheduler:
-  name: StepLR
+  type: StepLR
   step_size: 40
 
 solver:

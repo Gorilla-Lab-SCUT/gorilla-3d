@@ -70,17 +70,22 @@ class CylinderSolver(gorilla.BaseSolver):
         self.val_data_loader = self.dataloaders[1]
 
     def step(self, batch, mode="train"):
-        (_, voxel_label, voxel_label_conut, grid, pt_label, pt_xyz, pt_feature) = batch
-        from ipdb import set_trace; set_trace()
-        # voxel_label: [H, W, L], the class labels of voxels
-        # voxel_label_conut: [H, W, L, num_class], the class labels count voxels
-        # grid: list of [N, 3], the voxel indices
-        # pt_xyz: list of [N, 3], coordinates of points, generating from coordinates
-        # pt_feature: list of [N, 9], features of points, generating from coordinates
-        pt_features = [torch.from_numpy(i).type(torch.FloatTensor).cuda() for i in pt_feature]
-        voxel_indices = [torch.from_numpy(i).cuda() for i in grid]
-        batch_size = len(pt_feature)
-        labels = voxel_label.type(torch.LongTensor).cuda()
+        voxel_centers = batch["voxel_centers"]
+        voxel_labels = batch["voxel_labels"]
+        voxel_label_counts = batch["voxel_label_counts"]
+        grid_inds = batch["grid_inds"]
+        pt_labels = batch["point_labels"]
+        pt_xyzs = batch["point_xyzs"]
+        pt_features = batch["point_features"]
+        # voxel_labels: [H, W, L], the class labels of voxels
+        # voxel_label_conuts: [H, W, L, num_class], the class labels count voxels
+        # grid_inds: list of [N, 3], the voxel indices
+        # pt_xyzs: list of [N, 3], coordinates of points, generating from coordinates
+        # pt_features: list of [N, 9], features of points, generating from coordinates
+        pt_features = [torch.from_numpy(i).type(torch.FloatTensor).cuda() for i in pt_features]
+        voxel_indices = [torch.from_numpy(i).cuda() for i in grid_inds]
+        batch_size = len(pt_features)
+        labels = voxel_labels.type(torch.LongTensor).cuda()
 
         prediction = self.model(pt_features, voxel_indices, batch_size)
         ret = {
@@ -91,7 +96,7 @@ class CylinderSolver(gorilla.BaseSolver):
         ##### accuracy / meter_dict
         with torch.no_grad():
             meter_dict = {}
-            meter_dict[f"loss_{mode}"] = (loss.item(), sum(map(lambda x: len(x), pt_feature)))
+            meter_dict[f"loss_{mode}"] = (loss.item(), sum(map(lambda x: len(x), pt_features)))
 
         self.log_buffer.update(meter_dict)
 
