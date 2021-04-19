@@ -13,95 +13,69 @@ except:
     pass
 
 
-def single_conv(in_channels, out_channels, indice_key=None):
-    return spconv.SparseSequential(
-        spconv.SubMConv3d(in_channels,
-                          out_channels,
-                          1,
-                          bias=False,
-                          indice_key=indice_key),
-        nn.BatchNorm1d(out_channels, eps=1e-4, momentum=0.01),
-        nn.ReLU(),
-    )
+def conv1x3(in_planes, out_planes, stride=1, indice_key=None):
+    return spconv.SubMConv3d(in_planes, out_planes, kernel_size=(1, 3, 3), stride=stride,
+                             padding=(0, 1, 1), bias=False, indice_key=indice_key)
 
 
-def double_conv(in_channels, out_channels, indice_key=None):
-    return spconv.SparseSequential(
-        spconv.SubMConv3d(in_channels,
-                          out_channels,
-                          3,
-                          bias=False,
-                          indice_key=indice_key),
-        nn.BatchNorm1d(out_channels, eps=1e-4, momentum=0.01),
-        nn.ReLU(),
-        spconv.SubMConv3d(out_channels,
-                          out_channels,
-                          3,
-                          bias=False,
-                          indice_key=indice_key),
-        nn.BatchNorm1d(out_channels, eps=1e-4, momentum=0.01),
-        nn.ReLU(),
-    )
+def conv3x1(in_planes, out_planes, stride=1, indice_key=None):
+    return spconv.SubMConv3d(in_planes, out_planes, kernel_size=(3, 1, 3), stride=stride,
+                             padding=(1, 0, 1), bias=False, indice_key=indice_key)
 
+class ResContextBlock(MODULE):
+    def __init__(self,
+                 in_filters,
+                 out_filters,
+                 norm_fn=functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1),
+                 indice_key=None):
+        super().__init__()
 
-def triple_conv(in_channels, out_channels, indice_key=None):
-    return spconv.SparseSequential(
-        spconv.SubMConv3d(in_channels,
-                          out_channels,
-                          3,
-                          bias=False,
-                          indice_key=indice_key),
-        nn.BatchNorm1d(out_channels, eps=1e-4, momentum=0.01),
-        nn.ReLU(),
-        spconv.SubMConv3d(out_channels,
-                          out_channels,
-                          3,
-                          bias=False,
-                          indice_key=indice_key),
-        nn.BatchNorm1d(out_channels, eps=1e-4, momentum=0.01),
-        nn.ReLU(),
-        spconv.SubMConv3d(out_channels,
-                          out_channels,
-                          3,
-                          bias=False,
-                          indice_key=indice_key),
-        nn.BatchNorm1d(out_channels, eps=1e-4, momentum=0.01),
-        nn.ReLU(),
-    )
+        self.branch1 = spconv.SparseSequential(
+            norm_fn(out_filters),
+            nn.LeakyReLU(),
+            conv1x3(in_filters, out_filters, indice_key=indice_key),
+            norm_fn(out_filters),
+            nn.LeakyReLU(),
+            conv3x1(out_filters, out_filters, indice_key=indice_key),
+        )
 
+        self.branch2 = spconv.SparseSequential(
+            norm_fn(out_filters),
+            nn.LeakyReLU(),
+            conv3x1(in_filters, out_filters, indice_key=indice_key),
+            norm_fn(out_filters),
+            nn.LeakyReLU(),
+            conv1x3(out_filters, out_filters, indice_key=indice_key),
+        )
 
-def down_conv(in_channels, out_channels, indice_key=None):
-    return spconv.SparseSequential(
-        spconv.SparseConv3d(in_channels,
-                            out_channels,
-                            kernel_size=3,
-                            stride=2,
-                            padding=1,
-                            bias=False,
-                            indice_key=indice_key),
-        nn.BatchNorm1d(out_channels, eps=1e-4, momentum=0.01),
-        nn.ReLU()
-    )
+        self.weight_initialization()
 
-def up_conv(in_channels, out_channels, indice_key=None):
-    return spconv.SparseSequential(
-        spconv.SparseInverseConv3d(in_channels,
-                                   out_channels,
-                                   kernel_size=2,
-                                   bias=False,
-                                   indice_key=indice_key),
-        nn.BatchNorm1d(out_channels, eps=1e-4, momentum=0.01),
-        nn.ReLU()
-    )
+    def weight_initialization(self):
+        for m in self.modules():
+            if isinstance(m, nn.BatchNorm1d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
 
+    def forward(self, input):
+        identity = spconv.SparseConvTensor(input.features,
+                                           input.indices,
+                                           input.spatial_shape,
+                                           input.batch_size)
+        
+        result = self.branch1(identity)
+        shortcut = self.branch2(identity)
 
-def residual_block(in_channels, out_channels, indice_key=None):
-    norm_fn = functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1)
-    return ResidualBlock(in_channels, out_channels, norm_fn, indice_key)
+        result.features += shortcut.features
+
+        return result
 
 
 class ResidualBlock(MODULE):
-    def __init__(self, in_channels, out_channels, norm_fn, indice_key=None):
+    def __init__(self,
+                 in_channels,
+                 out_channels,
+                 norm_fn=functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1),
+                 indice_key=None):
         super().__init__()
 
         if in_channels == out_channels:
@@ -114,13 +88,15 @@ class ResidualBlock(MODULE):
                                   bias=False))
 
         self.conv_branch = spconv.SparseSequential(
-            norm_fn(in_channels), nn.ReLU(),
+            norm_fn(in_channels),
+            nn.ReLU(),
             spconv.SubMConv3d(in_channels,
                               out_channels,
                               kernel_size=3,
                               padding=1,
                               bias=False,
-                              indice_key=indice_key), norm_fn(out_channels),
+                              indice_key=indice_key),
+            norm_fn(out_channels),
             nn.ReLU(),
             spconv.SubMConv3d(out_channels,
                               out_channels,
@@ -130,7 +106,8 @@ class ResidualBlock(MODULE):
                               indice_key=indice_key))
 
     def forward(self, input):
-        identity = spconv.SparseConvTensor(input.features, input.indices,
+        identity = spconv.SparseConvTensor(input.features,
+                                           input.indices,
                                            input.spatial_shape,
                                            input.batch_size)
 
@@ -141,11 +118,16 @@ class ResidualBlock(MODULE):
 
 
 class VGGBlock(MODULE):
-    def __init__(self, in_channels, out_channels, norm_fn, indice_key=None):
+    def __init__(self,
+                 in_channels,
+                 out_channels,
+                 norm_fn=functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1),
+                 indice_key=None):
         super().__init__()
 
         self.conv_layers = spconv.SparseSequential(
-            norm_fn(in_channels), nn.ReLU(),
+            norm_fn(in_channels),
+            nn.ReLU(),
             spconv.SubMConv3d(in_channels,
                               out_channels,
                               kernel_size=3,
@@ -155,3 +137,5 @@ class VGGBlock(MODULE):
 
     def forward(self, input):
         return self.conv_layers(input)
+
+

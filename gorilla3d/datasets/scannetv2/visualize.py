@@ -173,7 +173,7 @@ def visualize_instance_mask(clusters: np.ndarray,
         inst_label_pred_rgb[cluster == 1] = colors[cluster_id % len(colors)]
     rgb = inst_label_pred_rgb
 
-    # pred_mesh.vertex_colors = o3d.utility.Vector3dVector(rgb / 255)
+    pred_mesh.vertex_colors = o3d.utility.Vector3dVector(rgb / 255)
     points[:, 1] += (points[:, 1].max() + 0.5)
     pred_mesh.vertices = o3d.utility.Vector3dVector(points)
     mesh += pred_mesh

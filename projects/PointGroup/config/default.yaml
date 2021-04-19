@@ -2,7 +2,7 @@ task: train  # train, test
 seed: 123
 
 dataset:
-  name: ScanNetV2Inst
+  type: ScanNetV2Inst
   data_root: data/scannetv2
   full_scale: [128, 512]
   scale: 50   # voxel_size = 1 / scale, scale 50(2cm)
@@ -37,7 +37,7 @@ data:
   save_instance: False
 
 model:
-  name: PointGroup
+  type: PointGroup
   input_channel: 3
   blocks: 5
   media: 32 # 16 or 32
@@ -61,7 +61,7 @@ model:
     npoint_thresh: 50
 
 loss:
-  name: PointGroupLoss
+  type: PointGroupLoss
   ignore_label: -100
   prepare_epochs: 128
   fg_thresh: 0.75
@@ -71,14 +71,14 @@ loss:
 # optimizer
 optimizer:
   lr: 0.001
-  # name: Adam
-  name: AdamW
+  # type: Adam
+  type: AdamW
   weight_decay: 0.0001
   # amsgrad: False
 
 # lr_scheduler
 lr_scheduler:
-  name: PolyLR
+  type: PolyLR
   max_iters: 512
   power: 0.9
   constant_ending: 0.0

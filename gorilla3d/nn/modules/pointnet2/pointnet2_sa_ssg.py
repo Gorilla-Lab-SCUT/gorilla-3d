@@ -31,7 +31,7 @@ class PointNet2SASSG(nn.Module):
                  sa_channels=((64, 64, 128), (128, 128, 256), (128, 128, 256),
                               (128, 128, 256)),
                  fp_channels=((256, 256), (256, 256)),
-                 norm_cfg=dict(name="BN2d"),
+                 norm_cfg=dict(type="BN2d"),
                  pool_mod="max",
                  use_xyz=True,
                  normalize_xyz=True):
@@ -56,13 +56,13 @@ class PointNet2SASSG(nn.Module):
 
             self.SA_modules.append(
                 PointnetSAModule(num_point=num_points[sa_index],
-                              radius=radius[sa_index],
-                              num_sample=num_samples[sa_index],
-                              mlp_channels=cur_sa_mlps,
-                              norm_cfg=norm_cfg,
-                              use_xyz=use_xyz,
-                              pool_mod=pool_mod,
-                              normalize_xyz=normalize_xyz))
+                                 radius=radius[sa_index],
+                                 num_sample=num_samples[sa_index],
+                                 mlp_channels=cur_sa_mlps,
+                                 norm_cfg=norm_cfg,
+                                 use_xyz=use_xyz,
+                                 pool_mod=pool_mod,
+                                 normalize_xyz=normalize_xyz))
             skip_channel_list.append(sa_out_channel)
             sa_in_channel = sa_out_channel
 

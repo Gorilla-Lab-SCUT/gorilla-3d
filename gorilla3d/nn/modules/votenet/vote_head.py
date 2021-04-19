@@ -29,7 +29,7 @@ class VoteHead(nn.Module):
                  vote_aggregation_cfg=None,
                  feat_channels=(128, 128),
                  D=1,
-                 norm_cfg=dict(name="BN1d")):
+                 norm_cfg=dict(type="BN1d")):
         super(VoteHead, self).__init__()
         self.num_classes = num_classes
         self.num_proposal = vote_aggregation_cfg["num_point"]

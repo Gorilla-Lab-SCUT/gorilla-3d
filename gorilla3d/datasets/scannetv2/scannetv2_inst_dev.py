@@ -1,15 +1,13 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
-import math
 import json
 import glob
 import os.path as osp
-from abc import ABCMeta, abstractmethod
 from typing import List
 
 import gorilla
 import numpy as np
 import torch
-from torch.utils.data import (Dataset, DataLoader)
+from torch.utils.data import Dataset
 
 from ...utils import elastic, pc_aug
 
@@ -41,7 +39,7 @@ class ScanNetV2Inst(Dataset):
         self.load_files()
     
     def load_files(self):
-        file_names = sorted(glob.glob(osp.join(self.data_root, self.task, "*.pth")))
+        file_names = sorted(glob.glob(osp.join(self.data_root, self.task, "*.pth")))[:50]
         self.files = [torch.load(i) for i in gorilla.track(file_names)]
         print(f"{self.task} samples: {len(self.files)}")
         # load superpoint

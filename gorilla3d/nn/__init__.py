@@ -11,8 +11,7 @@ from .modules import (
     QueryAndGroup, gather_points, PointnetFPModule, PointnetSAModuleMSG,
     PointnetSAModule, PointNet2SASSG,
     # sparse conv
-    single_conv, double_conv, triple_conv, down_conv, up_conv,
-    residual_block, ResidualBlock, VGGBlock, UBlock,
+    ResContextBlock, ResidualBlock, VGGBlock, UBlock,
     TransformerSparse3D, PositionEmbeddingSine3d, ConcatAttention,
     # dgcnn
     TransformNet, DGCNNAggregation,

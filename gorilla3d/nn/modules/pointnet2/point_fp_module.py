@@ -14,11 +14,11 @@ class PointnetFPModule(nn.Module):
     Args:
         mlp_channels (list[int]): List of mlp channels.
         norm_cfg (dict): Type of normalization method.
-            Default: dict(name="BN2d").
+            Default: dict(type="BN2d").
     """
     def __init__(self,
                  mlp_channels: List[int],
-                 norm_cfg: dict = dict(name="BN2d")):
+                 norm_cfg: dict = dict(type="BN2d")):
         super().__init__()
 
         self.mlps = nn.Sequential()

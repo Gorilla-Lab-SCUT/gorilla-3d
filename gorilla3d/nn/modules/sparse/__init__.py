@@ -1,8 +1,7 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
 
 from .unet import UBlock
-from .block import (single_conv, double_conv, triple_conv, down_conv, up_conv,
-                    ResidualBlock, VGGBlock, residual_block)
+from .block import (ResContextBlock, ResidualBlock, VGGBlock)
 from .transformer import TransformerSparse3D, PositionEmbeddingSine3d
 from .attention import ConcatAttention
 

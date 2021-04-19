@@ -19,7 +19,7 @@ class PointnetSAModuleMSG(nn.Module):
         mlp_channels (list[int]): Specify of the pointnet before
             the global pooling for each scale.
         norm_cfg (dict): Type of normalization method.
-            Default: dict(name="BN2d").
+            Default: dict(type="BN2d").
         use_xyz (bool): Whether to use xyz.
             Default: True.
         pool_mod (str): Type of pooling method.
@@ -32,7 +32,7 @@ class PointnetSAModuleMSG(nn.Module):
                  radii: List[float],
                  sample_nums: List[int],
                  mlp_channels: List[List[int]],
-                 norm_cfg: dict = dict(name="BN2d"),
+                 norm_cfg: dict = dict(type="BN2d"),
                  use_xyz: bool = True,
                  pool_mod="max",
                  normalize_xyz: bool = False):
@@ -101,7 +101,8 @@ class PointnetSAModuleMSG(nn.Module):
 
         xyz_flipped = points_xyz.transpose(1, 2).contiguous()
         if indices is None:
-            indices = furthest_point_sample(points_xyz, self.num_point)
+            if self.num_point is not None:
+                indices = furthest_point_sample(points_xyz, self.num_point)
         else:
             assert (indices.shape[1] == self.num_point)
 
@@ -144,7 +145,7 @@ class PointnetSAModule(PointnetSAModuleMSG):
         num_sample (int): Number of samples in each ball query.
             Default: None.
         norm_cfg (dict): Type of normalization method.
-            Default: dict(name="BN2d").
+            Default: dict(type="BN2d").
         use_xyz (bool): Whether to use xyz.
             Default: True.
         pool_mod (str): Type of pooling method.
@@ -157,7 +158,7 @@ class PointnetSAModule(PointnetSAModuleMSG):
                  num_point: int = None,
                  radius: float = None,
                  num_sample: int = None,
-                 norm_cfg: dict = dict(name="BN2d"),
+                 norm_cfg: dict = dict(type="BN2d"),
                  use_xyz: bool = True,
                  pool_mod: str = "max",
                  normalize_xyz: bool = False):

@@ -62,9 +62,9 @@ def init():
     #### get logger file
     params_dict = dict(
         epoch=cfg.data.test_epoch,
-        optim=cfg.optimizer.name,
+        optim=cfg.optimizer.type,
         lr=cfg.optimizer.lr,
-        scheduler=cfg.lr_scheduler.name
+        scheduler=cfg.lr_scheduler.type
     )
     if cfg.data.split == "test":
         params_dict["suffix"] = "test"

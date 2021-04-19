@@ -14,7 +14,7 @@ class VoteModule(nn.Module):
         conv_channels (tuple[int]): Out channels of vote
             generating convolution.
         norm_cfg (dict): Config of normalization.
-            Default: dict(name="BN1d").
+            Default: dict(type="BN1d").
         norm_feats (bool): Whether to normalize features.
             Default: True.
     """
@@ -22,7 +22,7 @@ class VoteModule(nn.Module):
                  in_channels,
                  vote_per_seed=1,
                  conv_channels=(16, 16),
-                 norm_cfg=dict(name="BN1d"),
+                 norm_cfg=dict(type="BN1d"),
                  norm_feats=True):
         super().__init__()
         self.in_channels = in_channels

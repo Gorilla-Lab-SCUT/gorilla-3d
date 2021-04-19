@@ -21,14 +21,14 @@ class VoteNet(nn.Module):
                                sa_channels=((64, 64, 128), (128, 128, 256),
                                             (128, 128, 256), (128, 128, 256)),
                                fp_channels=((256, 256), (256, 256)),
-                               norm_cfg=dict(name="BN2d"),
+                               norm_cfg=dict(type="BN2d"),
                                pool_mod="max"),
                  bbox_head=dict(vote_moudule_cfg=dict(
                      in_channels=256,
                      vote_per_seed=1,
                      conv_channels=(256, 256),
                      D=1,
-                     norm_cfg=dict(name="BN1d"),
+                     norm_cfg=dict(type="BN1d"),
                      norm_feats=True),
                                 vote_aggregation_cfg=dict(
                                     num_point=256,
@@ -39,7 +39,7 @@ class VoteNet(nn.Module):
                                     normalize_xyz=True),
                                 feat_channels=(128, 128),
                                 D=1,
-                                norm_cfg=dict(name="BN1d")),
+                                norm_cfg=dict(type="BN1d")),
                  train_sample_mod="vote",
                  test_sample_mod="random"):
         super(VoteNet, self).__init__()
