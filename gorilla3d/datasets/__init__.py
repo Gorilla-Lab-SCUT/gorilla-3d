@@ -5,9 +5,11 @@ from .scannetv2 import (ScanNetV2Inst, ScanNetV2InstTrainVal, ScanNetV2InstTest,
 from .s3dis import S3DISInst
 from .shapenet import ShapeNetPartNormal, ShapenetImplicitRecon
 from .kitti import KittiSem
+from .modelnet import ModelNetCls
 
 import torch
 from gorilla import DATASETS, auto_registry
+
 auto_registry(DATASETS, globals(), torch.utils.data.Dataset)
 
 __all__ = [k for k in globals().keys() if not k.startswith("_")]

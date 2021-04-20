@@ -1,0 +1,25 @@
+# dir
+__pycache__
+build
+.vscode
+*egg*
+dist
+work_dirs
+.ipynb_checkpoints
+exp
+vis*
+log
+data
+
+# file
+*.so
+*.o
+*.swp
+*.pyc
+*ninja*
+*cache*
+*.pt*
+result*
+*temp*
+
+.idea/*

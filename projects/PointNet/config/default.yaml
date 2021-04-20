@@ -1,0 +1,48 @@
+epochs: 200
+
+# datasets
+dataset:
+  type: ModelNetCls
+  root: data/modelnet40_normal_resampled
+  num_point: 1024
+  num_category: 40
+  use_uniform_sample: False
+  use_normals: False
+  process_data: False
+
+dataloader:
+  batch_size: 24
+  num_workers: 24
+  pin_memory: True
+
+# model
+model:
+  type: PointNetCls
+  in_channels: 3
+  feat_size: 1024
+  num_classes: 40
+  dropout: 0.4
+  classifier_layer_dims:
+    - 512
+    - 256
+  feat_layer_dims:
+    - 64
+    - 128
+
+loss:
+  type: ClsLoss
+  ignore_label: -100
+  loss_weight: 1.0
+
+# optimizer
+optimizer:
+  type: Adam
+  lr: 0.001
+  weight_decay: 0.0001
+  # amsgrad: False
+
+# lr_scheduler
+lr_scheduler:
+  type: StepLR
+  step_size: 100000
+
