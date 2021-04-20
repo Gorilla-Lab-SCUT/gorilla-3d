@@ -19,11 +19,11 @@ class UBlock(nn.Module):
                  block_reps,
                  block,
                  indice_key_id=1,
-                 return_bottom=False,):
+                 return_blocks=False,):
 
         super().__init__()
 
-        self.return_bottom = return_bottom
+        self.return_blocks = return_blocks
         self.nPlanes = nPlanes
 
         blocks = {
@@ -52,7 +52,8 @@ class UBlock(nn.Module):
                             norm_fn,
                             block_reps,
                             block,
-                            indice_key_id=indice_key_id + 1)
+                            indice_key_id=indice_key_id + 1,
+                            return_blocks=return_blocks)
 
             self.deconv = spconv.SparseSequential(
                 norm_fn(nPlanes[1]), nn.ReLU(),
@@ -73,7 +74,9 @@ class UBlock(nn.Module):
             blocks_tail = OrderedDict(blocks_tail)
             self.blocks_tail = spconv.SparseSequential(blocks_tail)
 
-    def forward(self, input):
+    def forward(self,
+                input,
+                previous_outputs=[]):
         output = self.blocks(input)
         identity = spconv.SparseConvTensor(output.features,
                                            output.indices,
@@ -82,8 +85,8 @@ class UBlock(nn.Module):
 
         if len(self.nPlanes) > 1:
             output_decoder = self.conv(output)
-            if self.return_bottom:
-                output_decoder, bottom = self.u(output_decoder)
+            if self.return_blocks:
+                output_decoder, previous_outputs = self.u(output_decoder, previous_outputs)
             else:
                 output_decoder = self.u(output_decoder)
             output_decoder = self.deconv(output_decoder)
@@ -92,10 +95,10 @@ class UBlock(nn.Module):
                 (identity.features, output_decoder.features), dim=1)
 
             output = self.blocks_tail(output)
-        elif self.return_bottom:
-            bottom = output
 
-        if self.return_bottom:
-            return output, bottom
+        if self.return_blocks:
+            previous_outputs.append(output)
+            return output, previous_outputs
         else:
             return output
+
