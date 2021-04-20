@@ -42,7 +42,8 @@ def init():
     log_dir, logger = gorilla.collect_logger(
         prefix=osp.splitext(args.config.split("/")[-1])[0])
     backup_list = ["train.py", "test.py", "cylinder", args.config]
-    gorilla.backup(log_dir, backup_list, logger)
+    backup_dir = osp.join(log_dir, "backup")
+    gorilla.backup(backup_dir, backup_list, logger)
 
     cfg.log_dir = log_dir
     

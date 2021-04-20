@@ -16,13 +16,13 @@ class KittiSem(Dataset):
                  task: str="train",
                  label_mapping: str="semantic-kitti.yaml",
                  return_ref: bool=False,
+                 return_test: bool=False,
                  transform_cfg: Dict=dict(
                     rotate_aug=False,
                     flip_aug=False,
                     scale_aug=False,
                     transform=False),
                  grid_cfg: Dict=dict(
-                    type="PolarProcesses", # "PolarProcesses" or "GridProcesses"
                     num_class=20,
                     grid_size=[480, 360, 32],
                     fixed_volume_space=False,
@@ -32,6 +32,7 @@ class KittiSem(Dataset):
                  preload_labels: bool=True,
                  **kwargs):
         self.return_ref = return_ref
+        self.return_test = return_test
         self.semkittiyaml = gorilla.load(label_mapping)
         self.learning_map = self.semkittiyaml["learning_map"]
         assert task in ["train", "val", "test"], f"`task` must be in ['train', 'val', 'test'], but got {task}"
@@ -59,17 +60,14 @@ class KittiSem(Dataset):
         """
         label_mapper = np.vectorize(self.learning_map.__getitem__)
         if self.task == "test": return
-        self.semantic_label_list = []
-        self.instance_label_list = []
+        self.annotated_data_list = []
         print(f"prepare label files: {len(self.data_files)}")
         for data_file in gorilla.track(self.data_files):
             annotated_data = np.fromfile(data_file.replace("velodyne", "labels").replace(".bin", ".label"),
                                          dtype=np.int32).reshape((-1, 1)) # [N, 1]
-            semantic_label = annotated_data & 0xFFFF  # semantic label in lower half
-            instance_label = annotated_data >> 16     # instance id in upper half
-            semantic_label = label_mapper(semantic_label) # annotated id map
-            self.semantic_label_list.append(semantic_label)
-            self.instance_label_list.append(instance_label)
+            annotated_data = annotated_data & 0xFFFF  # delete high 16 digits binary
+            annotated_data = label_mapper(annotated_data) # annotated id map
+            self.annotated_data_list.append(annotated_data)
 
     def __len__(self):
         "Denotes the total number of samples"
@@ -78,22 +76,15 @@ class KittiSem(Dataset):
     def __getitem__(self, index):
         raw_data = np.fromfile(self.data_files[index], dtype=np.float32).reshape((-1, 4)) # [N, 4]
         if self.task == "test":
-            semantic_label = np.expand_dims(np.zeros_like(raw_data[:, 0], dtype=int), axis=1)
-            instance_label = np.expand_dims(np.zeros_like(raw_data[:, 0], dtype=int), axis=1)
+            annotated_data = np.expand_dims(np.zeros_like(raw_data[:, 0], dtype=int), axis=1)
         elif not self.preload_labels:
             label_mapper = np.vectorize(self.learning_map.__getitem__)
             annotated_data = np.fromfile(self.data_files[index].replace("velodyne", "labels").replace(".bin", ".label"),
                                          dtype=np.int32).reshape((-1, 1)) # [N, 1]
-            semantic_label = annotated_data & 0xFFFF  # semantic label in lower half
-            instance_label = annotated_data >> 16     # instance id in upper half
-            semantic_label = label_mapper(semantic_label) # annotated id map
+            annotated_data = annotated_data & 0xFFFF  # delete high 16 digits binary
+            annotated_data = label_mapper(annotated_data) # annotated id map
         else:
-            semantic_label = self.semantic_label_list[index]
-            instance_label = self.instance_label_list[index]
-
-        # from ipdb import set_trace; set_trace()
-        # range_proj = self.range_projection(raw_data, annotated_data)
-        # np.save("temp.npy", range_proj)
+            annotated_data = self.annotated_data_list[index]
 
         if self.task == "train":
             raw_data = self.pc_transformer(raw_data)
@@ -231,6 +222,7 @@ class GridProcesses(object):
     def __call__(self,
                  xyz: np.ndarray,
                  labels: np.ndarray):
+        xyz = xyz[:, :3] # [N, 3]
 
         max_bound = np.percentile(xyz, 100, axis=0)
         min_bound = np.percentile(xyz, 0, axis=0)

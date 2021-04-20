@@ -1,5 +1,8 @@
+import functools
 from collections import OrderedDict
+from typing import Callable, Dict, List, Union
 
+import gorilla
 import torch
 import torch.nn as nn
 
@@ -14,18 +17,30 @@ from .block import ResidualBlock, VGGBlock
 
 class UBlock(nn.Module):
     def __init__(self,
-                 nPlanes,
-                 norm_fn,
-                 block_reps,
-                 block,
-                 indice_key_id=1,
-                 return_blocks=False,):
+                 nPlanes: List[int],
+                 norm_fn: Union[Dict, Callable]=functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1),
+                 block_reps: int=2,
+                 block: Union[str, Callable]=ResidualBlock,
+                 indice_key_id: int=1,
+                 return_blocks: bool=False,):
 
         super().__init__()
 
         self.return_blocks = return_blocks
         self.nPlanes = nPlanes
 
+        # process block and norm_fn caller
+        if isinstance(block, str):
+            assert block in ["residual", "vgg"], f"block must be 'residual' or 'vgg', but got {block}"
+            if block == "residual":
+                block = ResidualBlock
+            elif block == "vgg":
+                block = VGGBlock
+        
+        if isinstance(norm_fn, Dict):
+            norm_caller = gorilla.nn.get_torch_layer_caller(norm_fn.pop("type"))
+            norm_fn = functools.partial(norm_caller, **norm_fn)
+            
         blocks = {
             f"block{i}":
             block(nPlanes[0],

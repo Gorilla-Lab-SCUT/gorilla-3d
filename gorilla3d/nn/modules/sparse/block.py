@@ -1,6 +1,8 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
 import functools
+from typing import Callable, Dict, Optional, Union
 
+import gorilla
 import torch
 import torch.nn as nn
 
@@ -13,22 +15,42 @@ except:
     pass
 
 
-def conv1x3(in_planes, out_planes, stride=1, indice_key=None):
-    return spconv.SubMConv3d(in_planes, out_planes, kernel_size=(1, 3, 3), stride=stride,
-                             padding=(0, 1, 1), bias=False, indice_key=indice_key)
+def conv1x3(in_planes: int,
+            out_planes: int,
+            stride: int=1,
+            indice_key: Optional[str]=None):
+    return spconv.SubMConv3d(in_planes,
+                             out_planes,
+                             kernel_size=(1, 3, 3),
+                             stride=stride,
+                             padding=(0, 1, 1),
+                             bias=False,
+                             indice_key=indice_key)
 
 
-def conv3x1(in_planes, out_planes, stride=1, indice_key=None):
-    return spconv.SubMConv3d(in_planes, out_planes, kernel_size=(3, 1, 3), stride=stride,
-                             padding=(1, 0, 1), bias=False, indice_key=indice_key)
+def conv3x1(in_planes: int,
+            out_planes: int,
+            stride: int=1,
+            indice_key: Optional[str]=None):
+    return spconv.SubMConv3d(in_planes,
+                             out_planes,
+                             kernel_size=(3, 1, 3),
+                             stride=stride,
+                             padding=(1, 0, 1),
+                             bias=False,
+                             indice_key=indice_key)
 
 class ResContextBlock(MODULE):
     def __init__(self,
-                 in_filters,
-                 out_filters,
-                 norm_fn=functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1),
-                 indice_key=None):
+                 in_filters: int,
+                 out_filters: int,
+                 norm_fn: Union[Callable, Dict]=functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1),
+                 indice_key: Optional[str]=None):
         super().__init__()
+        
+        if isinstance(norm_fn, Dict):
+            norm_caller = gorilla.nn.get_torch_layer_caller(norm_fn.pop("type"))
+            norm_fn = functools.partial(norm_caller, **norm_fn)
 
         self.branch1 = spconv.SparseSequential(
             norm_fn(out_filters),
@@ -72,10 +94,10 @@ class ResContextBlock(MODULE):
 
 class ResidualBlock(MODULE):
     def __init__(self,
-                 in_channels,
-                 out_channels,
-                 norm_fn=functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1),
-                 indice_key=None):
+                 in_channels: int,
+                 out_channels: int,
+                 norm_fn: Union[Callable, Dict]=functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1),
+                 indice_key: Optional[str]=None):
         super().__init__()
 
         if in_channels == out_channels:
@@ -86,6 +108,10 @@ class ResidualBlock(MODULE):
                                   out_channels,
                                   kernel_size=1,
                                   bias=False))
+        
+        if isinstance(norm_fn, Dict):
+            norm_caller = gorilla.nn.get_torch_layer_caller(norm_fn.pop("type"))
+            norm_fn = functools.partial(norm_caller, **norm_fn)
 
         self.conv_branch = spconv.SparseSequential(
             norm_fn(in_channels),
@@ -119,11 +145,15 @@ class ResidualBlock(MODULE):
 
 class VGGBlock(MODULE):
     def __init__(self,
-                 in_channels,
-                 out_channels,
-                 norm_fn=functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1),
-                 indice_key=None):
+                 in_channels: int,
+                 out_channels: int,
+                 norm_fn: Union[Callable, Dict]=functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1),
+                 indice_key: Optional[str]=None):
         super().__init__()
+        
+        if isinstance(norm_fn, Dict):
+            norm_caller = gorilla.nn.get_torch_layer_caller(norm_fn.pop("type"))
+            norm_fn = functools.partial(norm_caller, **norm_fn)
 
         self.conv_layers = spconv.SparseSequential(
             norm_fn(in_channels),
