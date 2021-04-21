@@ -8,7 +8,6 @@ import torch
 import gorilla
 import gorilla3d
 import spconv
-from tensorboardX import SummaryWriter
 
 import pointgroup
 import pointgroup_ops
@@ -62,16 +61,16 @@ def do_train(model, cfg, logger):
                                                 drop_last=True)
 
     # initialize tensorboard (Optional) TODO: integrating the tensorborad manager
-    writer = SummaryWriter(log_dir=cfg.log_dir) # tensorboard writer
+    writer = gorilla.TensorBoardWriter(log_dir=cfg.log_dir) # tensorboard writer
 
-    # initialize time buffer and timers (Optional)
-    iter_time = gorilla.HistoryBuffer()
-    data_time = gorilla.HistoryBuffer()
+    # initialize timers (Optional)
     iter_timer = gorilla.Timer()
+    epoch_timer = gorilla.Timer()
 
     # loss/time buffer for epoch record (Optional)
     loss_buffer = gorilla.HistoryBuffer()
-    epoch_timer = gorilla.Timer()
+    iter_time = gorilla.HistoryBuffer()
+    data_time = gorilla.HistoryBuffer()
 
     while epoch <= cfg.epochs:
         torch.cuda.empty_cache() # (empty cuda cache, Optional)
@@ -152,12 +151,14 @@ def do_train(model, cfg, logger):
             # sample the learning rate(Optional)
             lr = optimizer.param_groups[0]["lr"]
             # write tensorboard
-            with torch.no_grad():
-                writer.add_scalar(f"train/loss", loss, iter)
-                writer.add_scalar(f"lr", lr, iter)
-                # (NOTE: the `loss_out` is work for multi losses, which saves each loss item)
-                for k, v in loss_out.items():
-                    writer.add_scalar(f"train/{k}", v[0], iter)
+            loss_out.update({"loss": loss, "lr": lr})
+            writer.update(loss_out, iter)
+            # # equivalent write operation
+            # writer.add_scalar(f"train/loss", loss, iter)
+            # writer.add_scalar(f"lr", lr, iter)
+            # # (NOTE: the `loss_out` is work for multi losses, which saves each loss item)
+            # for k, v in loss_out.items():
+            #     writer.add_scalar(f"train/{k}", v[0], iter)
 
             # backward
             optimizer.zero_grad()
@@ -165,20 +166,14 @@ def do_train(model, cfg, logger):
             optimizer.step()
             iter += 1
 
-            # calculate time and clear timer and buffer(Optional)
+            # calculate time and reset timer(Optional)
             iter_time.update(iter_timer.since_start())
             iter_timer.reset() # record the iteration time and reset timer
 
             # TODO: the time manager will be integrated into gorilla-core
             # calculate remain time(Optional)
-            current_iter = (epoch - 1) * len(train_dataloader) + i + 1
-            max_iter = cfg.epochs * len(train_dataloader)
-            remain_iter = max_iter - current_iter
-
-            remain_time = remain_iter * iter_time.avg
-            t_m, t_s = divmod(remain_time, 60)
-            t_h, t_m = divmod(t_m, 60)
-            remain_time = f"{int(t_h):02d}:{int(t_m):02d}:{int(t_s):02d}"
+            remain_iter = (cfg.epochs - epoch + 1) * len(train_dataloader) + i + 1
+            remain_time = gorilla.convert_seconds(remain_iter * iter_time.avg) # convert seconds into "hours:minutes:sceonds"
 
             print(f"epoch: {epoch}/{cfg.epochs} iter: {i + 1}/{len(train_dataloader)} "
                   f"lr: {lr:4f} loss: {loss_buffer.latest:.4f}({loss_buffer.avg:.4f}) "
@@ -234,7 +229,7 @@ def get_checkpoint(log_dir, epoch=0, checkpoint=""):
     return checkpoint, epoch + 1
 
 def main(args):
-    # get the args and read the config file
+    # read config file
     cfg = gorilla.Config.fromfile(args.config)
 
     # get logger file
@@ -269,7 +264,6 @@ def main(args):
         # DDP wrap model
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[gorilla.get_local_rank()], find_unused_parameters=True)
 
-    # model = model.cuda()
     # logger.info("Model:\n{}".format(model)) (Optional print model)
 
     # count the paramters of model (Optional)
@@ -281,7 +275,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    # get the args and read the config file
+    # get the args
     args = get_parser()
 
     # auto using the free gpus
