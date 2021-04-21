@@ -18,7 +18,7 @@ def get_parser():
         description="Point Cloud Instance Segmentation")
     parser.add_argument("--config",
                         type=str,
-                        default="config/pointgroup_default_scannet.yaml",
+                        default="config/default.yaml",
                         help="path to config file")
     ### pretrain
     parser.add_argument("--pretrain",
@@ -45,8 +45,7 @@ def init():
     log_dir, logger = gorilla.collect_logger(
         prefix=osp.splitext(args.config.split("/")[-1])[0])
     backup_list = ["train.py", "test.py", "pointgroup", args.config]
-    backup_dir = osp.join(log_dir, "backup")
-    gorilla.backup(backup_dir, backup_list, logger)
+    gorilla.backup(log_dir, backup_list, logger)
 
     cfg.log_dir = log_dir
     
@@ -96,44 +95,34 @@ class PointGroupSolver(gorilla.BaseSolver):
         )  # [total_num_inst], int, cuda
 
         batch_offsets = batch["offsets"].cuda()  # [B + 1], int, cuda
-        superpoint = batch["superpoint"].cuda()  # [N], long, cuda
-        superpoint = torch.unique(superpoint, return_inverse=True)[1]  # [N], long, cuda
 
-        prepare_flag = (self.epoch > cfg.model.prepare_epochs)
+        prepare_flag = (self.epoch > self.cfg.model.prepare_epochs)
         scene_list = batch["scene_list"]
         spatial_shape = batch["spatial_shape"]
-
-        extra_data = {"superpoint": superpoint,
-                      "locs_offset": locs_offset,
-                      "scene_list": scene_list}
 
         if self.cfg.model.use_coords:
             feats = torch.cat((feats, coords_float), 1)
         voxel_feats = pointgroup_ops.voxelization(
-            feats, v2p_map, cfg.data.mode)  # [M, C], float, cuda
+            feats, v2p_map, self.cfg.data.mode)  # [M, C], float, cuda
 
         input_ = spconv.SparseConvTensor(voxel_feats,
                                          voxel_coords.int(),
                                          spatial_shape,
-                                         cfg.dataloader.batch_size)
+                                         self.cfg.dataloader.batch_size)
 
         ret = self.model(input_,
                          p2v_map,
                          coords_float,
                          coords[:, 0].int(),
-                         batch_offsets,
-                         self.epoch,
-                         extra_data)
+                         self.epoch)
 
         semantic_scores = ret["semantic_scores"]  # [N, nClass] float32, cuda
         pt_offsets = ret["pt_offsets"]  # [N, 3], float32, cuda
 
         loss_inp = {}
         loss_inp["batch_idxs"] = coords[:, 0].int()
-        loss_inp["superpoint"] = superpoint
         loss_inp["feats"] = feats
         loss_inp["scene_list"] = scene_list
-        loss_inp["batch_offsets"] = batch_offsets
 
         loss_inp["semantic_scores"] = (semantic_scores, semantic_labels)
         loss_inp["pt_offsets"] = (pt_offsets,
@@ -259,8 +248,8 @@ class PointGroupSolver(gorilla.BaseSolver):
                                  f"loss: {loss_buffer.latest:.4f}({loss_buffer.avg:.4f})")
                 if (i == len(self.val_data_loader) - 1): print()
 
-            logger.info(f"epoch: {self.epoch}/{self.cfg.solver.epochs}, "
-                        f"val loss: {loss_buffer.avg:.4f}, time: {epoch_timer.since_start()}s")
+            self.logger.info(f"epoch: {self.epoch}/{self.cfg.solver.epochs}, "
+                             f"val loss: {loss_buffer.avg:.4f}, time: {epoch_timer.since_start()}s")
 
             self.write()
 

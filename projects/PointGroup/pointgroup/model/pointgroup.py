@@ -36,8 +36,7 @@ class PointGroup(nn.Module):
                     shift_mean_active=300,
                     npoint_thresh=50
                  ),
-                 fix_module: List[str]=[],
-                 **kwargs):
+                 fix_module: List[str]=[]):
         super().__init__()
         self.score_scale = score_scale
         self.score_fullscale = score_fullscale
@@ -182,12 +181,11 @@ class PointGroup(nn.Module):
         return voxelization_feats, inp_map
 
 
-    def forward(self, input, input_map, coords, batch_idxs, batch_offsets, epoch, extra_data=None, mode="train", semantic_only=False):
+    def forward(self, input, input_map, coords, batch_idxs, epoch, semantic_only=False):
         """
         :param input_map: [N], int, cuda
         :param coords: [N, 3], float, cuda
         :param batch_idxs: [N], int, cuda
-        :param batch_offsets: [B + 1], int, cuda
         :param coords_offsets: [B, 3], int, cuda
         """
         ret = {}

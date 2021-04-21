@@ -1,4 +1,5 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
+import sys
 import glob
 import argparse
 import os.path as osp
@@ -6,11 +7,15 @@ import os.path as osp
 import torch
 import gorilla
 import gorilla3d
+import spconv
 from tensorboardX import SummaryWriter
 
-import network
+import pointgroup
+import pointgroup_ops
 
 def get_parser():
+    # the default argument parser contains some 
+    # essential parameters for distributed
     parser = gorilla.default_argument_parser()
     parser.add_argument("--config",
                         type=str,
@@ -21,24 +26,7 @@ def get_parser():
 
     return args_cfg
 
-def get_checkpoint(log_dir, epoch=0, checkpoint=""):
-    if not checkpoint:
-        if epoch > 0:
-            checkpoint = osp.join(log_dir, "epoch_{0:05d}.pth".format(epoch))
-            assert osp.isfile(checkpoint)
-        else:
-            latest_checkpoint = glob.glob(osp.join(log_dir, "*latest*.pth"))
-            if len(latest_checkpoint) > 0:
-                checkpoint = latest_checkpoint[0]
-            else:
-                checkpoint = sorted(glob.glob(osp.join(log_dir, "*.pth")))
-                if len(checkpoint) > 0:
-                    checkpoint = checkpoint[-1]
-                    epoch = int(checkpoint.split("_")[-1].split(".")[0])
 
-    return checkpoint, epoch + 1
-
-# realize the train process
 def do_train(model, cfg, logger):
     model.train()
     # initilize optimizer and scheduler (scheduler is optional-adjust learning rate manually)
@@ -55,10 +43,10 @@ def do_train(model, cfg, logger):
         logger.info(f"resume from: {checkpoint}")
         # meta is the dict save some necessary information (last epoch/iteration, acc, loss)
         meta = gorilla.resume(model=model,
-                              checkpoint=checkpoint,
+                              filename=checkpoint,
                               optimizer=optimizer,     # optimizer and scheduler is optional
                               scheduler=lr_scheduler,  # to resume (can not give these paramters)
-                              resume_optimize=True,
+                              resume_optimizer=True,
                               resume_scheduler=True,
                               strict=False,
                               )
@@ -91,14 +79,74 @@ def do_train(model, cfg, logger):
             # calculate data loading time
             data_time.update(iter_timer.since_last())
             # cuda manually (TODO: integrating the data cuda operation)
-            point_sets = batch["point_set"].cuda() # [B, N, C]
-            labels = batch["label"].long().cuda() # [B, N]
+            # model_fn defined in PointGroup
+            ##### prepare input and forward
+            coords = batch["locs"].cuda() # [N, 1 + 3], long, cuda, dimension 0 for batch_idx
+            locs_offset = batch["locs_offset"].cuda()  # [B, 3], long, cuda
+            voxel_coords = batch["voxel_locs"].cuda()  # [M, 1 + 3], long, cuda
+            p2v_map = batch["p2v_map"].cuda()  # [N], int, cuda
+            v2p_map = batch["v2p_map"].cuda()  # [M, 1 + maxActive], int, cuda
 
-            # model forward and calculate loss
-            logits = model(point_sets)
-            loss_inp = {"logits": logits,
-                        "labels": labels}
-            loss, loss_out = criterion(loss_inp) # [B, N, num_class]
+            coords_float = batch["locs_float"].cuda()  # [N, 3], float32, cuda
+            feats = batch["feats"].cuda()  # [N, C], float32, cuda
+            semantic_labels = batch["semantic_labels"].cuda()  # [N], long, cuda
+            instance_labels = batch["instance_labels"].cuda(
+            )  # [N], long, cuda, 0~total_num_inst, -100
+
+            instance_info = batch["instance_info"].cuda(
+            )  # [N, 9], float32, cuda, (meanxyz, minxyz, maxxyz)
+            instance_pointnum = batch["instance_pointnum"].cuda(
+            )  # [total_num_inst], int, cuda
+
+            batch_offsets = batch["offsets"].cuda()  # [B + 1], int, cuda
+
+            prepare_flag = (epoch > cfg.model.prepare_epochs)
+            scene_list = batch["scene_list"]
+            spatial_shape = batch["spatial_shape"]
+
+            if cfg.model.use_coords:
+                feats = torch.cat((feats, coords_float), 1)
+            voxel_feats = pointgroup_ops.voxelization(
+                feats, v2p_map, cfg.data.mode)  # [M, C], float, cuda
+
+            input_ = spconv.SparseConvTensor(voxel_feats,
+                                            voxel_coords.int(),
+                                            spatial_shape,
+                                            cfg.dataloader.batch_size)
+
+            ret = model(input_,
+                        p2v_map,
+                        coords_float,
+                        coords[:, 0].int(),
+                        epoch)
+
+            semantic_scores = ret["semantic_scores"]  # [N, nClass] float32, cuda
+            pt_offsets = ret["pt_offsets"]  # [N, 3], float32, cuda
+
+            loss_inp = {}
+            loss_inp["batch_idxs"] = coords[:, 0].int()
+            loss_inp["feats"] = feats
+            loss_inp["scene_list"] = scene_list
+
+            loss_inp["semantic_scores"] = (semantic_scores, semantic_labels)
+            loss_inp["pt_offsets"] = (pt_offsets,
+                                    coords_float,
+                                    instance_info,
+                                    instance_labels)
+
+
+            if prepare_flag:
+                scores, proposals_idx, proposals_offset = ret["proposal_scores"]
+                # scores: (num_prop, 1) float, cuda
+                # proposals_idx: (sum_points, 2), int, cpu, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
+                # proposals_offset: (num_prop + 1), int, cpu
+
+                loss_inp["proposal_scores"] = (scores,
+                                               proposals_idx,
+                                               proposals_offset,
+                                               instance_pointnum)
+
+            loss, loss_out = criterion(loss_inp, epoch)
             loss_buffer.update(loss)
 
             # sample the learning rate(Optional)
@@ -108,8 +156,8 @@ def do_train(model, cfg, logger):
                 writer.add_scalar(f"train/loss", loss, iter)
                 writer.add_scalar(f"lr", lr, iter)
                 # (NOTE: the `loss_out` is work for multi losses, which saves each loss item)
-                # for k, v in loss_out.items():
-                #     writer.add_scalar(f"train/{k}", v, iter)
+                for k, v in loss_out.items():
+                    writer.add_scalar(f"train/{k}", v[0], iter)
 
             # backward
             optimizer.zero_grad()
@@ -137,6 +185,7 @@ def do_train(model, cfg, logger):
                   f"data_time: {data_time.latest:.2f}({data_time.avg:.2f}) "
                   f"iter_time: {iter_time.latest:.2f}({iter_time.avg:.2f}) remain_time: {remain_time}")
         
+        # synchronize for distributed training
         gorilla.synchronize()
         # updata learning rate scheduler and epoch
         lr_scheduler.step()
@@ -167,10 +216,22 @@ def do_train(model, cfg, logger):
         epoch += 1
 
 
-# realize the test process
-def do_test():
-    pass
+def get_checkpoint(log_dir, epoch=0, checkpoint=""):
+    if not checkpoint:
+        if epoch > 0:
+            checkpoint = osp.join(log_dir, "epoch_{0:05d}.pth".format(epoch))
+            assert osp.isfile(checkpoint)
+        else:
+            latest_checkpoint = glob.glob(osp.join(log_dir, "*latest*.pth"))
+            if len(latest_checkpoint) > 0:
+                checkpoint = latest_checkpoint[0]
+            else:
+                checkpoint = sorted(glob.glob(osp.join(log_dir, "*.pth")))
+                if len(checkpoint) > 0:
+                    checkpoint = checkpoint[-1]
+                    epoch = int(checkpoint.split("_")[-1].split(".")[0])
 
+    return checkpoint, epoch + 1
 
 def main(args):
     # get the args and read the config file
@@ -183,11 +244,11 @@ def main(args):
     # logger = gorilla.get_logger(log_file)
 
     # backup the necessary file and directory(Optional, details for source code)
-    backup_list = ["distributed_train.py", "test.py", "network", args.config]
+    backup_list = ["plain_train.py", "test.py", "pointgroup", args.config]
     backup_dir = osp.join(log_dir, "backup")
     gorilla.backup(backup_dir, backup_list, logger)
 
-    # cfg.distributed = args.num_gpus > 1
+    # merge the paramters in args into cfg
     cfg = gorilla.config.merge_cfg_and_args(cfg, args)
 
     cfg.log_dir = log_dir
@@ -203,10 +264,10 @@ def main(args):
     model = gorilla.build_model(cfg.model) # NOTE: can define model manually(do not use the build function)
     model = model.cuda()
     if args.num_gpus > 1:
-        # convert the BatchNorm in model as SyncBatchNorm
+        # convert the BatchNorm in model as SyncBatchNorm (NOTE: this will be error for low-version pytorch!!!)
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
         # DDP wrap model
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[gorilla.get_local_rank()])
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[gorilla.get_local_rank()], find_unused_parameters=True)
 
     # model = model.cuda()
     # logger.info("Model:\n{}".format(model)) (Optional print model)
@@ -234,4 +295,3 @@ if __name__ == "__main__":
         dist_url=args.dist_url,
         args=(args,) # use tuple to wrap
     )
-
