@@ -109,9 +109,9 @@ def do_train(model, cfg, logger):
                 feats, v2p_map, cfg.data.mode)  # [M, C], float, cuda
 
             input_ = spconv.SparseConvTensor(voxel_feats,
-                                            voxel_coords.int(),
-                                            spatial_shape,
-                                            cfg.dataloader.batch_size)
+                                             voxel_coords.int(),
+                                             spatial_shape,
+                                             cfg.dataloader.batch_size)
 
             ret = model(input_,
                         p2v_map,
@@ -179,9 +179,7 @@ def do_train(model, cfg, logger):
                   f"lr: {lr:4f} loss: {loss_buffer.latest:.4f}({loss_buffer.avg:.4f}) "
                   f"data_time: {data_time.latest:.2f}({data_time.avg:.2f}) "
                   f"iter_time: {iter_time.latest:.2f}({iter_time.avg:.2f}) remain_time: {remain_time}")
-        
-        # synchronize for distributed training
-        gorilla.synchronize()
+
         # updata learning rate scheduler and epoch
         lr_scheduler.step()
 

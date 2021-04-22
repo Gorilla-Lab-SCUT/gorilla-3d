@@ -2,7 +2,7 @@
 #define _INTERPOLATE_GPU_H
 
 #include <torch/serialize/tensor.h>
-#include<vector>
+#include <vector>
 #include <cuda.h>
 #include <cuda_runtime_api.h>
 

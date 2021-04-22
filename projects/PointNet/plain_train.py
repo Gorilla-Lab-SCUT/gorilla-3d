@@ -53,6 +53,7 @@ def do_train(model, cfg, logger):
     
     # resume model/optimizer/scheduler
     checkpoint = get_checkpoint(cfg.log_dir)
+    meta = {}
     if gorilla.is_filepath(checkpoint): # read valid checkpoint file
         logger.info(f"resume from: {checkpoint}")
         # meta is the dict save some necessary information (last epoch/iteration, acc, loss)
@@ -64,9 +65,9 @@ def do_train(model, cfg, logger):
                               resume_scheduler=True,
                               strict=False,
                               )
-        # get epoch from meta (Optional)
-        epoch = meta.get("epoch", 0) + 1
-        iter = meta.get("iter", 0) + 1
+    # get epoch from meta (Optional)
+    epoch = meta.get("epoch", 0) + 1
+    iter = meta.get("iter", 0) + 1
     
     # initialize train dataset
     cfg.dataset.split = "train" # change split manually
@@ -144,9 +145,7 @@ def do_train(model, cfg, logger):
                   f"lr: {lr:4f} loss: {loss_buffer.latest:.4f}({loss_buffer.avg:.4f}) "
                   f"data_time: {data_time.latest:.2f}({data_time.avg:.2f}) "
                   f"iter_time: {iter_time.latest:.2f}({iter_time.avg:.2f}) remain_time: {remain_time}")
-        
-        # synchronize for distributed training
-        gorilla.synchronize()
+
         # updata learning rate scheduler and epoch
         lr_scheduler.step()
 
