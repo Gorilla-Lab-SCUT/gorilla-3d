@@ -99,7 +99,6 @@ def test(model, cfg, logger):
             data_time = timer.since_last()
             voxel_centers = batch["voxel_centers"]
             voxel_labels = batch["voxel_labels"]
-            voxel_label_counts = batch["voxel_label_counts"]
             grid_inds = batch["grid_inds"]
             pt_labels = batch["point_labels"]
             pt_xyzs = batch["point_xyzs"]

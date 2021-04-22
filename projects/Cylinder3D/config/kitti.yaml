@@ -38,6 +38,7 @@ dataset:
   task: train
   return_ref: True
   return_test: False
+  preload_labels: False
   transform_cfg:
     rotate_aug: True
     flip_aug: True
@@ -65,8 +66,8 @@ dataset:
       - 2
 
 dataloader:
-  batch_size: 2
-  num_workers: 4
+  batch_size: 1
+  num_workers: 0
 
 # optimizer
 optimizer:
