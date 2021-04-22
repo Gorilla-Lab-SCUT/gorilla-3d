@@ -44,7 +44,6 @@ class KittiSem(Dataset):
 
         self.data_files = []
         for i_folder in split:
-            # TODO: fix it
             i_folder = f"{i_folder:0>2}"
             self.data_files += glob.glob(os.path.join(data_root, f"{i_folder:0>2}", "velodyne", "*"))
 
@@ -116,16 +115,20 @@ class KittiSem(Dataset):
         point_labels = []
         point_xyzs = []
         point_features = []
-        for b in batch:
-            voxel_centers.append(b[0].astype(np.float32))
-            voxel_labels.append(b[1].astype(np.int))
-            grid_inds.append(b[2])
-            point_labels.append(b[3])
-            point_xyzs.append(b[4])
-            point_features.append(b[5])
+        for i, b in enumerate(batch):
+            voxel_centers.append(torch.from_numpy(b[0]).float())
+            voxel_labels.append(torch.from_numpy(b[1]).long())
+            grid_inds.append(torch.cat([torch.LongTensor(b[2].shape[0], 1).fill_(i), torch.from_numpy(b[2]).long()], 1))
+            point_labels.append(torch.from_numpy(b[3]))
+            point_xyzs.append(torch.from_numpy(b[4]))
+            point_features.append(torch.from_numpy(b[5]).float())
         
-        voxel_centers = torch.from_numpy(np.stack(voxel_centers))
-        voxel_labels = torch.from_numpy(np.stack(voxel_labels))
+        voxel_centers = torch.stack(voxel_centers) # [B, H, W, D, 3]
+        voxel_labels = torch.stack(voxel_labels) # [B, H, W, D]
+        grid_inds = torch.cat(grid_inds, 0) # [N, 4]
+        point_labels = torch.cat(point_labels, 0) # [N]
+        point_xyzs = torch.cat(point_xyzs, 0) # [N, 3]
+        point_features = torch.cat(point_features, 0) # [N, C]
 
         return {
             "voxel_centers": voxel_centers,

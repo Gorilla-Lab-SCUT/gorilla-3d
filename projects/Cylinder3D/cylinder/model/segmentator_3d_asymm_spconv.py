@@ -280,10 +280,14 @@ class Asymm3dSpconv(nn.Module):
         self.logits = spconv.SubMConv3d(4 * init_size, nclasses, indice_key="logit", kernel_size=3, stride=1, padding=1,
                                         bias=True)
 
-    def forward(self, voxel_features, coors, batch_size):
-        # x = x.contiguous()
+    def forward(self,
+                voxel_features: torch.Tensor,
+                coors: torch.Tensor):
         coors = coors.int()
-        ret = spconv.SparseConvTensor(voxel_features, coors, self.sparse_shape,
+        batch_size = coors[:, 0].max() + 1
+        ret = spconv.SparseConvTensor(voxel_features,
+                                      coors,
+                                      self.sparse_shape,
                                       batch_size)
         ret = self.downCntx(ret)
         down1c, down1b = self.resBlock2(ret)
