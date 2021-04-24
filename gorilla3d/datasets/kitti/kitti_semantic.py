@@ -46,6 +46,7 @@ class KittiSem(Dataset):
         for i_folder in split:
             i_folder = f"{i_folder:0>2}"
             self.data_files += glob.glob(os.path.join(data_root, f"{i_folder:0>2}", "velodyne", "*"))
+        self.data_files = self.data_files[:100]
 
         self.pc_transformer = PointCloudTransfromer(**transform_cfg)
         processer_caller = globals()[grid_cfg["type"]]

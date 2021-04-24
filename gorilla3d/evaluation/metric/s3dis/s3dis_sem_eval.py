@@ -9,7 +9,7 @@ CLASS_LABELS = [
     "ceiling", "floor", "wall", "beam", "column", "window", "door",
     "table", "chair", "sofa", "bookcase", "board", "clutter"
 ]
-VALID_CLASS_IDS = np.array(range(len(CLASS_LABELS)))
+VALID_CLASS_IDS = np.arange(len(CLASS_LABELS))
 
 evaluate_semantic_s3dis = partial(evaluate_semantic, valid_class_ids=VALID_CLASS_IDS, class_labels=CLASS_LABELS)
 

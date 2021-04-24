@@ -15,31 +15,14 @@ parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
 
 
-# TODO: move out
-def get_iou(label_id: int,
-            confusion: np.ndarray,
-            valid_class_ids: np.ndarray):
-    if not label_id in valid_class_ids:
-        return float("nan")
-    # #true positives
-    tp = np.longlong(confusion[label_id, label_id])
-    # #false negatives
-    fn = np.longlong(confusion[label_id, :].sum()) - tp
-    # #false positives
-    not_ignored = [l for l in valid_class_ids if not l == label_id]
-    fp = np.longlong(confusion[not_ignored, label_id].sum())
-
-    denom = (tp + fp + fn)
-    if denom == 0:
-        return float("nan")
-    return (float(tp) / denom, tp, denom)
-
-
 def evaluate_scan(data: Dict,
                   confusion: np.ndarray,
                   valid_class_ids: np.ndarray):
     pred_ids = data["semantic_pred"]
     gt_ids = data["semantic_gt"]
+    valid_ids = (gt_ids >= 0) & (gt_ids <= valid_class_ids.max())
+    pred_ids = pred_ids[valid_ids]
+    gt_ids = gt_ids[valid_ids]
     # sanity checks
     if not pred_ids.shape == gt_ids.shape:
         message = f"{pred_ids.shape}: number of predicted values does not match number of vertices"
@@ -67,20 +50,21 @@ def evaluate_semantic(matches: Dict,
         sys.stdout.flush()
     print("")
 
-    class_ious = {}
-    for i in range(len(valid_class_ids)):
-        label_name = class_labels[i]
-        label_id = valid_class_ids[i]
-        class_ious[label_name] = get_iou(label_id, confusion, valid_class_ids)
+    # get iou
+    not_ignored = [l for l in valid_class_ids]
+    filter_confusion = confusion[not_ignored, :][:, not_ignored] # [num_class, num_class]
+    tp = np.diag(filter_confusion) # [num_class]
+    denom = filter_confusion.sum(1) + filter_confusion.sum(0) - np.diag(filter_confusion) # [num_class]
+    ious = tp / denom # [num_class]
+
     # print
     logger.info("classes          IoU")
     logger.info("-" * 45)
     mean_iou = 0
     for i in range(len(valid_class_ids)):
         label_name = class_labels[i]
-        #print(f"{{label_name:<14s}: class_ious[label_name][0]:>5.3f}")
-        logger.info(f"{label_name:<14s}: {class_ious[label_name][0]:>5.3f}   "
-             f"({class_ious[label_name][1]:>6d}/{class_ious[label_name][2]:<6d})")
-        mean_iou += class_ious[label_name][0]
-    mean_iou = mean_iou / len(valid_class_ids)
+        logger.info(f"{label_name:<14s}: {ious[i]:>5.3f}   "
+                    f"({tp[i]:>6d}/{denom[i]:<6d})")
+    # mean_iou = mean_iou / len(valid_class_ids)
+    mean_iou = ious.mean()
     logger.info(f"mean: {mean_iou:>5.3f}")

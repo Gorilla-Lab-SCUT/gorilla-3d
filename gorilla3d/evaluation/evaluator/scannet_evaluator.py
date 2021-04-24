@@ -56,8 +56,7 @@ class ScanNetSemanticEvaluator(DatasetEvaluator):
         for scene_name in self._gt.keys():
             matches[scene_name] = {}
             matches[scene_name]["semantic_gt"] = self._gt[scene_name]
-            matches[scene_name]["semantic_pred"] = self._predictions[
-                scene_name]
+            matches[scene_name]["semantic_pred"] = self._predictions[scene_name]
 
         evaluate_semantic_scannet(matches)
 

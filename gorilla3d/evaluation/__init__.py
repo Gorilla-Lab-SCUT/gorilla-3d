@@ -4,6 +4,7 @@ from .evaluator import (ScanNetSemanticEvaluator,
                         ScanNetEvaluator,
                         S3DISSemanticEvaluator,
                         S3DISInstanceEvaluator,
-                        S3DISEvaluator)
+                        S3DISEvaluator,
+                        KittiSemanticEvaluator)
 
 __all__ = [k for k in globals().keys() if not k.startswith("_")]

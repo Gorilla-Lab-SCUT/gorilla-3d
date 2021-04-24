@@ -3,7 +3,7 @@ from functools import partial
 
 import numpy as np
 
-from ..semantic_utils import get_iou, evaluate_scan, evaluate_semantic
+from ..semantic_utils import evaluate_semantic
 
 
 CLASS_LABELS = [
