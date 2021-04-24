@@ -4,8 +4,10 @@ import os
 import sys
 import inspect
 from typing import Dict, List, Optional
+
+import gorilla
 import numpy as np
-import logging
+
 
 currentdir = os.path.dirname(
     os.path.abspath(inspect.getfile(inspect.currentframe())))
@@ -49,21 +51,16 @@ def evaluate_scan(data: Dict,
 
 
 def evaluate_semantic(matches: Dict,
-                      logger: Optional[logging.Logger]=None,
                       valid_class_ids: Optional[np.ndarray]=None,
                       class_labels: List[str]=["class"]):
     
     max_id = int(valid_class_ids.max() + 1)
     confusion = np.zeros((max_id + 1, max_id + 1), dtype=np.ulonglong)
 
-    def info(message):
-        if logger is not None:
-            logger.info(message)
-        else:
-            print(message)
+    logger = gorilla.derive_logger(__name__)
 
     message = f"evaluating {len(matches)} scans..."
-    info(message)
+    logger.info(message)
     for i, (scene, data) in enumerate(matches.items()):
         evaluate_scan(data, confusion, valid_class_ids)
         sys.stdout.write(f"\rscans processed: {i + 1}")
@@ -76,14 +73,14 @@ def evaluate_semantic(matches: Dict,
         label_id = valid_class_ids[i]
         class_ious[label_name] = get_iou(label_id, confusion, valid_class_ids)
     # print
-    info("classes          IoU")
-    info("-" * 45)
+    logger.info("classes          IoU")
+    logger.info("-" * 45)
     mean_iou = 0
     for i in range(len(valid_class_ids)):
         label_name = class_labels[i]
         #print(f"{{label_name:<14s}: class_ious[label_name][0]:>5.3f}")
-        info(f"{label_name:<14s}: {class_ious[label_name][0]:>5.3f}   "
+        logger.info(f"{label_name:<14s}: {class_ious[label_name][0]:>5.3f}   "
              f"({class_ious[label_name][1]:>6d}/{class_ious[label_name][2]:<6d})")
         mean_iou += class_ious[label_name][0]
     mean_iou = mean_iou / len(valid_class_ids)
-    info(f"mean: {mean_iou:>5.3f}")
+    logger.info(f"mean: {mean_iou:>5.3f}")

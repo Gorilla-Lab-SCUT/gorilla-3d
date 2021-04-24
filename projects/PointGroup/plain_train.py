@@ -39,7 +39,6 @@ def do_train(model, cfg, logger):
     iter = 1
     checkpoint, epoch = get_checkpoint(cfg.log_dir)
     if gorilla.is_filepath(checkpoint): # read valid checkpoint file
-        logger.info(f"resume from: {checkpoint}")
         # meta is the dict save some necessary information (last epoch/iteration, acc, loss)
         meta = gorilla.resume(model=model,
                               filename=checkpoint,
@@ -48,7 +47,6 @@ def do_train(model, cfg, logger):
                               resume_optimizer=True,
                               resume_scheduler=True,
                               strict=False,
-                              logger=logger,
                               )
         # get epoch from meta (Optional)
         epoch = meta.get("epoch", epoch)
@@ -240,7 +238,7 @@ def main(args):
     # backup the necessary file and directory(Optional, details for source code)
     backup_list = ["plain_train.py", "test.py", "pointgroup", args.config]
     backup_dir = osp.join(log_dir, "backup")
-    gorilla.backup(backup_dir, backup_list, logger)
+    gorilla.backup(backup_dir, backup_list)
 
     # merge the paramters in args into cfg
     cfg = gorilla.config.merge_cfg_and_args(cfg, args)
@@ -249,7 +247,7 @@ def main(args):
     
     # set random seed
     seed = cfg.get("seed", 0)
-    gorilla.set_random_seed(seed, logger=logger)
+    gorilla.set_random_seed(seed)
 
     # model
     logger.info("=> creating model ...")

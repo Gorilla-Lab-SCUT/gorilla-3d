@@ -1,5 +1,5 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
-from logging import debug
+import logging
 import os.path as osp
 from re import match
 
@@ -16,12 +16,11 @@ class S3DISSemanticEvaluator(DatasetEvaluator):
     """
     Evaluate semantic segmentation metrics.
     """
-    def __init__(self, dataset_root, logger=None):
+    def __init__(self, dataset_root):
         """
         Args:
             num_classes, ignore_label: deprecated argument
         """
-        self.logger = logger
         self.reset()
 
     def reset(self):
@@ -59,20 +58,19 @@ class S3DISSemanticEvaluator(DatasetEvaluator):
             matches[scene_name]["semantic_pred"] = self._predictions[
                 scene_name]
 
-        evaluate_semantic_s3dis(matches, self.logger)
+        evaluate_semantic_s3dis(matches)
 
 
 class S3DISInstanceEvaluator(DatasetEvaluator):
     """
     Evaluate semantic segmentation metrics.
     """
-    def __init__(self, dataset_root, logger=None):
+    def __init__(self, dataset_root):
         """
         Args:
             num_classes, ignore_label: deprecated argument
         """
         self._dataset_root = dataset_root
-        self.logger = logger
         self.reset()
 
     def reset(self):
@@ -113,9 +111,9 @@ class S3DISInstanceEvaluator(DatasetEvaluator):
         if ap:
             ap_scores, prec_recall_total = evaluate_matches_s3dis(matches)
             avgs = compute_averages_s3dis(ap_scores)
-            print_results_s3dis(avgs, self.logger)
+            print_results_s3dis(avgs)
         if prec_rec:
-            print_prec_recall_s3dis(matches, logger=self.logger)
+            print_prec_recall_s3dis(matches)
 
 
 S3DISEvaluator = DatasetEvaluators(

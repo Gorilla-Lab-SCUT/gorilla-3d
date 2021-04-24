@@ -1,6 +1,7 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
 import glob
 import os.path as osp
+import logging
 from random import sample
 
 import gorilla
@@ -17,8 +18,11 @@ except:
     pass
 
 class S3DISInst(Dataset):
-    def __init__(self, cfg=None, logger=None, split="train"):
-        self.logger = logger
+    def __init__(self,
+                 cfg=None,
+                 split="train",
+                 **kwargs):
+        self.logger = gorilla.derive_logger(__name__)
         self.split = split
         self.areas = getattr(cfg.data, f"{split}_area")
 

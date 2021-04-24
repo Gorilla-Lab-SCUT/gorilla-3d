@@ -55,7 +55,6 @@ def do_train(model, cfg, logger):
     checkpoint = get_checkpoint(cfg.log_dir)
     meta = {}
     if gorilla.is_filepath(checkpoint): # read valid checkpoint file
-        logger.info(f"resume from: {checkpoint}")
         # meta is the dict save some necessary information (last epoch/iteration, acc, loss)
         meta = gorilla.resume(model=model,
                               filename=checkpoint,
@@ -64,7 +63,6 @@ def do_train(model, cfg, logger):
                               resume_optimizer=True,
                               resume_scheduler=True,
                               strict=False,
-                              logger=logger,
                               )
     # get epoch from meta (Optional)
     epoch = meta.get("epoch", 0) + 1
@@ -194,12 +192,12 @@ def main(args):
     # FIXME: if using backup func, you should define backup_list by yourself
     backup_list = ["plain_train.py", "test.py", "network", args.config]
     backup_dir = osp.join(log_dir, "backup")
-    gorilla.backup(backup_dir, backup_list, logger)
+    gorilla.backup(backup_dir, backup_list)
 
     
     # set random seed
     seed = cfg.get("seed", 0)
-    gorilla.set_random_seed(seed, logger=logger)
+    gorilla.set_random_seed(seed)
 
     # model
     logger.info("=> creating model ...")

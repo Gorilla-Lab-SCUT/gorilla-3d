@@ -1,6 +1,7 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
 import os
 import os.path as osp
+import logging
 
 import torch
 import numpy as np
@@ -15,13 +16,12 @@ class ScanNetSemanticEvaluator(DatasetEvaluator):
     """
     Evaluate semantic segmentation metrics.
     """
-    def __init__(self, dataset_root, logger=None):
+    def __init__(self, dataset_root):
         """
         Args:
             num_classes, ignore_label: deprecated argument
         """
         self._dataset_root = dataset_root
-        self.logger = logger
         self.reset()
 
     def reset(self):
@@ -59,7 +59,7 @@ class ScanNetSemanticEvaluator(DatasetEvaluator):
             matches[scene_name]["semantic_pred"] = self._predictions[
                 scene_name]
 
-        evaluate_semantic_scannet(matches, self.logger)
+        evaluate_semantic_scannet(matches)
 
     @staticmethod
     def read_gt(origin_root, scene_name):
@@ -71,13 +71,12 @@ class ScanNetInstanceEvaluator(DatasetEvaluator):
     """
     Evaluate semantic segmentation metrics.
     """
-    def __init__(self, dataset_root, logger=None):
+    def __init__(self, dataset_root):
         """
         Args:
             num_classes, ignore_label: deprecated argument
         """
         self._dataset_root = dataset_root
-        self.logger = logger
         self.reset()
 
     def reset(self):
@@ -118,9 +117,9 @@ class ScanNetInstanceEvaluator(DatasetEvaluator):
         if ap:
             ap_scores, prec_recall_total = evaluate_matches_scannet(matches)
             avgs = compute_averages_scannet(ap_scores)
-            print_results_scannet(avgs, self.logger)
+            print_results_scannet(avgs)
         if prec_rec:
-            print_prec_recall_scannet(matches, logger=self.logger)
+            print_prec_recall_scannet(matches)
 
 
 ScanNetEvaluator = DatasetEvaluators(

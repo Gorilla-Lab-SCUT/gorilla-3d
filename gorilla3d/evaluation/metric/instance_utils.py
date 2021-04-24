@@ -304,27 +304,22 @@ def assign_instances_for_scan(scene_name: str,
 
 
 def print_results(avgs: Dict,
-                  logger: Optional[logging.Logger]=None,
                   class_labels: List[str]=["class"]):
     sep = ""
     col1 = ":"
     lineLen = 64
 
-    def info(message):
-        if logger is not None:
-            logger.info(message)
-        else:
-            print(message)
+    logger = gorilla.derive_logger(__name__)
 
-    info("")
-    info("#" * lineLen)
+    logger.info("")
+    logger.info("#" * lineLen)
     line = ""
     line += f"{'what  ':<15}" + sep + col1
     line += f"{'AP    ':>15}" + sep
     line += f"{'AP_50%':>15}" + sep
     line += f"{'AP_25%':>15}" + sep
-    info(line)
-    info("#" * lineLen)
+    logger.info(line)
+    logger.info("#" * lineLen)
 
     for (li, label_name) in enumerate(class_labels):
         ap_avg = avgs["classes"][label_name]["ap"]
@@ -334,27 +329,26 @@ def print_results(avgs: Dict,
         line += sep + f"{ap_avg:>15.3f}" + sep
         line += sep + f"{ap_50o:>15.3f}" + sep
         line += sep + f"{ap_25o:>15.3f}" + sep
-        info(line)
+        logger.info(line)
 
     all_ap_avg = avgs["all_ap"]
     all_ap_50o = avgs["all_ap_50%"]
     all_ap_25o = avgs["all_ap_25%"]
 
-    info("-" * lineLen)
+    logger.info("-" * lineLen)
     line = f"{'average':<15}" + sep + col1
     line += f"{all_ap_avg:>15.3f}" + sep
     line += f"{all_ap_50o:>15.3f}" + sep
     line += f"{all_ap_25o:>15.3f}" + sep
-    info(line)
-    info("")
+    logger.info(line)
+    logger.info("")
 
 
 # modify from https://github.com/Yang7879/3D-BoNet/blob/master/main_eval.py
 def print_prec_recall(matches: Dict,
                       valid_class_ids: List[int]=[0],
                       class_labels: List[str]=["class"],
-                      threshold: float=0.5,
-                      logger: Optional[logging.Logger]=None):
+                      threshold: float=0.5):
     # init the confusion matrix dict
     TP_FP_Total = {}
     for class_id in valid_class_ids:
@@ -402,29 +396,24 @@ def print_prec_recall(matches: Dict,
 
     lineLen = 50
 
-    def info(message):
-        if logger is not None:
-            logger.info(message)
-        else:
-            print(message)
-
+    logger = gorilla.derive_logger(__name__)
     pre_all = []
     rec_all = []
-    info("")
-    info("#" * lineLen)
+    logger.info("")
+    logger.info("#" * lineLen)
 
-    info(f"{'what  ':<15}: {'precision':>15} {'recall':>15}")
+    logger.info(f"{'what  ':<15}: {'precision':>15} {'recall':>15}")
     for class_id, class_label in zip(valid_class_ids, class_labels):
         TP = TP_FP_Total[class_id]["TP"]
         FP = TP_FP_Total[class_id]["FP"]
         Total = TP_FP_Total[class_id]["Total"]
         pre = float(TP) / (TP + FP + 1e-8)
         rec = float(TP) / (Total + 1e-8)
-        info(f"{class_label:<15}： {pre:>15.3f} {rec:>15.3f}")
+        logger.info(f"{class_label:<15}： {pre:>15.3f} {rec:>15.3f}")
         pre_all.append(pre)
         rec_all.append(rec)
 
-    info("-" * lineLen)
-    info(f"{'average':<15}: {np.mean(pre_all):>15.3f} {np.mean(rec_all):>15.3f}")
-    info("")
+    logger.info("-" * lineLen)
+    logger.info(f"{'average':<15}: {np.mean(pre_all):>15.3f} {np.mean(rec_all):>15.3f}")
+    logger.info("")
 

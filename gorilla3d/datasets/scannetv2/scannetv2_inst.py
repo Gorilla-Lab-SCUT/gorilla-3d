@@ -1,5 +1,4 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
-import math
 import json
 import glob
 import os.path as osp
@@ -18,8 +17,8 @@ except:
     pass
 
 class ScanNetV2Inst(Dataset, metaclass=ABCMeta):
-    def __init__(self, cfg=None, logger=None):
-        self.logger = logger
+    def __init__(self, cfg=None, **kwargs):
+        self.logger = gorilla.derive_logger(__name__)
 
         # dataset parameters
         self.data_root = cfg.data.data_root
@@ -133,8 +132,8 @@ class ScanNetV2Inst(Dataset, metaclass=ABCMeta):
 
 
 class ScanNetV2InstTrainVal(ScanNetV2Inst):
-    def __init__(self, cfg=None, logger=None, split="train"):
-        ScanNetV2Inst.__init__(self, cfg, logger)
+    def __init__(self, cfg=None, split="train"):
+        ScanNetV2Inst.__init__(self, cfg)
         self.split = split
 
     def getitem(self, index):
@@ -260,8 +259,8 @@ class ScanNetV2InstTrainVal(ScanNetV2Inst):
 
 
 class ScanNetV2InstTest(ScanNetV2Inst):
-    def __init__(self, cfg=None, logger=None):
-        ScanNetV2Inst.__init__(self, cfg, logger)
+    def __init__(self, cfg=None):
+        ScanNetV2Inst.__init__(self, cfg)
         self.batch_size = 1
         self.workers = cfg.data.test_workers
 

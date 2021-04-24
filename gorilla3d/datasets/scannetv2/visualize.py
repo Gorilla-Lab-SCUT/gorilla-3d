@@ -136,10 +136,11 @@ def visualize_instance_mask(clusters: np.ndarray,
                             room_name: str,
                             visual_dir: str,
                             data_root: str,
-                            logger: Optional[logging.Logger]=None,
                             cluster_scores: Optional[np.ndarray]=None,
                             semantic_pred: Optional[np.ndarray]=None,
-                            color: int=20,):
+                            color: int=20,
+                            **kwargs):
+    logger = gorilla.derive_logger(__name__)
     assert color in [20, 40]
     colors = globals()[f"COLOR{color}"]
     mesh_file = osp.join(data_root, room_name, room_name + "_vh_clean_2.ply")
