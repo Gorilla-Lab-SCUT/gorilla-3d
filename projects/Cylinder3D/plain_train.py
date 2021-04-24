@@ -67,6 +67,7 @@ def do_train(model, cfg, logger):
                               resume_optimizer=True,
                               resume_scheduler=True,
                               strict=False,
+                              logger=logger,
                               )
 
     # get epoch from meta (Optional)

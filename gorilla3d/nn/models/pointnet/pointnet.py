@@ -18,6 +18,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from ...modules.pointnet import PointNetFeatExt
 
+
 class PointNetCls(nn.Module):
     r"""PointNet classifier. Uses the PointNet feature extractor, and
     adds classification layers on top.

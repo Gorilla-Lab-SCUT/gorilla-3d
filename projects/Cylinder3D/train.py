@@ -73,22 +73,20 @@ class CylinderSolver(gorilla.BaseSolver):
     def step(self, batch, mode="train"):
         voxel_centers = batch["voxel_centers"]
         voxel_labels = batch["voxel_labels"]
-        voxel_label_counts = batch["voxel_label_counts"]
         grid_inds = batch["grid_inds"]
         pt_labels = batch["point_labels"]
         pt_xyzs = batch["point_xyzs"]
         pt_features = batch["point_features"]
         # voxel_labels: [H, W, L], the class labels of voxels
         # voxel_label_conuts: [H, W, L, num_class], the class labels count voxels
-        # grid_inds: list of [N, 3], the voxel indices
-        # pt_xyzs: list of [N, 3], coordinates of points, generating from coordinates
-        # pt_features: list of [N, 9], features of points, generating from coordinates
-        pt_features = [torch.from_numpy(i).type(torch.FloatTensor).cuda() for i in pt_features]
-        voxel_indices = [torch.from_numpy(i).cuda() for i in grid_inds]
-        batch_size = len(pt_features)
-        labels = voxel_labels.type(torch.LongTensor).cuda()
+        # grid_inds: [N, 4], the voxel indices
+        # pt_xyzs: [N, 3], coordinates of points, generating from coordinates
+        # pt_features: [N, 9], features of points, generating from coordinates
+        pt_features = pt_features.cuda()
+        voxel_indices = grid_inds.cuda()
+        labels = voxel_labels.cuda()
 
-        prediction = self.model(pt_features, voxel_indices, batch_size)
+        prediction = self.model(pt_features, voxel_indices)
         ret = {
             "prediction": prediction,
             "labels": labels}
@@ -155,7 +153,7 @@ class CylinderSolver(gorilla.BaseSolver):
                 f"epoch: {self.epoch}/{self.cfg.solver.epochs} iter: {i + 1}/{len(self.train_data_loader)} "
                 f"lr: {lr:4f} loss: {loss_buffer.latest:.4f}({loss_buffer.avg:.4f}) "
                 f"data_time: {data_time.latest:.2f}({data_time.avg:.2f}) "
-                f"iter_time: {iter_time.latest:.2f}({iter_time.avg:.2f}) remain_time: {remain_time}\n")
+                f"iter_time: {iter_time.latest:.2f}({iter_time.avg:.2f}) eta: {remain_time}\n")
                 
             if (i == len(self.train_data_loader) - 1): print()
 

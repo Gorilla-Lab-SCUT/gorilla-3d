@@ -45,30 +45,50 @@ class ResContextBlock(MODULE):
                  in_filters: int,
                  out_filters: int,
                  norm_fn: Union[Callable, Dict]=functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1),
-                 indice_key: Optional[str]=None):
+                 indice_key: Optional[str]=None,
+                 normalize_before: bool=False):
         super().__init__()
         
         if isinstance(norm_fn, Dict):
             norm_caller = gorilla.nn.get_torch_layer_caller(norm_fn.pop("type"))
             norm_fn = functools.partial(norm_caller, **norm_fn)
 
-        self.branch1 = spconv.SparseSequential(
-            norm_fn(out_filters),
-            nn.LeakyReLU(),
-            conv1x3(in_filters, out_filters, indice_key=indice_key),
-            norm_fn(out_filters),
-            nn.LeakyReLU(),
-            conv3x1(out_filters, out_filters, indice_key=indice_key),
-        )
+        if normalize_before:
+            self.branch1 = spconv.SparseSequential(
+                norm_fn(in_filters),
+                nn.LeakyReLU(),
+                conv1x3(in_filters, out_filters, indice_key=indice_key),
+                norm_fn(out_filters),
+                nn.LeakyReLU(),
+                conv3x1(out_filters, out_filters, indice_key=indice_key),
+            )
 
-        self.branch2 = spconv.SparseSequential(
-            norm_fn(out_filters),
-            nn.LeakyReLU(),
-            conv3x1(in_filters, out_filters, indice_key=indice_key),
-            norm_fn(out_filters),
-            nn.LeakyReLU(),
-            conv1x3(out_filters, out_filters, indice_key=indice_key),
-        )
+            self.branch2 = spconv.SparseSequential(
+                norm_fn(in_filters),
+                nn.LeakyReLU(),
+                conv3x1(in_filters, out_filters, indice_key=indice_key),
+                norm_fn(out_filters),
+                nn.LeakyReLU(),
+                conv1x3(out_filters, out_filters, indice_key=indice_key),
+            )
+        else:
+            self.branch1 = spconv.SparseSequential(
+                conv1x3(in_filters, out_filters, indice_key=indice_key),
+                norm_fn(out_filters),
+                nn.LeakyReLU(),
+                conv3x1(out_filters, out_filters, indice_key=indice_key),
+                norm_fn(out_filters),
+                nn.LeakyReLU(),
+            )
+
+            self.branch2 = spconv.SparseSequential(
+                conv3x1(in_filters, out_filters, indice_key=indice_key),
+                norm_fn(out_filters),
+                nn.LeakyReLU(),
+                conv1x3(out_filters, out_filters, indice_key=indice_key),
+                norm_fn(out_filters),
+                nn.LeakyReLU(),
+            )
 
         self.weight_initialization()
 
@@ -97,7 +117,8 @@ class ResidualBlock(MODULE):
                  in_channels: int,
                  out_channels: int,
                  norm_fn: Union[Callable, Dict]=functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1),
-                 indice_key: Optional[str]=None):
+                 indice_key: Optional[str]=None,
+                 normalize_before: bool=True):
         super().__init__()
 
         if in_channels == out_channels:
@@ -113,23 +134,43 @@ class ResidualBlock(MODULE):
             norm_caller = gorilla.nn.get_torch_layer_caller(norm_fn.pop("type"))
             norm_fn = functools.partial(norm_caller, **norm_fn)
 
-        self.conv_branch = spconv.SparseSequential(
-            norm_fn(in_channels),
-            nn.ReLU(),
-            spconv.SubMConv3d(in_channels,
-                              out_channels,
-                              kernel_size=3,
-                              padding=1,
-                              bias=False,
-                              indice_key=indice_key),
-            norm_fn(out_channels),
-            nn.ReLU(),
-            spconv.SubMConv3d(out_channels,
-                              out_channels,
-                              kernel_size=3,
-                              padding=1,
-                              bias=False,
-                              indice_key=indice_key))
+
+        if normalize_before:
+            self.conv_branch = spconv.SparseSequential(
+                norm_fn(in_channels),
+                nn.ReLU(),
+                spconv.SubMConv3d(in_channels,
+                                  out_channels,
+                                  kernel_size=3,
+                                  padding=1,
+                                  bias=False,
+                                  indice_key=indice_key),
+                norm_fn(out_channels),
+                nn.ReLU(),
+                spconv.SubMConv3d(out_channels,
+                                  out_channels,
+                                  kernel_size=3,
+                                  padding=1,
+                                  bias=False,
+                                  indice_key=indice_key))
+        else:
+            self.conv_branch = spconv.SparseSequential(
+                spconv.SubMConv3d(in_channels,
+                                  out_channels,
+                                  kernel_size=3,
+                                  padding=1,
+                                  bias=False,
+                                  indice_key=indice_key),
+                norm_fn(out_channels),
+                nn.ReLU(),
+                spconv.SubMConv3d(out_channels,
+                                  out_channels,
+                                  kernel_size=3,
+                                  padding=1,
+                                  bias=False,
+                                  indice_key=indice_key),
+                norm_fn(out_channels),
+                nn.ReLU())
 
     def forward(self, input):
         identity = spconv.SparseConvTensor(input.features,
@@ -148,22 +189,34 @@ class VGGBlock(MODULE):
                  in_channels: int,
                  out_channels: int,
                  norm_fn: Union[Callable, Dict]=functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1),
-                 indice_key: Optional[str]=None):
+                 indice_key: Optional[str]=None,
+                 normalize_before: bool=True):
         super().__init__()
         
         if isinstance(norm_fn, Dict):
             norm_caller = gorilla.nn.get_torch_layer_caller(norm_fn.pop("type"))
             norm_fn = functools.partial(norm_caller, **norm_fn)
 
-        self.conv_layers = spconv.SparseSequential(
-            norm_fn(in_channels),
-            nn.ReLU(),
-            spconv.SubMConv3d(in_channels,
-                              out_channels,
-                              kernel_size=3,
-                              padding=1,
-                              bias=False,
-                              indice_key=indice_key))
+        if normalize_before:
+            self.conv_layers = spconv.SparseSequential(
+                norm_fn(in_channels),
+                nn.ReLU(),
+                spconv.SubMConv3d(in_channels,
+                                out_channels,
+                                kernel_size=3,
+                                padding=1,
+                                bias=False,
+                                indice_key=indice_key))
+        else:
+            self.conv_layers = spconv.SparseSequential(
+                spconv.SubMConv3d(in_channels,
+                                out_channels,
+                                kernel_size=3,
+                                padding=1,
+                                bias=False,
+                                indice_key=indice_key),
+                norm_fn(in_channels),
+                nn.ReLU())
 
     def forward(self, input):
         return self.conv_layers(input)

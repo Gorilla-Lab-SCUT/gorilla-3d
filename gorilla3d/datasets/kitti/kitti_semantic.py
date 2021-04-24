@@ -255,7 +255,7 @@ class GridProcesses(object):
         # center data on each voxel for PTnet
         voxel_centers = (grid_ind.astype(np.float32) + 0.5) * intervals + min_bound # [N, 3]
         return_xyz = xyz - voxel_centers # [N, 3] realate coordinate for points in their voxels
-        return_xyz = np.concatenate((return_xyz, xyz, xyz[:, :2]), axis=1) # [N, 9]
+        return_xyz = np.concatenate((return_xyz, xyz, xyz[:, :2]), axis=1) # [N, 8]
 
         return voxel_position, processed_label, grid_ind, labels, return_xyz
 
@@ -321,7 +321,7 @@ class PolarProcesses(object):
         # center data on each voxel for PTnet
         voxel_centers = (grid_ind.astype(np.float32) + 0.5) * intervals + min_bound # [N, 3]
         return_xyz = xyz_pol - voxel_centers # [N, 3] realate coordinate for points in their voxels
-        return_xyz = np.concatenate((return_xyz, xyz_pol, xyz[:, :2]), axis=1) # [N, 9]
+        return_xyz = np.concatenate((return_xyz, xyz_pol, xyz[:, :2]), axis=1) # [N, 8]
 
         return voxel_position, processed_label, grid_ind, labels, return_xyz
 

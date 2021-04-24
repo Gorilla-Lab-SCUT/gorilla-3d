@@ -59,12 +59,6 @@ def init():
         log_file=args.log_file,
     )
 
-    #### get logger file
-    log_dir, logger = gorilla.collect_logger(
-        prefix=osp.splitext(args.config.split("/")[-1])[0])
-    backup_list = ["train.py", "test.py", "cylinder", args.config]
-    gorilla.backup(log_dir, backup_list, logger)
-
     cfg.log_dir = log_dir
     
     seed = cfg.get("seed", 0)
@@ -81,7 +75,8 @@ def init():
 def test(model, cfg, logger):
     logger.info(">>>>>>>>>>>>>>>> Start Evaluation >>>>>>>>>>>>>>>>")
     cfg.dataset.task = "val"  # change task
-    cfg.dataloader.batch_size = 1
+    cfg.dataloader.batch_size = 2
+    cfg.dataloader.num_workers = 4
     test_dataloader = gorilla.build_dataloader(cfg.dataset,
                                                cfg.dataloader)
 
@@ -95,7 +90,7 @@ def test(model, cfg, logger):
 
         # init timer to calculate time
         timer = gorilla.Timer()
-        for i, batch in enumerate(test_dataloader):
+        for i_iter, batch in enumerate(test_dataloader):
             data_time = timer.since_last()
             voxel_centers = batch["voxel_centers"]
             voxel_labels = batch["voxel_labels"]
@@ -105,26 +100,30 @@ def test(model, cfg, logger):
             pt_features = batch["point_features"]
             # voxel_labels: [H, W, L], the class labels of voxels
             # voxel_label_conuts: [H, W, L, num_class], the class labels count voxels
-            # grid_inds: list of [N, 3], the voxel indices of points
-            # pt_labels: list of [N], the label of points
-            # pt_xyzs: list of [N, 3], coordinates of points, generating from coordinates
-            # pt_features: list of [N, 9], features of points, generating from coordinates
-            batch_size = len(pt_features)
-            pt_features = [torch.from_numpy(i).type(torch.FloatTensor).cuda() for i in pt_features]
-            voxel_indices = [torch.from_numpy(i).cuda() for i in grid_inds]
-            voxel_labels = voxel_labels.type(torch.LongTensor).cuda()
+            # grid_inds: [N, 4], the voxel indices
+            # pt_xyzs: [N, 3], coordinates of points, generating from coordinates
+            # pt_features: [N, 9], features of points, generating from coordinates
+            pt_features = pt_features.cuda()
+            voxel_indices = grid_inds.cuda()
+            labels = voxel_labels.cuda()
 
-            prediction = model(pt_features, voxel_indices, batch_size)
+            prediction = model(pt_features, voxel_indices)
             predict_labels = torch.argmax(prediction, dim=1)
             predict_labels = predict_labels.cpu().detach().numpy()
-            for count, grid in enumerate(grid_inds):
-                hist_list.append(cylinder.fast_hist_crop(
-                    predict_labels[count, grid[:, 0], grid[:, 1], grid[:, 2]],
-                    pt_labels[count],
-                    unique_label))
+            hist_list.append(cylinder.fast_hist_crop(
+                predict_labels[grid_inds[:, 0], grid_inds[:, 1], grid_inds[:, 2], grid_inds[:, 3]],
+                pt_labels.numpy(),
+                unique_label
+            ))
+            # for i in torch.unique(grid_inds[:, 0]):
+            #     ids = (grid_inds[:, 0] == i)
+            #     hist_list.append(cylinder.fast_hist_crop(
+            #         predict_labels[i, grid_inds[ids, 1], grid_inds[ids, 2], grid_inds[ids, 3]],
+            #         pt_labels[ids].numpy(),
+            #         unique_label))
             total_time = timer.since_start()
             logger.info(
-                f"instance iter: {i + 1}/{len(test_dataloader)} point_num: {len(pt_features[0])} "
+                f"instance iter: {i_iter + 1}/{len(test_dataloader)} point_num: {len(pt_features)} "
                 f"time: total {total_time:.2f}s data: {data_time:.2f}s ")
             timer.reset()
         

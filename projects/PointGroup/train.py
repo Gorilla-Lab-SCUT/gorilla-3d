@@ -208,7 +208,7 @@ class PointGroupSolver(gorilla.BaseSolver):
                 f"epoch: {self.epoch}/{self.cfg.solver.epochs} iter: {i + 1}/{len(self.train_data_loader)} "
                 f"lr: {lr:4f} loss: {loss_buffer.latest:.4f}({loss_buffer.avg:.4f}) "
                 f"data_time: {data_time.latest:.2f}({data_time.avg:.2f}) "
-                f"iter_time: {iter_time.latest:.2f}({iter_time.avg:.2f}) remain_time: {remain_time}\n")
+                f"iter_time: {iter_time.latest:.2f}({iter_time.avg:.2f}) eta: {remain_time}\n")
                 
             if (i == len(self.train_data_loader) - 1): print()
 

@@ -1,6 +1,6 @@
 import functools
 from collections import OrderedDict
-from typing import Callable, Dict, List, Union
+from typing import Callable, Dict, List, Optional, Union
 
 import gorilla
 import torch
@@ -22,6 +22,7 @@ class UBlock(nn.Module):
                  block_reps: int=2,
                  block: Union[str, Callable]=ResidualBlock,
                  indice_key_id: int=1,
+                 normalize_before: bool=True,
                  return_blocks: bool=False,):
 
         super().__init__()
@@ -46,6 +47,7 @@ class UBlock(nn.Module):
             block(nPlanes[0],
                   nPlanes[0],
                   norm_fn,
+                  normalize_before=normalize_before,
                   indice_key=f"subm{indice_key_id}")
             for i in range(block_reps)
         }
@@ -54,7 +56,8 @@ class UBlock(nn.Module):
 
         if len(nPlanes) > 1:
             self.conv = spconv.SparseSequential(
-                norm_fn(nPlanes[0]), nn.ReLU(),
+                norm_fn(nPlanes[0]),
+                nn.ReLU(),
                 spconv.SparseConv3d(
                     nPlanes[0],
                     nPlanes[1],
@@ -68,16 +71,19 @@ class UBlock(nn.Module):
                             block_reps,
                             block,
                             indice_key_id=indice_key_id + 1,
+                            normalize_before=normalize_before,
                             return_blocks=return_blocks)
 
             self.deconv = spconv.SparseSequential(
-                norm_fn(nPlanes[1]), nn.ReLU(),
+                norm_fn(nPlanes[1]),
+                nn.ReLU(),
                 spconv.SparseInverseConv3d(
                     nPlanes[1],
                     nPlanes[0],
                     kernel_size=2,
                     bias=False,
-                    indice_key=f"spconv{indice_key_id}"))
+                    indice_key=f"spconv{indice_key_id}")
+                )
 
             blocks_tail = {}
             for i in range(block_reps):
@@ -91,7 +97,7 @@ class UBlock(nn.Module):
 
     def forward(self,
                 input,
-                previous_outputs=[]):
+                previous_outputs: Optional[List]=None):
         output = self.blocks(input)
         identity = spconv.SparseConvTensor(output.features,
                                            output.indices,
@@ -112,6 +118,9 @@ class UBlock(nn.Module):
             output = self.blocks_tail(output)
 
         if self.return_blocks:
+            # NOTE: to avoid the residual bug
+            if previous_outputs is None:
+                previous_outputs = []
             previous_outputs.append(output)
             return output, previous_outputs
         else:

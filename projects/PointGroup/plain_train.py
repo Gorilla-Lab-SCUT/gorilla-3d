@@ -48,6 +48,7 @@ def do_train(model, cfg, logger):
                               resume_optimizer=True,
                               resume_scheduler=True,
                               strict=False,
+                              logger=logger,
                               )
         # get epoch from meta (Optional)
         epoch = meta.get("epoch", epoch)
@@ -178,7 +179,7 @@ def do_train(model, cfg, logger):
             print(f"epoch: {epoch}/{cfg.epochs} iter: {i + 1}/{len(train_dataloader)} "
                   f"lr: {lr:4f} loss: {loss_buffer.latest:.4f}({loss_buffer.avg:.4f}) "
                   f"data_time: {data_time.latest:.2f}({data_time.avg:.2f}) "
-                  f"iter_time: {iter_time.latest:.2f}({iter_time.avg:.2f}) remain_time: {remain_time}")
+                  f"iter_time: {iter_time.latest:.2f}({iter_time.avg:.2f}) eta: {remain_time}")
 
         # updata learning rate scheduler and epoch
         lr_scheduler.step()
