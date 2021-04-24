@@ -22,8 +22,7 @@ class KittiSemanticEvaluator(DatasetEvaluator):
         self.reset()
 
     def reset(self):
-        self._predictions = {}
-        self._gt = {}
+        self.matches = {}
 
     def process(self, inputs, outputs):
         """
@@ -37,19 +36,15 @@ class KittiSemanticEvaluator(DatasetEvaluator):
             scene_name = input["scene_name"]
             semantic_pred = output["semantic_pred"].cpu().numpy()
             semantic_gt = output["semantic_gt"].cpu().numpy()
-            self._gt[scene_name] = semantic_gt
-            self._predictions[scene_name] = semantic_pred
+            self.matches[scene_name] = {
+                "semantic_pred": semantic_pred,
+                "semantic_gt": semantic_gt
+            }
 
     def evaluate(self):
         r"""
         """
-        matches = {}
-        for scene_name in self._gt.keys():
-            matches[scene_name] = {}
-            matches[scene_name]["semantic_gt"] = self._gt[scene_name]
-            matches[scene_name]["semantic_pred"] = self._predictions[scene_name]
-
-        evaluate_semantic_kitti(matches)
+        evaluate_semantic_kitti(self.matches)
 
     @staticmethod
     def read_gt(origin_root, scene_name):

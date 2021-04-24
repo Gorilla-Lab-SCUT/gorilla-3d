@@ -24,8 +24,7 @@ class S3DISSemanticEvaluator(DatasetEvaluator):
         self.reset()
 
     def reset(self):
-        self._predictions = {}
-        self._gt = {}
+        self.matches = {}
 
     def process(self, inputs, outputs):
         """
@@ -38,27 +37,15 @@ class S3DISSemanticEvaluator(DatasetEvaluator):
         """
         for input, output in zip(inputs, outputs):
             scene_name = input["scene_name"]
-            semantic_gt = input["semantic_gt"].cpu().numpy()
             semantic_pred = output["semantic_pred"].cpu().numpy()
-            self._gt[scene_name] = semantic_gt
-            self._predictions[scene_name] = semantic_pred
+            semantic_gt = output["semantic_gt"].cpu().numpy()
+            self.matches[scene_name] = {
+                "semantic_pred": semantic_pred,
+                "semantic_gt": semantic_gt
+            }
 
     def evaluate(self):
-        """
-        Evaluates standard semantic segmentation metrics (http://cocodataset.org/#stuff-eval):
-        * Mean intersection-over-union averaged across classes (mIoU)
-        * Frequency Weighted IoU (fwIoU)
-        * Mean pixel accuracy averaged across classes (mACC)
-        * Pixel Accuracy (pACC)
-        """
-        matches = {}
-        for scene_name in self._gt.keys():
-            matches[scene_name] = {}
-            matches[scene_name]["semantic_gt"] = self._gt[scene_name]
-            matches[scene_name]["semantic_pred"] = self._predictions[
-                scene_name]
-
-        evaluate_semantic_s3dis(matches)
+        evaluate_semantic_s3dis(self.matches)
 
 
 class S3DISInstanceEvaluator(DatasetEvaluator):
@@ -74,8 +61,7 @@ class S3DISInstanceEvaluator(DatasetEvaluator):
         self.reset()
 
     def reset(self):
-        self._predictions = {}
-        self._gt = {}
+        self.matches = {}
 
     def process(self, inputs, outputs):
         """
@@ -91,8 +77,10 @@ class S3DISInstanceEvaluator(DatasetEvaluator):
             gt_file = osp.join(self._dataset_root, scene_name + ".txt")
             gt2pred, pred2gt = assign_instances_for_scan_s3dis(
                 scene_name, output, gt_file)
-            self._gt[scene_name] = gt2pred
-            self._predictions[scene_name] = pred2gt
+            self.matches[scene_name] = {
+                "instance_pred": pred2gt,
+                "instance_gt": gt2pred
+            }
 
     def evaluate(self, ap=True, prec_rec=True):
         """TODO: modify it
@@ -102,18 +90,12 @@ class S3DISInstanceEvaluator(DatasetEvaluator):
         * Mean pixel accuracy averaged across classes (mACC)
         * Pixel Accuracy (pACC)
         """
-        matches = {}
-        for scene_name in self._gt.keys():
-            matches[scene_name] = {}
-            matches[scene_name]["gt"] = self._gt[scene_name]
-            matches[scene_name]["pred"] = self._predictions[scene_name]
-
         if ap:
-            ap_scores, prec_recall_total = evaluate_matches_s3dis(matches)
+            ap_scores, prec_recall_total = evaluate_matches_s3dis(self.matches)
             avgs = compute_averages_s3dis(ap_scores)
             print_results_s3dis(avgs)
         if prec_rec:
-            print_prec_recall_s3dis(matches)
+            print_prec_recall_s3dis(self.matches)
 
 
 S3DISEvaluator = DatasetEvaluators(

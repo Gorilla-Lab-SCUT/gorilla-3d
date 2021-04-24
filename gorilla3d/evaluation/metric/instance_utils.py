@@ -39,9 +39,9 @@ def evaluate_matches(matches: Dict,
             prec_recall_total[overlap_th] = {}
             pred_visited = {}
             for m in matches:
-                for p in matches[m]["pred"]:
+                for p in matches[m]["instance_pred"]:
                     for label_name in class_labels:
-                        for p in matches[m]["pred"][label_name]:
+                        for p in matches[m]["instance_pred"][label_name]:
                             if "filename" in p:
                                 pred_visited[p["filename"]] = False
             for li, label_name in enumerate(class_labels):
@@ -51,8 +51,8 @@ def evaluate_matches(matches: Dict,
                 has_gt = False
                 has_pred = False
                 for m in matches:
-                    pred_instances = matches[m]["pred"][label_name]
-                    gt_instances = matches[m]["gt"][label_name]
+                    pred_instances = matches[m]["instance_pred"][label_name]
+                    gt_instances = matches[m]["instance_gt"][label_name]
                     # filter groups in ground truth
                     gt_instances = [
                         gt for gt in gt_instances
@@ -364,12 +364,12 @@ def print_prec_recall(matches: Dict,
         for class_id, class_label in zip(valid_class_ids, class_labels):
             # pred ins
             ins_pred_by_sem[class_id] = []
-            pred_instances = matches[m]["pred"][class_label]
+            pred_instances = matches[m]["instance_pred"][class_label]
             for pred in pred_instances:
                 ins_pred_by_sem[class_id].append(pred["pred_mask"])
             # gt ins
             ins_gt_by_sem[class_id] = []
-            gt_instances = matches[m]["gt"][class_label]
+            gt_instances = matches[m]["instance_gt"][class_label]
             for gt in gt_instances:
                 ins_gt_by_sem[class_id].append(gt["gt_mask"])
 

@@ -25,8 +25,7 @@ class ScanNetSemanticEvaluator(DatasetEvaluator):
         self.reset()
 
     def reset(self):
-        self._predictions = {}
-        self._gt = {}
+        self.matches = {}
 
     def process(self, inputs, outputs):
         """
@@ -41,24 +40,13 @@ class ScanNetSemanticEvaluator(DatasetEvaluator):
             scene_name = input["scene_name"]
             semantic_gt = self.read_gt(osp.join(self._dataset_root, scene_name), scene_name)
             semantic_pred = output["semantic_pred"].cpu().numpy()
-            self._gt[scene_name] = semantic_gt
-            self._predictions[scene_name] = semantic_pred
+            self.matches[scene_name] = {
+                "semantic_pred": semantic_pred,
+                "semantic_gt": semantic_gt
+            }
 
     def evaluate(self):
-        """
-        Evaluates standard semantic segmentation metrics (http://cocodataset.org/#stuff-eval):
-        * Mean intersection-over-union averaged across classes (mIoU)
-        * Frequency Weighted IoU (fwIoU)
-        * Mean pixel accuracy averaged across classes (mACC)
-        * Pixel Accuracy (pACC)
-        """
-        matches = {}
-        for scene_name in self._gt.keys():
-            matches[scene_name] = {}
-            matches[scene_name]["semantic_gt"] = self._gt[scene_name]
-            matches[scene_name]["semantic_pred"] = self._predictions[scene_name]
-
-        evaluate_semantic_scannet(matches)
+        evaluate_semantic_scannet(self.matches)
 
     @staticmethod
     def read_gt(origin_root, scene_name):
@@ -79,8 +67,7 @@ class ScanNetInstanceEvaluator(DatasetEvaluator):
         self.reset()
 
     def reset(self):
-        self._predictions = {}
-        self._gt = {}
+        self.matches = {}
 
     def process(self, inputs, outputs):
         """
@@ -96,8 +83,10 @@ class ScanNetInstanceEvaluator(DatasetEvaluator):
             gt_file = osp.join(self._dataset_root, scene_name + ".txt")
             gt2pred, pred2gt = assign_instances_for_scan_scannet(
                 scene_name, output, gt_file)
-            self._gt[scene_name] = gt2pred
-            self._predictions[scene_name] = pred2gt
+            self.matches[scene_name] = {
+                "instance_pred": pred2gt,
+                "instance_gt": gt2pred
+            }
 
     def evaluate(self, ap=True, prec_rec=True):
         """
@@ -107,18 +96,12 @@ class ScanNetInstanceEvaluator(DatasetEvaluator):
         * Mean pixel accuracy averaged across classes (mACC)
         * Pixel Accuracy (pACC)
         """
-        matches = {}
-        for scene_name in self._gt.keys():
-            matches[scene_name] = {}
-            matches[scene_name]["gt"] = self._gt[scene_name]
-            matches[scene_name]["pred"] = self._predictions[scene_name]
-
         if ap:
-            ap_scores, prec_recall_total = evaluate_matches_scannet(matches)
+            ap_scores, prec_recall_total = evaluate_matches_scannet(self.matches)
             avgs = compute_averages_scannet(ap_scores)
             print_results_scannet(avgs)
         if prec_rec:
-            print_prec_recall_scannet(matches)
+            print_prec_recall_scannet(self.matches)
 
 
 ScanNetEvaluator = DatasetEvaluators(
