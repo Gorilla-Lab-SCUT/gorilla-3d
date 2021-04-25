@@ -37,8 +37,8 @@ class S3DISSemanticEvaluator(DatasetEvaluator):
         """
         for input, output in zip(inputs, outputs):
             scene_name = input["scene_name"]
-            semantic_pred = output["semantic_pred"].cpu().numpy()
-            semantic_gt = output["semantic_gt"].cpu().numpy()
+            semantic_pred = output["semantic_pred"].cpu().detach().numpy()
+            semantic_gt = output["semantic_gt"].cpu().detach().numpy()
             self.matches[scene_name] = {
                 "semantic_pred": semantic_pred,
                 "semantic_gt": semantic_gt

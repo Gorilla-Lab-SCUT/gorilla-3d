@@ -39,7 +39,7 @@ class ScanNetSemanticEvaluator(DatasetEvaluator):
         for input, output in zip(inputs, outputs):
             scene_name = input["scene_name"]
             semantic_gt = self.read_gt(osp.join(self._dataset_root, scene_name), scene_name)
-            semantic_pred = output["semantic_pred"].cpu().numpy()
+            semantic_pred = output["semantic_pred"].cpu().detach().numpy()
             self.matches[scene_name] = {
                 "semantic_pred": semantic_pred,
                 "semantic_gt": semantic_gt

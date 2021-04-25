@@ -70,6 +70,17 @@ def evaluate_semantic(matches: Dict,
     # avoid the zero class
     if avoid_zero:
         valid_class_ids = valid_class_ids[1:]
+    
+    # print semantic segmentation result(IoU)
+    print_semantic_result(confusion, valid_class_ids, class_labels)
+
+
+def print_semantic_result(confusion: np.ndarray,
+                          valid_class_ids: np.ndarray=np.array([0]),
+                          class_labels: List[str]=["class"],):
+    # initialize
+    logger = gorilla.derive_logger(__name__)
+
     not_ignored = [l for l in valid_class_ids]
     filter_confusion = confusion[not_ignored, :][:, not_ignored] # [num_class, num_class]
         
@@ -86,3 +97,4 @@ def evaluate_semantic(matches: Dict,
         logger.info(f"{label_name:<14s}: {ious[i]:>5.3f}   ({tp[i]:>6d}/{denom[i]:<6d})")
     mean_iou = np.nanmean(ious)
     logger.info(f"mean: {mean_iou:>5.3f}")
+
