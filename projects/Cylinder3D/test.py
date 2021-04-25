@@ -2,14 +2,11 @@
 # author: Xinge
 # @file: train_cylinder_asym.py
 
-import os.path as osp
-import glob
+import os
 import argparse
-import sys
 import gorilla
 import gorilla3d
 import torch
-import numpy as np
 
 import cylinder
 
@@ -54,7 +51,7 @@ def init():
     cfg.dataset.preload_labels = args.preload_labels
 
     log_dir, logger = gorilla.collect_logger(
-        prefix=osp.splitext(args.config.split("/")[-1])[0],
+        prefix=os.path.splitext(args.config.split("/")[-1])[0],
         log_name="test",
         log_file=args.log_file,
     )
@@ -80,11 +77,7 @@ def test(model, cfg, logger):
     test_dataloader = gorilla.build_dataloader(cfg.dataset,
                                                cfg.dataloader)
 
-    label_name = test_dataloader.dataset.label_name
-    unique_label = np.asarray(sorted(list(label_name.keys())))[1:] - 1
-    unique_label_str = [label_name[x] for x in unique_label + 1]
-
-    hist_list = []
+    evaluator = gorilla3d.KittiSemanticEvaluator()
     with torch.no_grad():
         model = model.eval()
 
@@ -109,31 +102,17 @@ def test(model, cfg, logger):
 
             prediction = model(pt_features, voxel_indices)
             predict_labels = torch.argmax(prediction, dim=1)
-            predict_labels = predict_labels.cpu().detach().numpy()
-            hist_list.append(cylinder.fast_hist_crop(
-                predict_labels[grid_inds[:, 0], grid_inds[:, 1], grid_inds[:, 2], grid_inds[:, 3]],
-                pt_labels.numpy(),
-                unique_label
-            ))
-            # for i in torch.unique(grid_inds[:, 0]):
-            #     ids = (grid_inds[:, 0] == i)
-            #     hist_list.append(cylinder.fast_hist_crop(
-            #         predict_labels[i, grid_inds[ids, 1], grid_inds[ids, 2], grid_inds[ids, 3]],
-            #         pt_labels[ids].numpy(),
-            #         unique_label))
+            inputs = [{"scene_name": i_iter}]
+            outputs = [{"semantic_pred": predict_labels[grid_inds[:, 0], grid_inds[:, 1], grid_inds[:, 2], grid_inds[:, 3]],
+                        "semantic_gt": pt_labels}]
+            evaluator.process(inputs, outputs)
             total_time = timer.since_start()
             logger.info(
                 f"instance iter: {i_iter + 1}/{len(test_dataloader)} point_num: {len(pt_features)} "
                 f"time: total {total_time:.2f}s data: {data_time:.2f}s ")
             timer.reset()
-        
-        # TODO: package in gorilla3d
-        iou = cylinder.per_class_iu(sum(hist_list))
-        logger.info("Validation per class iou: ")
-        for class_name, class_iou in zip(unique_label_str, iou):
-            logger.info(f"{class_name:<14s}: {class_iou * 100:>5.3f}")
-        val_miou = np.nanmean(iou) * 100
-        logger.info(f"Current val miou is {val_miou:>5.3f}")
+
+        avgs = evaluator.evaluate()
 
 
 if __name__ == "__main__":

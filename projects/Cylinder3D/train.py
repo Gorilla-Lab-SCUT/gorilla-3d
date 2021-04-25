@@ -2,7 +2,7 @@
 # author: Xinge
 # @file: train_cylinder_asym.py
 
-import os.path as osp
+import os
 import glob
 import argparse
 import sys
@@ -40,9 +40,9 @@ def init():
 
     #### get logger file
     log_dir, logger = gorilla.collect_logger(
-        prefix=osp.splitext(args.config.split("/")[-1])[0])
+        prefix=os.path.splitext(args.config.split("/")[-1])[0])
     backup_list = ["train.py", "test.py", "cylinder", args.config]
-    backup_dir = osp.join(log_dir, "backup")
+    backup_dir = os.path.join(log_dir, "backup")
     gorilla.backup(backup_dir, backup_list, logger)
 
     cfg.log_dir = log_dir
@@ -162,8 +162,8 @@ class CylinderSolver(gorilla.BaseSolver):
                 if self.cfg.solver.val:
                     self.evaluate()
                 meta = {"epoch": self.epoch, "iter": self.iter}
-                checkpoint = osp.join(self.cfg.log_dir, "iter_{0:8d}.pth".format(self.epoch))
-                latest_checkpoint = osp.join(self.cfg.log_dir, "iter_latest.pth")
+                checkpoint = os.path.join(self.cfg.log_dir, "iter_{0:8d}.pth".format(self.epoch))
+                latest_checkpoint = os.path.join(self.cfg.log_dir, "iter_latest.pth")
                 gorilla.save_checkpoint(self.model, checkpoint, self.optimizer,
                                         self.lr_scheduler, meta)
                 # save as latest checkpoint
@@ -207,14 +207,14 @@ class CylinderSolver(gorilla.BaseSolver):
 def get_checkpoint(log_dir, epoch=0, checkpoint=""):
     if not checkpoint:
         if epoch > 0:
-            checkpoint = osp.join(log_dir, "epoch_{0:05d}.pth".format(epoch))
-            assert osp.isfile(checkpoint)
+            checkpoint = os.path.join(log_dir, "epoch_{0:05d}.pth".format(epoch))
+            assert os.path.isfile(checkpoint)
         else:
-            latest_checkpoint = glob.glob(osp.join(log_dir, "*latest*.pth"))
+            latest_checkpoint = glob.glob(os.path.join(log_dir, "*latest*.pth"))
             if len(latest_checkpoint) > 0:
                 checkpoint = latest_checkpoint[0]
             else:
-                checkpoint = sorted(glob.glob(osp.join(log_dir, "*.pth")))
+                checkpoint = sorted(glob.glob(os.path.join(log_dir, "*.pth")))
                 if len(checkpoint) > 0:
                     checkpoint = checkpoint[-1]
                     epoch = int(checkpoint.split("_")[-1].split(".")[0])

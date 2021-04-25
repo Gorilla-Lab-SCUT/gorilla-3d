@@ -2,12 +2,9 @@
 PointGroup test.py
 Written by Li Jiang
 """
-import open3d as o3d
 import argparse
-import time
 import numpy as np
 import os
-import os.path as osp
 
 import torch
 import spconv
@@ -70,7 +67,7 @@ def init():
         params_dict["suffix"] = "test"
 
     log_dir, logger = gorilla.collect_logger(
-        prefix=osp.splitext(args.config.split("/")[-1])[0],
+        prefix=os.path.splitext(args.config.split("/")[-1])[0],
         log_name="test",
         log_file=args.log_file,
         # **params_dict
@@ -83,14 +80,14 @@ def init():
     logger.info(cfg)
 
     global result_dir
-    result_dir = osp.join(
+    result_dir = os.path.join(
         log_dir, "result",
         "epoch{}_nmst{}_scoret{}_npointt{}".format(cfg.data.test_epoch,
                                                    cfg.data.TEST_NMS_THRESH,
                                                    cfg.data.TEST_SCORE_THRESH,
                                                    cfg.data.TEST_NPOINT_THRESH),
         cfg.data.split)
-    os.makedirs(osp.join(result_dir, "predicted_masks"), exist_ok=True)
+    os.makedirs(os.path.join(result_dir, "predicted_masks"), exist_ok=True)
 
     global semantic_label_idx
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
@@ -121,14 +118,14 @@ def test(model, cfg, logger):
 
         # define evaluator
         # get the real data root
-        data_root = osp.join(osp.dirname(__file__), cfg.dataset.data_root)
+        data_root = os.path.join(os.path.dirname(__file__), cfg.dataset.data_root)
         if "test" in cfg.data.split:
             split = "scans_test"
         else:
             split = "scans"
 
-        semantic_dataset_root = osp.join(data_root, "scans")
-        instance_dataset_root = osp.join(data_root, cfg.data.split + "_gt")
+        semantic_dataset_root = os.path.join(data_root, "scans")
+        instance_dataset_root = os.path.join(data_root, cfg.data.split + "_gt")
         evaluator = gorilla3d.ScanNetSemanticEvaluator(semantic_dataset_root,
                                                        logger=logger)
         inst_evaluator = gorilla3d.ScanNetInstanceEvaluator(instance_dataset_root,
@@ -285,32 +282,32 @@ def test(model, cfg, logger):
                     gorilla3d.visualize_instance_mask(clusters.cpu().numpy(),
                                                       test_scene_name,
                                                       cfg.visual,
-                                                      osp.join(data_root, split),
+                                                      os.path.join(data_root, split),
                                                       logger,
                                                       cluster_scores.cpu().numpy(),
                                                       semantic_pred.cpu().numpy(),)
 
             ##### save files
             if cfg.data.save_semantic:
-                os.makedirs(osp.join(result_dir, "semantic"), exist_ok=True)
+                os.makedirs(os.path.join(result_dir, "semantic"), exist_ok=True)
                 semantic_np = semantic_pred.cpu().numpy()
                 np.save(
-                    osp.join(result_dir, "semantic", test_scene_name + ".npy"),
+                    os.path.join(result_dir, "semantic", test_scene_name + ".npy"),
                     semantic_np)
 
             if cfg.data.save_pt_offsets:
-                os.makedirs(osp.join(result_dir, "coords_offsets"),
+                os.makedirs(os.path.join(result_dir, "coords_offsets"),
                             exist_ok=True)
                 pt_offsets_np = pt_offsets.cpu().numpy()
                 coords_np = batch["locs_float"].numpy()
                 coords_offsets = np.concatenate((coords_np, pt_offsets_np),
                                                 1)  # [N, 6]
                 np.save(
-                    osp.join(result_dir, "coords_offsets",
+                    os.path.join(result_dir, "coords_offsets",
                              test_scene_name + ".npy"), coords_offsets)
 
             if (prepare_flag and cfg.data.save_instance):
-                f = open(osp.join(result_dir, test_scene_name + ".txt"), "w")
+                f = open(os.path.join(result_dir, test_scene_name + ".txt"), "w")
                 for proposal_id in range(nclusters):
                     clusters_i = clusters[proposal_id].cpu().numpy()  # [N]
                     semantic_label = np.argmax(
@@ -324,12 +321,12 @@ def test(model, cfg, logger):
                     content = list(map(lambda x: str(x), clusters_i.tolist()))
                     content = "\n".join(content)
                     with open(
-                            osp.join(
+                            os.path.join(
                                 result_dir, "predicted_masks",
                                 test_scene_name + "_%03d.txt" % (proposal_id)),
                             "w") as cf:
                         cf.write(content)
-                    # np.savetxt(osp.join(result_dir, "predicted_masks", test_scene_name + "_%03d.txt" % (proposal_id)), clusters_i, fmt="%d")
+                    # np.savetxt(os.path.join(result_dir, "predicted_masks", test_scene_name + "_%03d.txt" % (proposal_id)), clusters_i, fmt="%d")
                 f.close()
 
             save_time = timer.since_last()

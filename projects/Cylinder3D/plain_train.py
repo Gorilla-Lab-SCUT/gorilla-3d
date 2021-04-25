@@ -1,8 +1,6 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
+import os
 import glob
-import logging
-import argparse
-import os.path as osp
 
 import torch
 import gorilla
@@ -31,14 +29,14 @@ def get_parser():
 def get_checkpoint(log_dir, epoch=0, checkpoint=""):
     if not checkpoint:
         if epoch > 0:
-            checkpoint = osp.join(log_dir, "epoch_{0:05d}.pth".format(epoch))
-            assert osp.isfile(checkpoint)
+            checkpoint = os.path.join(log_dir, "epoch_{0:05d}.pth".format(epoch))
+            assert os.path.isfile(checkpoint)
         else:
-            latest_checkpoint = glob.glob(osp.join(log_dir, "*latest*.pth"))
+            latest_checkpoint = glob.glob(os.path.join(log_dir, "*latest*.pth"))
             if len(latest_checkpoint) > 0:
                 checkpoint = latest_checkpoint[0]
             else:
-                checkpoint = sorted(glob.glob(osp.join(log_dir, "*.pth")))
+                checkpoint = sorted(glob.glob(os.path.join(log_dir, "*.pth")))
                 if len(checkpoint) > 0:
                     checkpoint = checkpoint[-1]
                     epoch = int(checkpoint.split("_")[-1].split(".")[0])
@@ -175,7 +173,7 @@ def do_train(model, cfg, logger):
                 "loss": loss_buffer.avg}
     
         # save checkpoint
-        checkpoint = osp.join(cfg.log_dir, "epoch_{0:05d}.pth".format(epoch))
+        checkpoint = os.path.join(cfg.log_dir, "epoch_{0:05d}.pth".format(epoch))
         gorilla.save_checkpoint(model=model,
                                 filename=checkpoint,
                                 optimizer=optimizer,
@@ -183,7 +181,7 @@ def do_train(model, cfg, logger):
                                 meta=meta)
         logger.info("Saving " + checkpoint)
         # save as latest checkpoint (Optional)
-        latest_checkpoint = osp.join(cfg.log_dir, "epoch_latest.pth")
+        latest_checkpoint = os.path.join(cfg.log_dir, "epoch_latest.pth")
         gorilla.save_checkpoint(model=model,
                                 filename=latest_checkpoint,
                                 optimizer=optimizer,
@@ -201,7 +199,7 @@ def main(args):
 
     # get logger file
     log_dir, logger = gorilla.collect_logger(
-        prefix=osp.splitext(osp.basename(args.config))[0])
+        prefix=os.path.splitext(os.path.basename(args.config))[0])
     #### NOTE: can initlize the logger manually
     # logger = gorilla.get_logger(log_file)
     cfg.log_dir = log_dir
@@ -209,7 +207,7 @@ def main(args):
     # backup the necessary file and directory(Optional, details for source code)
     # FIXME: if using backup func, you should define backup_list by yourself
     backup_list = ["plain_train.py", "test.py", "cylinder", args.config]
-    backup_dir = osp.join(log_dir, "backup")
+    backup_dir = os.path.join(log_dir, "backup")
     gorilla.backup(backup_dir, backup_list)
 
     
