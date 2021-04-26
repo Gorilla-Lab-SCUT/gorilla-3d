@@ -121,7 +121,7 @@ class KittiSem(Dataset):
             voxel_labels.append(torch.from_numpy(b[1]).long())
             grid_inds.append(torch.cat([torch.LongTensor(b[2].shape[0], 1).fill_(i), torch.from_numpy(b[2]).long()], 1))
             point_labels.append(torch.from_numpy(b[3]))
-            point_xyzs.append(torch.from_numpy(b[4]))
+            point_xyzs.append(torch.cat([torch.FloatTensor(b[4].shape[0], 1).fill_(i), torch.from_numpy(b[4])], 1))
             point_features.append(torch.from_numpy(b[5]).float())
         
         voxel_centers = torch.stack(voxel_centers) # [B, H, W, D, 3]
