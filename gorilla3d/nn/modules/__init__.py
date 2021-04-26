@@ -8,7 +8,7 @@ from .pointnet2 import (three_interpolate, three_nn, furthest_point_sample,
 
 from .votenet import (VoteHead, VoteModule)
 
-from .sparse import (ResContextBlock, ResidualBlock, VGGBlock, UBlock,
+from .sparse import (AsymResidualBlock, ResidualBlock, VGGBlock, UBlock,
                      # transformer
                      TransformerSparse3D, PositionEmbeddingSine3d,
                      # attention

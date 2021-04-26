@@ -12,7 +12,7 @@ try:
 except:
     pass
 
-from .block import ResidualBlock, VGGBlock
+from .block import ResidualBlock, VGGBlock, AsymResidualBlock
 
 
 class UBlock(nn.Module):
@@ -32,11 +32,14 @@ class UBlock(nn.Module):
 
         # process block and norm_fn caller
         if isinstance(block, str):
-            assert block in ["residual", "vgg"], f"block must be 'residual' or 'vgg', but got {block}"
+            area = ["residual", "vgg", "asym"]
+            assert block in area, f"block must be in {area}, but got {block}"
             if block == "residual":
                 block = ResidualBlock
             elif block == "vgg":
                 block = VGGBlock
+            elif block == "asym":
+                block = AsymResidualBlock
         
         if isinstance(norm_fn, Dict):
             norm_caller = gorilla.nn.get_torch_layer_caller(norm_fn.pop("type"))
@@ -55,16 +58,28 @@ class UBlock(nn.Module):
         self.blocks = spconv.SparseSequential(blocks)
 
         if len(nPlanes) > 1:
-            self.conv = spconv.SparseSequential(
-                norm_fn(nPlanes[0]),
-                nn.ReLU(),
-                spconv.SparseConv3d(
-                    nPlanes[0],
-                    nPlanes[1],
-                    kernel_size=2,
-                    stride=2,
-                    bias=False,
-                    indice_key=f"spconv{indice_key_id}"))
+            if normalize_before:
+                self.conv = spconv.SparseSequential(
+                    norm_fn(nPlanes[0]),
+                    nn.ReLU(),
+                    spconv.SparseConv3d(
+                        nPlanes[0],
+                        nPlanes[1],
+                        kernel_size=2,
+                        stride=2,
+                        bias=False,
+                        indice_key=f"spconv{indice_key_id}"))
+            else:
+                self.conv = spconv.SparseSequential(
+                    spconv.SparseConv3d(
+                        nPlanes[0],
+                        nPlanes[1],
+                        kernel_size=2,
+                        stride=2,
+                        bias=False,
+                        indice_key=f"spconv{indice_key_id}"),
+                    norm_fn(nPlanes[1]),
+                    nn.ReLU())
 
             self.u = UBlock(nPlanes[1:],
                             norm_fn,
@@ -74,16 +89,27 @@ class UBlock(nn.Module):
                             normalize_before=normalize_before,
                             return_blocks=return_blocks)
 
-            self.deconv = spconv.SparseSequential(
-                norm_fn(nPlanes[1]),
-                nn.ReLU(),
-                spconv.SparseInverseConv3d(
-                    nPlanes[1],
-                    nPlanes[0],
-                    kernel_size=2,
-                    bias=False,
-                    indice_key=f"spconv{indice_key_id}")
-                )
+            if normalize_before:
+                self.deconv = spconv.SparseSequential(
+                    norm_fn(nPlanes[1]),
+                    nn.ReLU(),
+                    spconv.SparseInverseConv3d(
+                        nPlanes[1],
+                        nPlanes[0],
+                        kernel_size=2,
+                        bias=False,
+                        indice_key=f"spconv{indice_key_id}")
+                    )
+            else:
+                self.deconv = spconv.SparseSequential(
+                    spconv.SparseInverseConv3d(
+                        nPlanes[1],
+                        nPlanes[0],
+                        kernel_size=2,
+                        bias=False,
+                        indice_key=f"spconv{indice_key_id}"),
+                    norm_fn(nPlanes[0]),
+                    nn.ReLU())
 
             blocks_tail = {}
             for i in range(block_reps):
@@ -91,7 +117,8 @@ class UBlock(nn.Module):
                     nPlanes[0] * (2 - i),
                     nPlanes[0],
                     norm_fn,
-                    indice_key=f"subm{indice_key_id}")
+                    indice_key=f"subm{indice_key_id}",
+                    normalize_before=normalize_before)
             blocks_tail = OrderedDict(blocks_tail)
             self.blocks_tail = spconv.SparseSequential(blocks_tail)
 

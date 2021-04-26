@@ -40,10 +40,12 @@ def conv3x1(in_planes: int,
                              bias=False,
                              indice_key=indice_key)
 
-class ResContextBlock(MODULE):
+
+
+class AsymResidualBlock(MODULE):
     def __init__(self,
-                 in_filters: int,
-                 out_filters: int,
+                 in_channels: int,
+                 out_channels: int,
                  norm_fn: Union[Callable, Dict]=functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1),
                  indice_key: Optional[str]=None,
                  normalize_before: bool=False):
@@ -54,42 +56,39 @@ class ResContextBlock(MODULE):
             norm_fn = functools.partial(norm_caller, **norm_fn)
 
         if normalize_before:
-            self.branch1 = spconv.SparseSequential(
-                norm_fn(in_filters),
+            self.conv_1 = spconv.SparseSequential(
+                norm_fn(in_channels),
                 nn.LeakyReLU(),
-                conv1x3(in_filters, out_filters, indice_key=indice_key),
-                norm_fn(out_filters),
+                conv3x1(in_channels, out_channels, indice_key=indice_key),
+                norm_fn(out_channels),
                 nn.LeakyReLU(),
-                conv3x1(out_filters, out_filters, indice_key=indice_key),
-            )
-
-            self.branch2 = spconv.SparseSequential(
-                norm_fn(in_filters),
+                conv1x3(out_channels, out_channels, indice_key=indice_key),
+                )
+            self.conv_2 = spconv.SparseSequential(
+                norm_fn(in_channels),
                 nn.LeakyReLU(),
-                conv3x1(in_filters, out_filters, indice_key=indice_key),
-                norm_fn(out_filters),
+                conv1x3(in_channels, out_channels, indice_key=indice_key),
+                norm_fn(out_channels),
                 nn.LeakyReLU(),
-                conv1x3(out_filters, out_filters, indice_key=indice_key),
-            )
+                conv3x1(out_channels, out_channels, indice_key=indice_key),
+                )
         else:
-            self.branch1 = spconv.SparseSequential(
-                conv1x3(in_filters, out_filters, indice_key=indice_key),
-                norm_fn(out_filters),
+            self.conv_1 = spconv.SparseSequential(
+                conv3x1(in_channels, out_channels, indice_key=indice_key),
+                norm_fn(out_channels),
                 nn.LeakyReLU(),
-                conv3x1(out_filters, out_filters, indice_key=indice_key),
-                norm_fn(out_filters),
+                conv1x3(out_channels, out_channels, indice_key=indice_key),
+                norm_fn(out_channels),
                 nn.LeakyReLU(),
-            )
-
-            self.branch2 = spconv.SparseSequential(
-                conv3x1(in_filters, out_filters, indice_key=indice_key),
-                norm_fn(out_filters),
+                )
+            self.conv_2 = spconv.SparseSequential(
+                conv1x3(in_channels, out_channels, indice_key=indice_key),
+                norm_fn(out_channels),
                 nn.LeakyReLU(),
-                conv1x3(out_filters, out_filters, indice_key=indice_key),
-                norm_fn(out_filters),
+                conv3x1(out_channels, out_channels, indice_key=indice_key),
+                norm_fn(out_channels),
                 nn.LeakyReLU(),
-            )
-
+                )
         self.weight_initialization()
 
     def weight_initialization(self):
@@ -99,17 +98,10 @@ class ResContextBlock(MODULE):
                 nn.init.constant_(m.bias, 0)
 
     def forward(self, input):
-        identity = spconv.SparseConvTensor(input.features,
-                                           input.indices,
-                                           input.spatial_shape,
-                                           input.batch_size)
-        
-        result = self.branch1(identity)
-        shortcut = self.branch2(identity)
+        output = self.conv_1(input)
+        output.features += self.conv_2(input).features
 
-        result.features += shortcut.features
-
-        return result
+        return output
 
 
 class ResidualBlock(MODULE):
