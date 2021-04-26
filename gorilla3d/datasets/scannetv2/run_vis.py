@@ -14,7 +14,7 @@ if __name__ == "__main__":
 
     print(args.room_name)
 
-    xyz, rgb = get_coords_color(args)
+    xyz, rgb = get_coords_color(args.data_root, args.result_root, args.room_split, args.room_name, args.task)
 
     visualize_pts_rgb(rgb, args.room_name, args.data_root, args.save_dir, mode=args.room_split)
 
