@@ -126,10 +126,8 @@ def test(model, cfg, logger):
 
         semantic_dataset_root = os.path.join(data_root, "scans")
         instance_dataset_root = os.path.join(data_root, cfg.data.split + "_gt")
-        evaluator = gorilla3d.ScanNetSemanticEvaluator(semantic_dataset_root,
-                                                       logger=logger)
-        inst_evaluator = gorilla3d.ScanNetInstanceEvaluator(instance_dataset_root,
-                                                            logger=logger)
+        evaluator = gorilla3d.ScanNetSemanticEvaluator(semantic_dataset_root)
+        inst_evaluator = gorilla3d.ScanNetInstanceEvaluator(instance_dataset_root)
 
         for i, batch in enumerate(test_dataloader):
             torch.cuda.empty_cache()
@@ -148,11 +146,8 @@ def test(model, cfg, logger):
 
             batch_offsets = batch["offsets"].cuda()    # [B + 1], int, cuda
             scene_list = batch["scene_list"]
-            superpoint = batch["superpoint"].cuda() # [N], long, cuda
-            superpoint = torch.unique(superpoint, return_inverse=True)[1]  # [N], long, cuda
 
-            extra_data = {"superpoint": superpoint,
-                          "locs_offset": locs_offset,
+            extra_data = {"locs_offset": locs_offset,
                           "scene_list": scene_list}
 
             spatial_shape = batch["spatial_shape"]
@@ -283,7 +278,6 @@ def test(model, cfg, logger):
                                                       test_scene_name,
                                                       cfg.visual,
                                                       os.path.join(data_root, split),
-                                                      logger,
                                                       cluster_scores.cpu().numpy(),
                                                       semantic_pred.cpu().numpy(),)
 

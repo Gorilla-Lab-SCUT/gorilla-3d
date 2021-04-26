@@ -68,9 +68,11 @@ def do_train(model, cfg, logger):
     epoch = meta.get("epoch", 0) + 1
     iter = meta.get("iter", 0) + 1
     
-    # initialize train dataset
+    # build train dataset
     cfg.dataset.split = "train" # change split manually
-    train_dataloader = gorilla.build_dataloader(cfg.dataset,
+    dataset = gorilla.build_dataset(cfg.dataset)
+    # build dataloader
+    train_dataloader = gorilla.build_dataloader(dataset,
                                                 cfg.dataloader,
                                                 shuffle=True,
                                                 drop_last=True)
@@ -150,6 +152,10 @@ def do_train(model, cfg, logger):
 
         # log the epoch information
         logger.info(f"epoch: {epoch}/{cfg.epochs}, train loss: {loss_buffer.avg}, time: {epoch_timer.since_start()}s")
+        # clear all buffer
+        iter_time.clear()
+        epoch_timer.clear()
+        loss_buffer.clear()
 
         # write the important information into meta
         meta = {"epoch": epoch,

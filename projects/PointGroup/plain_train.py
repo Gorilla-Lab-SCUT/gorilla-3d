@@ -184,6 +184,10 @@ def do_train(model, cfg, logger):
 
         # log the epoch information
         logger.info(f"epoch: {epoch}/{cfg.epochs}, train loss: {loss_buffer.avg}, time: {epoch_timer.since_start()}s")
+        # clear all buffer
+        iter_time.clear()
+        epoch_timer.clear()
+        loss_buffer.clear()
 
         # write the important information into meta
         meta = {"epoch": epoch,
