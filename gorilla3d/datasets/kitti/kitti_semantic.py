@@ -9,6 +9,8 @@ import numba as nb
 import torch
 from torch.utils.data import Dataset
 
+from .utils import SemLaserScan
+
 # modify from https://github.com/xinge008/Cylinder3D/blob/master/dataloader/dataset_semantickitti.py
 class KittiSem(Dataset):
     def __init__(self,
@@ -31,62 +33,44 @@ class KittiSem(Dataset):
                     max_volume_space=[50, np.pi, 2],
                     use_voxel_center=False,
                  ),
-                 preload_labels: bool=False,
                  **kwargs):
+        self.logger = gorilla.derive_logger(__name__)
         self.return_ref = return_ref
         self.return_test = return_test
         self.semkittiyaml = gorilla.load(label_mapping)
         self.learning_map = self.semkittiyaml["learning_map"]
         self.label_mapper = np.vectorize(self.learning_map.__getitem__)
         assert task in ["train", "val", "test"], f"`task` must be in ['train', 'val', 'test'], but got {task}"
-        split = self.semkittiyaml["split"][task]
+        self.sequences = self.semkittiyaml["split"][task]
         self.task = task
 
         self.data_files = []
-        for i_folder in split:
+        for i_folder in self.sequences:
             i_folder = f"{i_folder:0>2}"
             self.data_files += glob.glob(os.path.join(data_root, f"{i_folder:0>2}", "velodyne", "*"))
+
+        self.data_files.sort()
         # self.data_files = self.data_files[:100]
+
+        self.logger.info("Using {} scans from sequences {}".format(len(self.data_files), self.sequences))
 
         self.pc_transformer = PointCloudTransfromer(**transform_cfg)
         processer_caller = globals()[grid_cfg["type"]]
         self.processer = processer_caller(**grid_cfg)
-
-        # load files
-        self.preload_labels = preload_labels
-        if self.preload_labels:
-            self.load_files()
-
-    def load_files(self):
-        """
-        load all labels to speed up training process
-        """
-        if self.task == "test": return
-        self.annotated_data_list = []
-        print(f"prepare label files: {len(self.data_files)}")
-        for data_file in gorilla.track(self.data_files):
-            annotated_data = np.fromfile(data_file.replace("velodyne", "labels").replace(".bin", ".label"),
-                                         dtype=np.int32).reshape((-1, 1)) # [N, 1]
-            annotated_data = annotated_data & 0xFFFF  # delete high 16 digits binary
-            annotated_data = self.label_mapper(annotated_data) # annotated id map
-            self.annotated_data_list.append(annotated_data)
 
     def __len__(self):
         "Denotes the total number of samples"
         return len(self.data_files)
 
     def __getitem__(self, index):
-        timer = gorilla.Timer()
         raw_data = np.fromfile(self.data_files[index], dtype=np.float32).reshape((-1, 4)) # [N, 4]
         if self.task == "test":
             annotated_data = np.expand_dims(np.zeros_like(raw_data[:, 0], dtype=int), axis=1)
-        elif not self.preload_labels:
+        else:
             annotated_data = np.fromfile(self.data_files[index].replace("velodyne", "labels").replace(".bin", ".label"),
                                          dtype=np.int32).reshape((-1, 1)) # [N, 1]
             annotated_data = annotated_data & 0xFFFF  # delete high 16 digits binary
             annotated_data = self.label_mapper(annotated_data) # annotated id map
-        else:
-            annotated_data = self.annotated_data_list[index]
 
         if self.task == "train":
             raw_data = self.pc_transformer(raw_data)
@@ -139,69 +123,6 @@ class KittiSem(Dataset):
             "point_xyzs": point_xyzs,
             "point_features": point_features
         }
-        # return voxel_centers, voxel_labels, voxel_label_counts, grid_inds, point_labels, point_xyzs, point_features
-
-    # modify from https://github.com/PRBonn/semantic-kitti-api/blob/master/auxiliary/laserscan.py
-    @staticmethod
-    def range_projection(scans: np.ndarray,
-                         labels: np.ndarray,
-                         H: int=64,
-                         W: int=1024,
-                         fov_up: float=3.0,
-                         fov_down: float=25.0):
-        # read scan data
-        points = scans[:, :3] # [N, 3]
-        remission = scans[:, 3] # [N, 3]
-        
-        # laser parameters
-        fov_up = fov_up / 180.0 * np.pi     # field of view up in rad
-        fov_down = fov_down / 180.0 * np.pi # field of view down in rad
-        fov = abs(fov_down) + abs(fov_up)  # get field of view total in rad
-
-        # get depth of all points
-        depth = np.linalg.norm(points, 2, axis=1)
-
-        # get scan components
-        scan_x = points[:, 0]
-        scan_y = points[:, 1]
-        scan_z = points[:, 2]
-
-        # get angles of all points
-        yaw = -np.arctan2(scan_y, scan_x)
-        pitch = np.arcsin(scan_z / depth)
-
-        # get projections in image coords
-        proj_x = 0.5 * (yaw / np.pi + 1.0) # in [0.0, 1.0]
-        proj_y = 1.0 - (pitch + abs(fov_down)) / fov # in [0.0, 1.0]
-
-        # scale to image size using angular resolution
-        proj_x *= W # in [0.0, W]
-        proj_y *= H # in [0.0, H]
-
-        # round and clamp for use as index
-        proj_x = np.floor(proj_x)
-        proj_x = np.minimum(W - 1, proj_x)
-        proj_x = np.maximum(0, proj_x).astype(np.int32)   # in [0,W-1]
-
-        proj_y = np.floor(proj_y)
-        proj_y = np.minimum(H - 1, proj_y)
-        proj_y = np.maximum(0, proj_y).astype(np.int32)   # in [0,H-1]
-
-        # order in decreasing depth
-        order = np.argsort(depth)[::-1]
-        depth = depth[order]
-        points = points[order]
-        remission = remission[order]
-        proj_y = proj_y[order]
-        proj_x = proj_x[order]
-
-        # projected range image - [H, W, 6] range (-1 is no data) 5: [x, y, z, depth, remission, label]
-        proj_range = np.full((H, W, 6), -1, dtype=np.float32)
-        proj_range[proj_y, proj_x, :3] = points
-        proj_range[proj_y, proj_x, 3] = depth
-        proj_range[proj_y, proj_x, 4] = remission
-        proj_range[proj_y, proj_x, 4] = labels
-        return proj_range
 
 
 class GridProcesses(object):
@@ -337,7 +258,6 @@ class PolarProcesses(object):
     # transformation between polar coordinates and Cartesian coordinates
     @staticmethod
     def polar2cat(input_xyz_polar: np.ndarray):
-        # print(input_xyz_polar.shape)
         x = input_xyz_polar[0] * np.cos(input_xyz_polar[1]) # [H, W, L]
         y = input_xyz_polar[0] * np.sin(input_xyz_polar[1]) # [H, W, L]
         return np.stack((x, y, input_xyz_polar[2]), axis=0) # [3, H, W, L]
@@ -408,3 +328,113 @@ class PointCloudTransfromer(object):
         point[:, :3] = xyz
 
         return point
+
+
+class KittiSemRV(KittiSem):
+    def __init__(self,
+                 data_root: str, # directory where data is
+                 task: str="train",
+                 label_mapping: str="semantic-kitti.yaml",
+                 max_points: int=150000, # max number of points present in dataset
+                 transform: bool=False,
+                 sensor: Dict=dict(
+                    project=True,
+                    height=64,
+                    width=2048,
+                    fov_up=3,
+                    fov_down=-25,
+                 ), # sensor to parse scans from
+                img_means=[12.12, 10.88, 0.23, -1.04, 0.21],
+                img_stds=[12.32, 11.47, 6.91, -0.86, 0.16],
+                 **kwargs): # send ground truth?
+        # save deats
+        super().__init__(data_root,
+                         task,
+                         label_mapping,
+                         **kwargs)
+
+        self.max_points = max_points
+        self.transform = transform
+        self.scan = SemLaserScan(**sensor)
+        self.color_map = self.semkittiyaml["color_map"]
+        self.sensor_img_means = np.array(img_means, dtype=np.float32)
+        self.sensor_img_stds = np.array(img_stds, dtype=np.float32)
+
+        # self.data_files = self.data_files[:100]
+
+    def collate_fn(self, batch):
+        return torch.utils.data._utils.collate.default_collate(batch)
+
+    def __getitem__(self, index):
+        gt_flag = self.task != "test"
+        # get item in tensor shape
+        scan_file = self.data_files[index]
+        raw_data = np.fromfile(self.data_files[index], dtype=np.float32).reshape((-1, 4)) # [N, 4]
+        if gt_flag:
+            label_file = scan_file.replace("velodyne", "labels").replace(".bin", ".label")
+            annotated_data = np.fromfile(label_file, dtype=np.int32) # [N]
+        else:
+            # construct the fake labels
+            annotated_data = np.zeros_like(raw_data[:, 0]) # [N, 1]
+
+        # point cloud data augment
+        if self.task == "train":
+            raw_data = self.pc_transformer(raw_data)
+
+        # reset scan
+        self.scan.reset()
+
+        # read points and labels
+        self.scan.set_points(raw_data[:, :3], raw_data[:, 3])
+        self.scan.set_label(annotated_data)
+        self.scan.sem_label_map(self.label_mapper) # map labels
+
+        # get un-projected paramters(origin input)
+        npoints = self.scan.points.shape[0]
+        num_pad = self.max_points - npoints
+        unproj_xyz = np.pad(self.scan.points, ((0, num_pad), (0, 0)), constant_values=(-1.0, -1.0)) # [max_points, 3]
+        unproj_range = np.pad(self.scan.unproj_range, (0, num_pad), constant_values=(-1.0, -1.0)) # [max_points]
+        unproj_remissions = np.pad(self.scan.remissions, (0, num_pad), constant_values=(-1.0, -1.0)) # [max_points]
+        unproj_labels = np.pad(self.scan.sem_label, (0, num_pad), constant_values=(-1, -1)).astype(np.int32) # [max_points]
+
+        # get projected paramters
+        proj_range = self.scan.proj_range.copy() # [H, W]
+        proj_xyz = self.scan.proj_xyz.copy() # [H, W, 3]
+        proj_remission = self.scan.proj_remission.copy() # [H, W]
+        proj_mask = self.scan.proj_mask.copy() # [H, W]
+        proj_labels = self.scan.proj_sem_label.copy() # [H, W]
+        proj_labels = proj_labels * proj_mask # [H, W]
+        # model input
+        proj = np.concatenate([proj_range[None, :, :].copy(),
+                               proj_xyz.transpose(2, 0, 1).copy(),
+                               proj_remission[None, :, :].copy()]) # [5, H, W]
+        proj = (proj - self.sensor_img_means[:, None, None]) / self.sensor_img_stds[:, None, None] # [5, H, W]
+        proj = proj * proj_mask.astype(np.float32)
+
+        # get the projection x and y ids(in pixel coordinates)
+        proj_x = np.pad(self.scan.proj_x, (0, num_pad), constant_values=(-1.0, -1.0)).astype(np.int64) # [max_points]
+        proj_y = np.pad(self.scan.proj_y, (0, num_pad), constant_values=(-1.0, -1.0)).astype(np.int64) # [max_points]
+
+        # get name and sequence
+        path_norm = os.path.normpath(scan_file)
+        path_split = path_norm.split(os.sep)
+        path_name = path_split[-1].replace(".bin", ".label")
+
+        # return 
+        return {
+            "proj": proj,
+            "proj_mask": proj_mask,
+            "proj_labels": proj_labels,
+            "unproj_labels": unproj_labels,
+            "path_name": path_name,
+            "proj_x": proj_x,
+            "proj_y": proj_y,
+            "proj_range": proj_range,
+            "unproj_range": unproj_range,
+            "proj_xyz": proj_xyz,
+            "unproj_xyz": unproj_xyz,
+            "proj_remission": proj_remission,
+            "unproj_remissions": unproj_remissions,
+            "npoints": npoints
+        }
+

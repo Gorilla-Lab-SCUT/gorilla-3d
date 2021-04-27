@@ -1,2 +1,2 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
-from .kitti_semantic import KittiSem
+from .kitti_semantic import KittiSem, KittiSemRV

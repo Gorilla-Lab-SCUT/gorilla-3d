@@ -4,7 +4,7 @@ from .scannetv2 import (ScanNetV2Inst, ScanNetV2InstTrainVal, ScanNetV2InstTest,
                         visualize_instance_mask, visualize_instance_mask_lite)
 from .s3dis import S3DISInst
 from .shapenet import ShapeNetPartNormal, ShapenetImplicitRecon
-from .kitti import KittiSem
+from .kitti import KittiSem, KittiSemRV
 from .modelnet import ModelNetCls
 
 import torch

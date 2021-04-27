@@ -20,12 +20,6 @@ def get_parser():
                         type=str,
                         default="config/kitti.yaml",
                         help="path to config file")
-    parser.add_argument("--preload-labels",
-                        action="store_true",
-                        help="preload labels or not")
-    parser.add_argument("--not-val",
-                        action="store_true",
-                        help="preload labels or not")
 
     args_cfg = parser.parse_args()
 
@@ -35,8 +29,6 @@ def get_parser():
 def init():
     args = get_parser()
     cfg = gorilla.Config.fromfile(args.config)
-    cfg.dataset.preload_labels = args.preload_labels
-    cfg.solver.val = not args.not_val
 
     #### get logger file
     log_dir, logger = gorilla.collect_logger(
