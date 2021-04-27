@@ -1,28 +1,32 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
-import os
-import os.path as osp
-import logging
+from typing import List, Union
 
-import torch
 import numpy as np
 
-from gorilla.evaluation import DatasetEvaluator
-from ..metric import (evaluate_semantic_kitti)
+from .sem_seg_evaluator import SemanticEvaluator
 
 
-class KittiSemanticEvaluator(DatasetEvaluator):
-    """
-    Evaluate semantic segmentation metrics.
-    """
-    def __init__(self):
-        """
-        Args:
-            num_classes, ignore_label: deprecated argument
-        """
-        self.reset()
+CLASS_LABELS = [
+    "car", "bicycle", "motorcycle", "truck", "bus", "person", "bicyclist",
+    "motorcyclist", "road", "parking", "sidewalk", "other-ground",
+    "building", "fence", "vegetation", "trunk", "terrain", "pole", "traffic-sign"
+]
 
-    def reset(self):
-        self.matches = {}
+
+VALID_CLASS_IDS = np.arange(len(CLASS_LABELS))
+
+class KittiSemanticEvaluator(SemanticEvaluator):
+    def __init__(self,
+                 num_classes: int=19,
+                 avoid_zero: bool=True,
+                 class_labels: List[str]=CLASS_LABELS,
+                 valid_class_ids: Union[np.ndarray, List[int]]=VALID_CLASS_IDS,
+                 **kwargs):
+        super().__init__(num_classes,
+                         avoid_zero,
+                         class_labels,
+                         valid_class_ids,
+                         **kwargs)
 
     def process(self, inputs, outputs):
         """
@@ -33,23 +37,8 @@ class KittiSemanticEvaluator(DatasetEvaluator):
                 segmentation prediction in the same format.
         """
         for input, output in zip(inputs, outputs):
-            scene_name = input["scene_name"]
             semantic_pred = output["semantic_pred"].cpu().clone().numpy()
             semantic_gt = output["semantic_gt"].cpu().clone().numpy()
-            self.matches[scene_name] = {
-                "semantic_pred": semantic_pred,
-                "semantic_gt": semantic_gt
-            }
-
-    def evaluate(self):
-        r"""
-        """
-        evaluate_semantic_kitti(self.matches)
-
-    @staticmethod
-    def read_gt(origin_root, scene_name):
-        label = np.load(
-            os.path.join(origin_root, scene_name + ".txt_sem_label.npy"))
-        return label
+            self.fill_confusion(semantic_pred, semantic_gt)
 
 

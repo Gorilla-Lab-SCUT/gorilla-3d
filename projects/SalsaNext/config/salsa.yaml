@@ -1,6 +1,3 @@
-# Config format schema number
-format_version: 4
-
 ###################
 ## Model options
 model:
@@ -48,16 +45,18 @@ dataloader:
 optimizer:
   lr: 0.001
   # type: Adam
-  type: AdamW
+  type: Adam
   weight_decay: 0.0001
   # amsgrad: False
 
 # lr_scheduler
 lr_scheduler:
-  type: StepLR
-  step_size: 40
+  type: DevPolyLR
+  max_decay_steps: 100
+  end_learning_rate: 0.0001
+  power: 0.9
 
 solver:
   # train mode
-  epochs: 40
+  epochs: 150
   save_freq: 4599  # also eval_freq

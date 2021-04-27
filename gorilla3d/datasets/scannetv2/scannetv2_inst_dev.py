@@ -28,6 +28,7 @@ class ScanNetV2Inst(Dataset):
                  **kwargs):
         
         # initialize dataset parameters
+        self.logger = gorilla.derive_logger(__name__)
         self.data_root = data_root
         self.full_scale = full_scale
         self.scale = scale
@@ -41,7 +42,7 @@ class ScanNetV2Inst(Dataset):
     def load_files(self):
         file_names = sorted(glob.glob(osp.join(self.data_root, self.task, "*.pth")))
         self.files = [torch.load(i) for i in gorilla.track(file_names)]
-        print(f"{self.task} samples: {len(self.files)}")
+        self.logger.info(f"{self.task} samples: {len(self.files)}")
         # load superpoint
         self.superpoints = []
         sub_dir = "scans_test" if "test" in self.task else "scans"

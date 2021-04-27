@@ -50,7 +50,7 @@ class KittiSem(Dataset):
             self.data_files += glob.glob(os.path.join(data_root, f"{i_folder:0>2}", "velodyne", "*"))
 
         self.data_files.sort()
-        # self.data_files = self.data_files[:100]
+        self.data_files = self.data_files
 
         self.logger.info("Using {} scans from sequences {}".format(len(self.data_files), self.sequences))
 

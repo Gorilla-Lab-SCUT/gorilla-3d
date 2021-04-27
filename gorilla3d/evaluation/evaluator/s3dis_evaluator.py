@@ -1,51 +1,49 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
-import logging
 import os.path as osp
-from re import match
+from typing import List, Union
 
-import torch
 import numpy as np
 
 from gorilla.evaluation import DatasetEvaluator, DatasetEvaluators
-from ..metric import (evaluate_semantic_s3dis, assign_instances_for_scan_s3dis,
+
+from .sem_seg_evaluator import SemanticEvaluator
+from ..metric import (assign_instances_for_scan_s3dis,
                       evaluate_matches_s3dis, compute_averages_s3dis, print_results_s3dis,
                       print_prec_recall_s3dis)
 
 
-class S3DISSemanticEvaluator(DatasetEvaluator):
-    """
-    Evaluate semantic segmentation metrics.
-    """
-    def __init__(self, dataset_root):
-        """
-        Args:
-            num_classes, ignore_label: deprecated argument
-        """
-        self.reset()
+CLASS_LABELS = [
+    "ceiling", "floor", "wall", "beam", "column", "window", "door",
+    "table", "chair", "sofa", "bookcase", "board", "clutter"
+]
+VALID_CLASS_IDS = np.arange(len(CLASS_LABELS))
 
-    def reset(self):
-        self.matches = {}
+
+class S3DISSemanticEvaluator(SemanticEvaluator):
+    def __init__(self,
+                 num_classes: int=13,
+                 avoid_zero: bool=False,
+                 class_labels: List[str]=CLASS_LABELS,
+                 valid_class_ids: Union[np.ndarray, List[int]]=VALID_CLASS_IDS,
+                 **kwargs):
+        super().__init__(num_classes,
+                         avoid_zero,
+                         class_labels,
+                         valid_class_ids,
+                         **kwargs)
 
     def process(self, inputs, outputs):
         """
         Args:
             inputs: the inputs to a model.
-                It is a list of dicts.
             outputs: the outputs of a model. It is either list of semantic segmentation predictions
                 or list of dicts with key "sem_seg" that contains semantic
                 segmentation prediction in the same format.
         """
         for input, output in zip(inputs, outputs):
-            scene_name = input["scene_name"]
-            semantic_pred = output["semantic_pred"].cpu().detach().numpy()
-            semantic_gt = output["semantic_gt"].cpu().detach().numpy()
-            self.matches[scene_name] = {
-                "semantic_pred": semantic_pred,
-                "semantic_gt": semantic_gt
-            }
-
-    def evaluate(self):
-        evaluate_semantic_s3dis(self.matches)
+            semantic_pred = output["semantic_pred"].cpu().clone().numpy()
+            semantic_gt = output["semantic_gt"].cpu().clone().numpy()
+            self.fill_confusion(semantic_pred, semantic_gt)
 
 
 class S3DISInstanceEvaluator(DatasetEvaluator):

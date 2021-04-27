@@ -72,8 +72,8 @@ def init():
 def test(model, cfg, logger):
     logger.info(">>>>>>>>>>>>>>>> Start Evaluation >>>>>>>>>>>>>>>>")
     cfg.dataset.task = "val"  # change task
-    cfg.dataloader.batch_size = 2
-    cfg.dataloader.num_workers = 4
+    cfg.dataloader.batch_size = 4
+    cfg.dataloader.num_workers = 8
     test_dataloader = gorilla.build_dataloader(cfg.dataset,
                                                cfg.dataloader)
 
