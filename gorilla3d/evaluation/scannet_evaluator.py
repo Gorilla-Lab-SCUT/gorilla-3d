@@ -7,8 +7,7 @@ import numpy as np
 
 from gorilla.evaluation import DatasetEvaluators
 
-from .sem_seg_evaluator import SemanticEvaluator
-from .ins_seg_evaluator import InstanceEvaluator
+from .pattern import SemanticEvaluator, InstanceEvaluator
 
 
 CLASS_LABELS = [

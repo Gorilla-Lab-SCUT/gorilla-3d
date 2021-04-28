@@ -3,7 +3,7 @@ from typing import List, Union
 
 import numpy as np
 
-from .sem_seg_evaluator import SemanticEvaluator
+from .pattern import SemanticEvaluator
 
 
 CLASS_LABELS = [
