@@ -1,6 +1,7 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
 from .evaluator import (ScanNetSemanticEvaluator,
                         ScanNetInstanceEvaluator,
+                        DevScanNetInstanceEvaluator,
                         ScanNetEvaluator,
                         S3DISSemanticEvaluator,
                         S3DISInstanceEvaluator,

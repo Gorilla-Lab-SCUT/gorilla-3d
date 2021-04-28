@@ -1,10 +1,6 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
-import os
-import os.path as osp
-import logging
 from typing import List
 
-import torch
 import numpy as np
 
 import gorilla

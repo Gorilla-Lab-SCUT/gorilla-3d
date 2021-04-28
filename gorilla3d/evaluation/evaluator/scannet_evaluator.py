@@ -3,15 +3,12 @@ import os
 import os.path as osp
 from typing import List, Union
 
-import torch
 import numpy as np
 
-from gorilla.evaluation import DatasetEvaluator, DatasetEvaluators
+from gorilla.evaluation import DatasetEvaluators
 
 from .sem_seg_evaluator import SemanticEvaluator
-from ..metric import (assign_instances_for_scan_scannet,
-                      evaluate_matches_scannet, compute_averages_scannet, print_results_scannet,
-                      print_prec_recall_scannet)
+from .ins_seg_evaluator import InstanceEvaluator
 
 
 CLASS_LABELS = [
@@ -61,20 +58,37 @@ class ScanNetSemanticEvaluator(SemanticEvaluator):
         return label
 
 
-class ScanNetInstanceEvaluator(DatasetEvaluator):
+# ---------- Label info ---------- #
+FOREGROUND_CLASS_LABELS = [
+    "cabinet", "bed", "chair", "sofa", "table", "door", "window", "bookshelf",
+    "picture", "counter", "desk", "curtain", "refrigerator", "shower curtain",
+    "toilet", "sink", "bathtub", "otherfurniture"
+]
+FOREGROUND_VALID_CLASS_IDS = np.array(
+    [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39])
+
+
+class ScanNetInstanceEvaluator(InstanceEvaluator):
     """
     Evaluate semantic segmentation metrics.
     """
-    def __init__(self, dataset_root):
+    def __init__(self,
+                dataset_root: str,
+                num_classes: int=18,
+                avoid_zero: bool=False,
+                class_labels: List[str]=FOREGROUND_CLASS_LABELS,
+                valid_class_ids: List[int]=FOREGROUND_VALID_CLASS_IDS,
+                **kwargs):
         """
         Args:
             num_classes, ignore_label: deprecated argument
         """
+        super().__init__(num_classes,
+                         avoid_zero,
+                         class_labels,
+                         valid_class_ids,
+                         **kwargs)
         self._dataset_root = dataset_root
-        self.reset()
-
-    def reset(self):
-        self.matches = {}
 
     def process(self, inputs, outputs):
         """
@@ -88,27 +102,8 @@ class ScanNetInstanceEvaluator(DatasetEvaluator):
         for input, output in zip(inputs, outputs):
             scene_name = input["scene_name"]
             gt_file = osp.join(self._dataset_root, scene_name + ".txt")
-            gt2pred, pred2gt = assign_instances_for_scan_scannet(
-                scene_name, output, gt_file)
-            self.matches[scene_name] = {
-                "instance_pred": pred2gt,
-                "instance_gt": gt2pred
-            }
-
-    def evaluate(self, ap=True, prec_rec=True):
-        """
-        Evaluates standard semantic segmentation metrics (http://cocodataset.org/#stuff-eval):
-        * Mean intersection-over-union averaged across classes (mIoU)
-        * Frequency Weighted IoU (fwIoU)
-        * Mean pixel accuracy averaged across classes (mACC)
-        * Pixel Accuracy (pACC)
-        """
-        if ap:
-            ap_scores, prec_recall_total = evaluate_matches_scannet(self.matches)
-            avgs = compute_averages_scannet(ap_scores)
-            print_results_scannet(avgs)
-        if prec_rec:
-            print_prec_recall_scannet(self.matches)
+            gt_ids = np.loadtxt(gt_file)
+            self.assign(scene_name, output, gt_ids)
 
 
 ScanNetEvaluator = DatasetEvaluators(
