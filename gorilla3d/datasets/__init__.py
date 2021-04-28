@@ -5,6 +5,7 @@ from .scannetv2 import (ScanNetV2Inst, ScanNetV2InstTrainVal, ScanNetV2InstTest,
 from .s3dis import S3DISInst
 from .shapenet import ShapeNetPartNormal, ShapenetImplicitRecon
 from .kitti import KittiSem, KittiSemRV
+from .nuscenes import NuscenesSem
 from .modelnet import ModelNetCls
 
 import torch
