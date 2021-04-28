@@ -169,8 +169,8 @@ class UpBlock(nn.Module):
 
 @gorilla.MODELS.register_module()
 class SalsaNext(nn.Module):
-    def __init__(self, nclasses):
-        super(SalsaNext, self).__init__()
+    def __init__(self, nclasses: int):
+        super().__init__()
         self.nclasses = nclasses
 
         self.downCntx = ResContextBlock(5, 32)

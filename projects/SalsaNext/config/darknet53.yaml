@@ -1,8 +1,27 @@
 ###################
 ## Model options
 model:
-  type: SalsaNext
-  nclasses: 20
+  type: RangeNet
+  backbone_cfg:
+    type: DarkNet
+    use_range: True
+    use_xyz: True
+    use_remission: True
+    dropout: 0.01
+    bn_d: 0.1
+    output_stride: 32
+    layers: 53
+  decoder_cfg:
+    type: DarkDecoder
+    output_stride: 32
+    dropout: 0.01
+    feature_depth: 1024
+    bn_d: 0.1
+  head_cfg:
+    type: RangeHead
+    nclasses: 20
+    in_channels: 32
+    dropout: 0.01
 
 loss:
   type: SalsaLoss
@@ -41,8 +60,8 @@ dataset:
     - 0.16
 
 dataloader:
-  batch_size: 8
-  num_workers: 16
+  batch_size: 4
+  num_workers: 8
 
 # optimizer
 optimizer:

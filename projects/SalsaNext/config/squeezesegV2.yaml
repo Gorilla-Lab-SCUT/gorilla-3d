@@ -1,8 +1,25 @@
 ###################
 ## Model options
 model:
-  type: SalsaNext
-  nclasses: 20
+  type: RangeNet
+  backbone_cfg:
+    type: SqueezeNetV2
+    use_range: True
+    use_xyz: True
+    use_remission: True
+    dropout: 0.01
+    bn_d: 0.1
+    output_stride: 16
+  decoder_cfg:
+    type: SqueezeDecoderV2
+    output_stride: 16
+    dropout: 0.01
+    bn_d: 0.01
+  head_cfg:
+    type: RangeHead
+    nclasses: 20
+    in_channels: 64
+    dropout: 0.3
 
 loss:
   type: SalsaLoss
@@ -41,8 +58,8 @@ dataset:
     - 0.16
 
 dataloader:
-  batch_size: 8
-  num_workers: 16
+  batch_size: 4
+  num_workers: 8
 
 # optimizer
 optimizer:

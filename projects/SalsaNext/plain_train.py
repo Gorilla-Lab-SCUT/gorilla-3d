@@ -123,6 +123,8 @@ def do_train(model, cfg, logger):
             loss.backward()
             optimizer.step()
             iter += 1
+            # updata learning rate scheduler
+            lr_scheduler.step()
 
             # calculate time and reset timer(Optional)
             iter_time.update(iter_timer.since_start())
@@ -140,8 +142,6 @@ def do_train(model, cfg, logger):
         
         # synchronize for distributed training
         gorilla.synchronize()
-        # updata learning rate scheduler and epoch
-        lr_scheduler.step()
 
         # log the epoch information
         logger.info(f"epoch: {epoch}/{cfg.solver.epochs}, train loss: {loss_buffer.avg}, time: {epoch_timer.since_start()}s")
@@ -224,8 +224,8 @@ if __name__ == "__main__":
     # get the args
     args = get_parser()
 
-    # auto using the free gpus
-    gorilla.set_cuda_visible_devices(num_gpu=args.num_gpus)
+    # # auto using the free gpus
+    # gorilla.set_cuda_visible_devices(num_gpu=args.num_gpus)
 
     # launcher (necessary for distributed)
     gorilla.launch(
