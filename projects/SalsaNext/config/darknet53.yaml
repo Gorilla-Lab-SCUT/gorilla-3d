@@ -1,4 +1,6 @@
 ###################
+_base_: ./common.yaml
+
 ## Model options
 model:
   type: RangeNet
@@ -23,61 +25,9 @@ model:
     in_channels: 32
     dropout: 0.01
 
-loss:
-  type: SalsaLoss
-  num_class: 20
-  ignore_label: -1
-  loss_weight:
-    - 1.0
-    - 0.0
-
-###################
-## Dataset options
-dataset:
-  type: KittiSemRV
-  data_root: data/kitti/dataset/sequences/
-  label_mapping: data/kitti/semantic-kitti.yaml
-  task: train
-  sensor:
-    name: "HDL64"
-    type: "spherical" # projective
-    project: True
-    fov_up: 3
-    fov_down: -25
-    width: 2048
-    height: 64
-  img_means: #range,x,y,z,signal
-    - 12.12
-    - 10.88
-    - 0.23
-    - -1.04
-    - 0.21
-  img_stds: #range,x,y,z,signal
-    - 12.32
-    - 11.47
-    - 6.91
-    - 0.86
-    - 0.16
-
 dataloader:
   batch_size: 4
   num_workers: 8
-
-# optimizer
-optimizer:
-  type: SGD
-  lr: 0.05
-  momentum: 0.9
-  weight_decay: 0.0001
-  # type: Adam
-  # amsgrad: False
-
-# lr_scheduler
-lr_scheduler:
-  type: WarmupCyclicLR
-  base_lr: 0.0
-  max_lr: 0.05
-  warmup_iters: 2391
 
 solver:
   # train mode

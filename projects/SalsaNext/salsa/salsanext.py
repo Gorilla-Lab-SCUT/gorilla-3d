@@ -11,11 +11,11 @@ class ResContextBlock(nn.Module):
         self.conv1 = nn.Conv2d(in_filters, out_filters, kernel_size=(1, 1), stride=1)
         self.act1 = nn.LeakyReLU()
 
-        self.conv2 = nn.Conv2d(out_filters, out_filters, (3,3), padding=1)
+        self.conv2 = nn.Conv2d(out_filters, out_filters, (3, 3), padding=1)
         self.act2 = nn.LeakyReLU()
         self.bn1 = nn.BatchNorm2d(out_filters)
 
-        self.conv3 = nn.Conv2d(out_filters, out_filters, (3,3),dilation=2, padding=2)
+        self.conv3 = nn.Conv2d(out_filters, out_filters, (3, 3), dilation=2, padding=2)
         self.act3 = nn.LeakyReLU()
         self.bn2 = nn.BatchNorm2d(out_filters)
 
@@ -46,11 +46,11 @@ class ResBlock(nn.Module):
         self.conv1 = nn.Conv2d(in_filters, out_filters, kernel_size=(1, 1), stride=stride)
         self.act1 = nn.LeakyReLU()
 
-        self.conv2 = nn.Conv2d(in_filters, out_filters, kernel_size=(3,3), padding=1)
+        self.conv2 = nn.Conv2d(in_filters, out_filters, kernel_size=(3, 3), padding=1)
         self.act2 = nn.LeakyReLU()
         self.bn1 = nn.BatchNorm2d(out_filters)
 
-        self.conv3 = nn.Conv2d(out_filters, out_filters, kernel_size=(3,3),dilation=2, padding=2)
+        self.conv3 = nn.Conv2d(out_filters, out_filters, kernel_size=(3, 3), dilation=2, padding=2)
         self.act3 = nn.LeakyReLU()
         self.bn2 = nn.BatchNorm2d(out_filters)
 
@@ -58,7 +58,7 @@ class ResBlock(nn.Module):
         self.act4 = nn.LeakyReLU()
         self.bn3 = nn.BatchNorm2d(out_filters)
 
-        self.conv5 = nn.Conv2d(out_filters*3, out_filters, kernel_size=(1, 1))
+        self.conv5 = nn.Conv2d(out_filters * 3, out_filters, kernel_size=(1, 1))
         self.act5 = nn.LeakyReLU()
         self.bn4 = nn.BatchNorm2d(out_filters)
 
@@ -118,20 +118,20 @@ class UpBlock(nn.Module):
 
         self.dropout2 = nn.Dropout2d(p=dropout_rate)
 
-        self.conv1 = nn.Conv2d(in_filters//4 + 2*out_filters, out_filters, (3,3), padding=1)
+        self.conv1 = nn.Conv2d(in_filters // 4 + 2 * out_filters, out_filters, (3, 3), padding=1)
         self.act1 = nn.LeakyReLU()
         self.bn1 = nn.BatchNorm2d(out_filters)
 
-        self.conv2 = nn.Conv2d(out_filters, out_filters, (3,3),dilation=2, padding=2)
+        self.conv2 = nn.Conv2d(out_filters, out_filters, (3,3), dilation=2, padding=2)
         self.act2 = nn.LeakyReLU()
         self.bn2 = nn.BatchNorm2d(out_filters)
 
-        self.conv3 = nn.Conv2d(out_filters, out_filters, (2,2), dilation=2,padding=1)
+        self.conv3 = nn.Conv2d(out_filters, out_filters, (2, 2), dilation=2, padding=1)
         self.act3 = nn.LeakyReLU()
         self.bn3 = nn.BatchNorm2d(out_filters)
 
 
-        self.conv4 = nn.Conv2d(out_filters*3,out_filters,kernel_size=(1,1))
+        self.conv4 = nn.Conv2d(out_filters * 3, out_filters, kernel_size=(1, 1))
         self.act4 = nn.LeakyReLU()
         self.bn4 = nn.BatchNorm2d(out_filters)
 
@@ -158,7 +158,7 @@ class UpBlock(nn.Module):
         upE = self.act3(upE)
         upE3 = self.bn3(upE)
 
-        concat = torch.cat((upE1,upE2,upE3),dim=1)
+        concat = torch.cat((upE1, upE2, upE3),dim=1)
         upE = self.conv4(concat)
         upE = self.act4(upE)
         upE = self.bn4(upE)
