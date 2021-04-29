@@ -1,5 +1,5 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
-import copy
+import itertools
 from typing import List, Tuple
 from collections import OrderedDict
 
@@ -41,7 +41,7 @@ class ClassificationEvaluator(gorilla.evaluation.DatasetEvaluator):
         self._labels.append(label)
         
 
-    def evaluate(self, return_acc: bool=False):
+    def evaluate(self, show_per_class: bool=True, return_acc: bool=False):
         self._predictions = torch.cat(self._predictions).view(-1, self.num_classes) # [N, num_classes]
         self._labels = torch.cat(self._labels).view(-1) # [N]
 
@@ -52,19 +52,29 @@ class ClassificationEvaluator(gorilla.evaluation.DatasetEvaluator):
         for i, k in enumerate(self._top_k):
             acc_dict[f"Top_{k} Acc"] = acc[i]
             
-        acc_table = gorilla.create_small_table(acc_dict)
+        acc_table = gorilla.create_small_table(acc_dict, tablefmt="psql",)
         self.logger.info("Evaluation results for classification:")
-        self.logger.info("\n"+acc_table)
+        for line in acc_table.split("\n"):
+            self.logger.info(line)
 
-        totals, corrects = gorilla.accuracy_for_each_class(self._predictions, self._labels.view(-1, 1), self.num_classes) # [num_classes]
-        corrects_per_class = (corrects * 100)/ totals # [num_classes]
-        headers = ("classes", "Top_1 Acc")
-        data = [("mean", str(float(corrects_per_class.mean())))]
-        for class_label, correct in zip(self.class_labels, corrects_per_class):
-            data.append((str(class_label), str(float(correct))))
+        if show_per_class:
+            totals, corrects = gorilla.accuracy_for_each_class(self._predictions, self._labels.view(-1, 1), self.num_classes) # [num_classes]
+            corrects_per_class = (corrects * 100)/ totals # [num_classes]
 
-        acc_table = gorilla.table(data, headers)
-        self.logger.info("\n"+acc_table)
+            self.logger.info("Top_1 Acc of each class")
+            # tabulate it
+            N_COLS = min(8, len(self.class_labels) * 2)
+            acc_per_class = [(self.class_labels[i], float(corrects_per_class[i])) for i in range(len(self.class_labels))]
+            acc_flatten = gorilla.concat_list(acc_per_class)
+            results_2d = itertools.zip_longest(*[acc_flatten[i::N_COLS] for i in range(N_COLS)])
+            acc_table = gorilla.table(
+                results_2d,
+                headers=["class", "Acc"] * (N_COLS // 2),
+                tablefmt="psql",
+            )
+            for line in acc_table.split("\n"):
+                self.logger.info(line)
+            self.logger.info(f"mean: {corrects_per_class.mean():.4f}")
         
         if return_acc:
             return acc

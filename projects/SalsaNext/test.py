@@ -76,11 +76,8 @@ def test(model, cfg, logger):
     test_dataloader = gorilla.build_dataloader(cfg.dataset,
                                                cfg.dataloader)
 
-    label_name = test_dataloader.dataset.label_name
-    unique_label = np.asarray(sorted(list(label_name.keys())))[1:] - 1
-    unique_label_str = [label_name[x] for x in unique_label + 1]
 
-    hist_list = []
+    evaluator = gorilla3d.KittiSemanticEvaluator()
     with torch.no_grad():
         model = model.eval()
 
@@ -98,22 +95,14 @@ def test(model, cfg, logger):
             proj_output = model(proj_in)
             proj_argmax = proj_output.argmax(dim=1)
 
-            ## calculate iou for evaluation
-            # scan batch
             for i in range(proj_in.shape[0]):
-                # first cut to rela size (batch size one allows it)
                 npoint = npoints[i]
                 p_x = p_xs[i, :npoint]
                 p_y = p_ys[i, :npoint]
-
-                unproj_pred_ids = proj_argmax[i, p_y, p_x].cpu().numpy() # [N]
-                proj_label = proj_labels[i, p_y, p_x].cpu().numpy() # [N]
-                proj_label[proj_label == -1] = 0
-                hist_list.append(
-                    salsa.fast_hist_crop(
-                        unproj_pred_ids, proj_label, unique_label
-                    )
-                )
+                inputs = [{"scene_name": i_iter * proj_in.shape[0] + i}]
+                outputs = [{"semantic_pred": proj_argmax[i, p_y, p_x],
+                            "semantic_gt": proj_labels[i, p_y, p_x]}]
+            evaluator.process(inputs, outputs)
 
             total_time = timer.since_start()
             logger.info(
@@ -121,14 +110,7 @@ def test(model, cfg, logger):
                 f"time: total {total_time:.2f}s data: {data_time:.2f}s ")
             timer.reset()
 
-        # avgs = evaluator.evaluate()
-        # TODO: package in gorilla3d
-        iou = salsa.per_class_iu(sum(hist_list))
-        logger.info("Validation per class iou: ")
-        for class_name, class_iou in zip(unique_label_str, iou):
-            logger.info(f"{class_name:<14s}: {class_iou * 100:>5.3f}")
-        val_miou = np.nanmean(iou) * 100
-        logger.info(f"Current val miou is {val_miou:>5.3f}")
+        avgs = evaluator.evaluate()
 
 
 if __name__ == "__main__":
