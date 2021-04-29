@@ -52,10 +52,11 @@ class ClassificationEvaluator(gorilla.evaluation.DatasetEvaluator):
         for i, k in enumerate(self._top_k):
             acc_dict[f"Top_{k} Acc"] = acc[i]
             
-        acc_table = gorilla.create_small_table(acc_dict, tablefmt="psql",)
+        acc_table = gorilla.create_small_table(acc_dict)
         self.logger.info("Evaluation results for classification:")
         for line in acc_table.split("\n"):
             self.logger.info(line)
+        self.logger.info("")
 
         if show_per_class:
             totals, corrects = gorilla.accuracy_for_each_class(self._predictions, self._labels.view(-1, 1), self.num_classes) # [num_classes]
@@ -70,11 +71,11 @@ class ClassificationEvaluator(gorilla.evaluation.DatasetEvaluator):
             acc_table = gorilla.table(
                 results_2d,
                 headers=["class", "Acc"] * (N_COLS // 2),
-                tablefmt="psql",
             )
             for line in acc_table.split("\n"):
                 self.logger.info(line)
             self.logger.info(f"mean: {corrects_per_class.mean():.4f}")
+            self.logger.info("")
         
         if return_acc:
             return acc

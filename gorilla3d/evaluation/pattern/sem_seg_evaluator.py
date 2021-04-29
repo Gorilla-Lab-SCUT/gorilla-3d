@@ -61,15 +61,24 @@ class SemanticEvaluator(gorilla.evaluation.DatasetEvaluator):
         # calculate ious
         tp = np.diag(filter_confusion) # [num_class]
         denom = filter_confusion.sum(1) + filter_confusion.sum(0) - np.diag(filter_confusion) # [num_class]
-        ious = tp / denom # [num_class]
+        ious = (tp / denom) * 100 # [num_class]
 
-        #### print
-        self.logger.info("classes          IoU")
-        self.logger.info("-" * 45)
-        mean_iou = 0
+        # build IoU table
+        haeders = ["class", "IoU", "TP/(TP+FP+FN)"]
+        results = []
+        self.logger.info("Evaluation results for semantic segmentation:")
+        max_length = max(15, max(map(lambda x: len(x), self.class_labels)))
         for i, class_label in enumerate(self.class_labels):
-            self.logger.info(f"{class_label:<14s}: {ious[i]:>5.3f}   ({tp[i]:>6d}/{denom[i]:<6d})")
-        mean_iou = np.nanmean(ious)
-        self.logger.info(f"mean: {mean_iou:>5.4f}")
+            results.append((class_label.ljust(max_length, " "), ious[i], f"({tp[i]:>6d}/{denom[i]:<6d})"))
+        acc_table = gorilla.table(
+            results,
+            headers=haeders,
+            stralign="left"
+        )
+        for line in acc_table.split("\n"):
+            self.logger.info(line)
+        self.logger.info(f"mean: {np.nanmean(ious):.1f}")
+        self.logger.info("")
+
 
 

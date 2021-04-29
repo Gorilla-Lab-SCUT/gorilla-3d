@@ -142,40 +142,33 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
             self.print_prec_recall()
 
     def print_results(self):
-        sep = ""
-        col1 = ":"
-        lineLen = 64
-
-        self.logger.info("")
-        self.logger.info("#" * lineLen)
-        line = ""
-        line += f"{'what  ':<15}" + sep + col1
-        line += f"{'AP    ':>15}" + sep
-        line += f"{'AP_50%':>15}" + sep
-        line += f"{'AP_25%':>15}" + sep
-        self.logger.info(line)
-        self.logger.info("#" * lineLen)
-
-        for (li, label_name) in enumerate(self.class_labels):
-            ap_avg = self.avgs["classes"][label_name]["ap"]
-            ap_50o = self.avgs["classes"][label_name]["ap50%"]
-            ap_25o = self.avgs["classes"][label_name]["ap25%"]
-            line = f"{label_name:<15}" + sep + col1
-            line += sep + f"{ap_avg:>15.3f}" + sep
-            line += sep + f"{ap_50o:>15.3f}" + sep
-            line += sep + f"{ap_25o:>15.3f}" + sep
+        haeders = ["class", "AP", "AP_50%", "AP_25%"]
+        results = []
+        max_length = max(15, max(map(lambda x: len(x), self.class_labels)))
+        self.logger.info("Evaluation average precision(AP) for instance segmentation:")
+        for (li, class_label) in enumerate(self.class_labels):
+            ap_avg = self.avgs["classes"][class_label]["ap"]
+            ap_50o = self.avgs["classes"][class_label]["ap50%"]
+            ap_25o = self.avgs["classes"][class_label]["ap25%"]
+            results.append((class_label.ljust(max_length, " "), ap_avg, ap_50o, ap_25o))
+        
+        ap_table = gorilla.table(
+            results,
+            headers=haeders,
+            stralign="left"
+        )
+        for line in ap_table.split("\n"):
             self.logger.info(line)
 
-        all_ap_avg = self.avgs["all_ap"]
-        all_ap_50o = self.avgs["all_ap_50%"]
-        all_ap_25o = self.avgs["all_ap_25%"]
-
-        self.logger.info("-" * lineLen)
-        line = f"{'average':<15}" + sep + col1
-        line += f"{all_ap_avg:>15.3f}" + sep
-        line += f"{all_ap_50o:>15.3f}" + sep
-        line += f"{all_ap_25o:>15.3f}" + sep
-        self.logger.info(line)
+        # print mean results
+        self.logger.info("Mean average precision(AP):")
+        mean_ap_dict = {}
+        for idx, metric in zip(["all_ap", "all_ap_50%", "all_ap_25%"], ["AP", "AP_50%", "AP_25%"]):
+            mean_ap_dict[metric] = self.avgs[idx]
+            
+        acc_table = gorilla.create_small_table(mean_ap_dict)
+        for line in acc_table.split("\n"):
+            self.logger.info(line)
         self.logger.info("")
 
 
@@ -410,25 +403,39 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
                 TP_FP_Total[class_id]["FP"] += len(flag_pred) - np.sum(flag_pred)
                 TP_FP_Total[class_id]["Total"] += len(ins_gt_tp)
 
-        lineLen = 50
-
+        # build precision-recall table
         pre_all = []
         rec_all = []
-        self.logger.info("")
-        self.logger.info("#" * lineLen)
-
-        self.logger.info(f"{'what  ':<15}: {'precision':>15} {'recall':>15}")
+        haeders = ["class", "precision", "recall"]
+        results = []
+        self.logger.info("Evaluation precision and recall for instance segmentation:")
+        max_length = max(15, max(map(lambda x: len(x), self.class_labels)))
         for class_id, class_label in zip(self.valid_class_ids, self.class_labels):
             TP = TP_FP_Total[class_id]["TP"]
             FP = TP_FP_Total[class_id]["FP"]
             Total = TP_FP_Total[class_id]["Total"]
             pre = float(TP) / (TP + FP + 1e-8)
             rec = float(TP) / (Total + 1e-8)
-            self.logger.info(f"{class_label:<15}： {pre:>15.3f} {rec:>15.3f}")
+            results.append((class_label.ljust(max_length, " "), pre, rec))
             pre_all.append(pre)
             rec_all.append(rec)
 
-        self.logger.info("-" * lineLen)
-        self.logger.info(f"{'average':<15}: {np.mean(pre_all):>15.3f} {np.mean(rec_all):>15.3f}")
+        pre_rec_table = gorilla.table(
+            results,
+            headers=haeders,
+            stralign="left"
+        )
+        for line in pre_rec_table.split("\n"):
+            self.logger.info(line)
+        
+        # print mean results
+        self.logger.info("Mean precision and recall:")
+        mean_pr_dict = {}
+        for metric, value in zip(["precision", "recall"], [np.mean(pre_all), np.mean(rec_all)]):
+            mean_pr_dict[metric] = f"{value:.3f}"
+            
+        acc_table = gorilla.create_small_table(mean_pr_dict)
+        for line in acc_table.split("\n"):
+            self.logger.info(line)
         self.logger.info("")
 
