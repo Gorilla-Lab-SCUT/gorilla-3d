@@ -67,9 +67,8 @@ class SemanticEvaluator(gorilla.evaluation.DatasetEvaluator):
         self.logger.info("classes          IoU")
         self.logger.info("-" * 45)
         mean_iou = 0
-        for i in range(len(self.valid_class_ids)):
-            label_name = self.class_labels[i]
-            self.logger.info(f"{label_name:<14s}: {ious[i]:>5.3f}   ({tp[i]:>6d}/{denom[i]:<6d})")
+        for i, class_label in enumerate(self.class_labels):
+            self.logger.info(f"{class_label:<14s}: {ious[i]:>5.3f}   ({tp[i]:>6d}/{denom[i]:<6d})")
         mean_iou = np.nanmean(ious)
         self.logger.info(f"mean: {mean_iou:>5.3f}")
 

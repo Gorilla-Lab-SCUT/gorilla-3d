@@ -69,7 +69,7 @@ def do_train(model, cfg, logger):
     iter = meta.get("iter", 0) + 1
     
     # build train dataset
-    cfg.dataset.split = "train" # change split manually
+    cfg.dataset.task = "train" # change split manually
     dataset = gorilla.build_dataset(cfg.dataset)
     # build dataloader
     train_dataloader = gorilla.build_dataloader(dataset,
@@ -230,8 +230,8 @@ if __name__ == "__main__":
     # get the args
     args = get_parser()
 
-    # auto using the free gpus
-    gorilla.set_cuda_visible_devices(num_gpu=args.num_gpus)
+    # # auto using the free gpus
+    # gorilla.set_cuda_visible_devices(num_gpu=args.num_gpus)
 
     # launcher (necessary for distributed)
     gorilla.launch(

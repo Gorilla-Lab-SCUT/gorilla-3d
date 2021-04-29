@@ -11,47 +11,6 @@ import numpy as np
 from tqdm import tqdm
 from torch.utils.data import Dataset
 
-ID2CLASS = {0: "bed",
-            1: "tv_stand",
-            2: "xbox",
-            3: "person",
-            4: "night_stand",
-            5: "curtain",
-            6: "bottle",
-            7: "bench",
-            8: "mantel",
-            9: "plant",
-            10: "flower_pot",
-            11: "tent",
-            12: "stairs",
-            13: "radio",
-            14: "monitor",
-            15: "guitar",
-            16: "bathtub",
-            17: "door",
-            18: "piano",
-            19: "cone",
-            20: "keyboard",
-            21: "bowl",
-            22: "airplane",
-            23: "dresser",
-            24: "cup",
-            25: "vase",
-            26: "sofa",
-            27: "range_hood",
-            28: "glass_box",
-            29: "car",
-            30: "bookshelf",
-            31: "lamp",
-            32: "stool",
-            33: "desk",
-            34: "sink",
-            35: "chair",
-            36: "toilet",
-            37: "table",
-            38: "laptop",
-            39: "wardrobe"}
-
 
 def pc_normalize(pc):
     centroid = np.mean(pc, axis=0)
@@ -92,8 +51,9 @@ class ModelNetCls(Dataset):
                  num_category: int,
                  use_uniform_sample: bool,
                  use_normals: bool=False,
-                 split: int="train",
+                 task: int="train",
                  process_data: bool=False):
+        self.logger = gorilla.derive_logger(__name__)
         self.root = root
         self.npoints = num_point
         self.process_data = process_data
@@ -117,20 +77,20 @@ class ModelNetCls(Dataset):
             shape_ids["train"] = [line.rstrip() for line in open(os.path.join(self.root, "modelnet40_train.txt"))]
             shape_ids["test"] = [line.rstrip() for line in open(os.path.join(self.root, "modelnet40_test.txt"))]
 
-        assert (split == "train" or split == "test")
-        shape_names = ["_".join(x.split("_")[0:-1]) for x in shape_ids[split]]
-        self.datapath = [(shape_names[i], os.path.join(self.root, shape_names[i], shape_ids[split][i]) + ".txt") for i
-                         in range(len(shape_ids[split]))]
-        print("The size of %s data is %d" % (split, len(self.datapath)))
+        assert (task == "train" or task == "test"), f"task must be `train` or `test`, but got {task}"
+        shape_names = ["_".join(x.split("_")[0:-1]) for x in shape_ids[task]]
+        self.datapath = [(shape_names[i], os.path.join(self.root, shape_names[i], shape_ids[task][i]) + ".txt") for i
+                         in range(len(shape_ids[task]))]
+        self.logger.info("The size of %s data is %d" % (task, len(self.datapath)))
 
         if self.uniform:
-            self.save_path = os.path.join(root, "modelnet%d_%s_%dpts_fps.dat" % (self.num_category, split, self.npoints))
+            self.save_path = os.path.join(root, "modelnet%d_%s_%dpts_fps.dat" % (self.num_category, task, self.npoints))
         else:
-            self.save_path = os.path.join(root, "modelnet%d_%s_%dpts.dat" % (self.num_category, split, self.npoints))
+            self.save_path = os.path.join(root, "modelnet%d_%s_%dpts.dat" % (self.num_category, task, self.npoints))
 
         if self.process_data:
             if not os.path.exists(self.save_path):
-                print("Processing data %s (only running in the first time)..." % self.save_path)
+                self.logger.info("Processing data %s (only running in the first time)..." % self.save_path)
                 self.list_of_points = [None] * len(self.datapath)
                 self.list_of_labels = [None] * len(self.datapath)
 
@@ -151,7 +111,7 @@ class ModelNetCls(Dataset):
                 with open(self.save_path, "wb") as f:
                     pickle.dump([self.list_of_points, self.list_of_labels], f)
             else:
-                print("Load processed data from %s..." % self.save_path)
+                self.logger.info("Load processed data from %s..." % self.save_path)
                 with open(self.save_path, "rb") as f:
                     self.list_of_points, self.list_of_labels = pickle.load(f)
 
@@ -183,7 +143,7 @@ class ModelNetCls(Dataset):
 if __name__ == "__main__":
     import torch
 
-    data = ModelNetCls("/data/modelnet40_normal_resampled/", split="train")
+    data = ModelNetCls("/data/modelnet40_normal_resampled/", task="train")
     DataLoader = torch.utils.data.DataLoader(data, batch_size=12, shuffle=True)
     for point, label in DataLoader:
         print(point.shape)

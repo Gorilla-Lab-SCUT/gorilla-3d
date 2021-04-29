@@ -4,6 +4,6 @@ from .scannet_evaluator import (ScanNetSemanticEvaluator,
 from .s3dis_evaluator import (S3DISSemanticEvaluator,
                               S3DISInstanceEvaluator, S3DISEvaluator)
 from .kitti_evaluator import (KittiSemanticEvaluator)
-
+from .modelnet_evaluator import (ModelNetClassificationEvaluator)
 
 __all__ = [k for k in globals().keys() if not k.startswith("_")]

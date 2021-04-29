@@ -43,6 +43,10 @@ class ScanNetSemanticEvaluator(SemanticEvaluator):
                 or list of dicts with key "sem_seg" that contains semantic
                 segmentation prediction in the same format.
         """
+        if not isinstance(inputs, List):
+            inputs = [inputs]
+        if not isinstance(outputs, List):
+            outputs = [outputs]
         for input, output in zip(inputs, outputs):
             scene_name = input["scene_name"]
             semantic_gt = self.read_gt(osp.join(self.dataset_root, scene_name), scene_name)
@@ -98,6 +102,10 @@ class ScanNetInstanceEvaluator(InstanceEvaluator):
                 or list of dicts with key "sem_seg" that contains semantic
                 segmentation prediction in the same format.
         """
+        if not isinstance(inputs, List):
+            inputs = [inputs]
+        if not isinstance(outputs, List):
+            outputs = [outputs]
         for input, output in zip(inputs, outputs):
             scene_name = input["scene_name"]
             gt_file = osp.join(self._dataset_root, scene_name + ".txt")

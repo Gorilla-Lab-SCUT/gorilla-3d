@@ -29,10 +29,6 @@ def get_parser():
                         default=None,
                         help="log_file path")
 
-    parser.add_argument("--preload-labels",
-                        action="store_true",
-                        help="preload labels or not")
-
     # runing test set or not
     # TODO: add the test set result storage
     parser.add_argument("--test",
@@ -48,7 +44,6 @@ def init():
     args = get_parser()
     cfg = gorilla.Config.fromfile(args.config)
     cfg.pretrain = args.pretrain
-    cfg.dataset.preload_labels = args.preload_labels
 
     log_dir, logger = gorilla.collect_logger(
         prefix=os.path.splitext(args.config.split("/")[-1])[0],
@@ -137,12 +132,6 @@ if __name__ == "__main__":
     gorilla.load_checkpoint(
         model, cfg.pretrain
     )  # resume from the latest epoch, or specify the epoch to restore
-
-    ##### dataset
-    cfg.dataset.task = "val"  # change task
-    cfg.dataloader.batch_size = 1
-    test_dataloader = gorilla.build_dataloader(cfg.dataset,
-                                               cfg.dataloader)
 
     ##### evaluate
     test(model, cfg, logger)

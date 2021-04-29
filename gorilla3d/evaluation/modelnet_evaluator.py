@@ -1,31 +1,32 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
-from typing import List, Union
+from typing import List, Tuple, Union
 
 import numpy as np
 
-from .pattern import SemanticEvaluator
+from .pattern import ClassificationEvaluator
 
 
 CLASS_LABELS = [
-    "car", "bicycle", "motorcycle", "truck", "bus", "person", "bicyclist",
-    "motorcyclist", "road", "parking", "sidewalk", "other-ground",
-    "building", "fence", "vegetation", "trunk", "terrain", "pole", "traffic-sign"
+    "bed", "tv_stand", "xbox", "person", "night_stand", "curtain", "bottle", "bench",
+    "mantel", "plant", "flower_pot", "tent", "stairs", "radio", "monitor", "guitar",
+    "bathtub", "door", "piano", "cone", "keyboard", "bowl", "airplane", "dresser",
+    "cup", "vase", "sofa", "range_hood", "glass_box", "car", "bookshelf", "lamp",
+    "stool", "desk", "sink", "chair", "toilet", "table", "laptop", "wardrobe",
 ]
-
 
 VALID_CLASS_IDS = np.arange(len(CLASS_LABELS))
 
-class KittiSemanticEvaluator(SemanticEvaluator):
+class ModelNetClassificationEvaluator(ClassificationEvaluator):
     def __init__(self,
-                 num_classes: int=19,
-                 avoid_zero: bool=True,
+                 num_classes: int=len(CLASS_LABELS),
                  class_labels: List[str]=CLASS_LABELS,
                  valid_class_ids: Union[np.ndarray, List[int]]=VALID_CLASS_IDS,
+                 top_k: Tuple[int]=(1, 5),
                  **kwargs):
         super().__init__(num_classes,
-                         avoid_zero,
                          class_labels,
                          valid_class_ids,
+                         top_k,
                          **kwargs)
 
     def process(self, inputs, outputs):
@@ -41,8 +42,8 @@ class KittiSemanticEvaluator(SemanticEvaluator):
         if not isinstance(outputs, List):
             outputs = [outputs]
         for input, output in zip(inputs, outputs):
-            semantic_pred = output["semantic_pred"].cpu().clone().numpy()
-            semantic_gt = output["semantic_gt"].cpu().clone().numpy()
-            self.fill_confusion(semantic_pred, semantic_gt)
+            prediction = output["prediction"].cpu().clone()
+            labels = output["labels"].cpu().clone()
+            self.match(prediction, labels)
 
 
