@@ -253,6 +253,9 @@ def main(args):
     seed = cfg.get("seed", 0)
     gorilla.set_random_seed(seed)
 
+    # log the config
+    logger.info(cfg)
+
     # model
     logger.info("=> creating model ...")
 
@@ -279,8 +282,8 @@ if __name__ == "__main__":
     # get the args
     args = get_parser()
 
-    # auto using the free gpus
-    gorilla.set_cuda_visible_devices(num_gpu=args.num_gpus)
+    # # auto using the free gpus(NOTE: need to fix)
+    # gorilla.set_cuda_visible_devices(num_gpu=args.num_gpus)
 
     gorilla.launch(
         main,

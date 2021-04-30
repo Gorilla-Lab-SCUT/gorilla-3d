@@ -245,8 +245,8 @@ if __name__ == "__main__":
     # get the args
     args = get_parser()
 
-    # auto using the free gpus
-    gorilla.set_cuda_visible_devices(num_gpu=args.num_gpus)
+    # # auto using the free gpus(NOTE: need to fix)
+    # gorilla.set_cuda_visible_devices(num_gpu=args.num_gpus)
 
     # launcher (necessary for distributed)
     gorilla.launch(
