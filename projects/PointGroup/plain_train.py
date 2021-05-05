@@ -197,11 +197,9 @@ def do_train(model, cfg, logger):
         checkpoint = osp.join(cfg.log_dir, "epoch_{0:05d}.pth".format(epoch))
         gorilla.save_checkpoint(model=model,
                                 filename=checkpoint,
-                                optimizer=optimizer,
-                                scheduler=lr_scheduler,
                                 meta=meta)
         logger.info("Saving " + checkpoint)
-        # save as latest checkpoint
+        # save as latest checkpoint (contain optimizer and lr_scheduler)
         latest_checkpoint = osp.join(cfg.log_dir, "epoch_latest.pth")
         gorilla.save_checkpoint(model=model,
                                 filename=latest_checkpoint,

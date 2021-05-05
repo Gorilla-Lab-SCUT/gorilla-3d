@@ -1,11 +1,13 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
 from typing import List
+from functools import partial
 
 try:
     from itertools import  ifilterfalse
 except ImportError: # py3k
     from itertools import  filterfalse as ifilterfalse
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -15,25 +17,45 @@ import gorilla
 @gorilla.LOSSES.register_module()
 class SalsaLoss(nn.Module):
     def __init__(self,
-                 num_class: int=20,
+                 num_classes: int=20,
                  ignore_label: int=-1,
                  loss_weight: List[float]=[1.0, 1.0],
+                 label_mapping: str="data/kitti/semantic-kitti.yaml",
                  **kwargs):
         super().__init__()
-        self.ce_criterion = SoftmaxHeteroscedasticLoss()
-        self.lovasz_criterion = gorilla.losses.lovasz_loss
+        # get the label mapper
+        self.semkittiyaml = gorilla.load(label_mapping)
+        self.learning_map = self.semkittiyaml["learning_map"]
+        self.label_mapper = np.vectorize(self.learning_map.__getitem__)
 
-        self.num_class = num_class
+        # build the weighted cross entropy
+        epsilon_w = 0.001
+        content = torch.zeros(num_classes, dtype=torch.float)
+        for cl, freq in self.semkittiyaml["content"].items():
+            x_cl = self.label_mapper(cl)  # map actual class to xentropy class
+            content[x_cl] += freq
+        loss_w = 1 / (content + epsilon_w)  # get weights
+        for x_cl, w in enumerate(loss_w):  # ignore the ones necessary to ignore
+            if self.semkittiyaml["learning_ignore"][x_cl]:
+                # don't weigh
+                loss_w[x_cl] = 0
+
+        loss_w = loss_w.cuda()
+        self.ce_criterion = nn.NLLLoss(weight=loss_w)
+
+        self.lovasz_criterion = partial(gorilla.losses.lovasz_loss, ignore=0)
+
         self.ignore_label = ignore_label
         self.ce_weight, self.lovasz_weight = loss_weight
 
     def forward(self, loss_input):
-        prediction = loss_input["prediction"] # [B, num_class, H, W, L]
-        softmax_prediction = F.softmax(prediction, dim=1) # [B, num_class, H, W, L]
-        labels = loss_input["labels"] # [B, H, W, L]
+        prediction = loss_input["prediction"] # [B, num_class, H, W]
+        softmax_prediction = F.softmax(prediction, dim=1) # [B, num_class, H, W]
+        labels = loss_input["labels"] # [B, H, W]
 
         # TODO: lovasz_criterion need to fix
-        loss = self.ce_weight * self.ce_criterion(prediction, labels) + \
+        log_pred = torch.log(prediction.clamp(min=1e-8))
+        loss = self.ce_weight * self.ce_criterion(log_pred, labels) + \
                self.lovasz_weight * self.lovasz_criterion(softmax_prediction, labels)
 
         return loss
@@ -41,14 +63,15 @@ class SalsaLoss(nn.Module):
 
 # modify from https://github.com/Halmstad-University/SalsaNext/blob/master/train/tasks/semantic/modules/trainer.py
 class SoftmaxHeteroscedasticLoss(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, num_classes: int=20):
         super(SoftmaxHeteroscedasticLoss, self).__init__()
         keep_variance_fn = lambda x: x + 1e-3
+        self.num_classes = num_classes
         self.adf_softmax = Softmax(dim=1, keep_variance_fn=keep_variance_fn)
 
     def forward(self, outputs, targets, eps=1e-5):
         mean, var = self.adf_softmax(*outputs)
-        targets = torch.nn.functional.one_hot(targets, num_classes=20).permute(0,3,1,2).float()
+        targets = F.one_hot(targets, num_classes=self.num_classes).permute(0,3,1,2).float()
 
         precision = 1 / (var + eps)
         return torch.mean(0.5 * precision * (targets - mean) ** 2 + 0.5 * torch.log(var + eps))
