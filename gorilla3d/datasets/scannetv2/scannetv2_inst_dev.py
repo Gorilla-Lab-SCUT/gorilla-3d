@@ -42,7 +42,7 @@ class ScanNetV2Inst(Dataset):
         self.load_files()
     
     def load_files(self):
-        file_names = sorted(glob.glob(osp.join(self.data_root, self.task, "*.pth")))[:50]
+        file_names = sorted(glob.glob(osp.join(self.data_root, self.task, "*.pth")))
         self.files = [torch.load(i) for i in gorilla.track(file_names)]
         self.logger.info(f"{self.task} samples: {len(self.files)}")
         # load superpoint
