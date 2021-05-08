@@ -25,6 +25,7 @@ class ScanNetV2Inst(Dataset):
                  task: str="train",
                  with_elastic: bool=False,
                  test_mode: bool=False,
+                 with_superpoints: bool=True,
                  **kwargs):
         
         # initialize dataset parameters
@@ -36,21 +37,26 @@ class ScanNetV2Inst(Dataset):
         self.task = task
         self.with_elastic = with_elastic
         self.test_mode = test_mode
+        self.with_superpoints = with_superpoints
         # load files
         self.load_files()
     
     def load_files(self):
-        file_names = sorted(glob.glob(osp.join(self.data_root, self.task, "*.pth")))
+        file_names = sorted(glob.glob(osp.join(self.data_root, self.task, "*.pth")))[:50]
         self.files = [torch.load(i) for i in gorilla.track(file_names)]
         self.logger.info(f"{self.task} samples: {len(self.files)}")
         # load superpoint
         self.superpoints = []
         sub_dir = "scans_test" if "test" in self.task else "scans"
         for file in gorilla.track(self.files):
-            scene = file[-1]
-            with open(osp.join(self.data_root, sub_dir, scene, scene+"_vh_clean_2.0.010000.segs.json"), "r") as f:
-                superpoint = json.load(f)
-            self.superpoints.append(np.array(superpoint["segIndices"]))
+            if self.with_superpoints:
+                scene = file[-1]
+                with open(osp.join(self.data_root, sub_dir, scene, scene+"_vh_clean_2.0.010000.segs.json"), "r") as f:
+                    superpoint = json.load(f)
+                self.superpoints.append(np.array(superpoint["segIndices"]))
+            else:
+                # fake superpoints
+                self.superpoints.append(np.zeros(file[0].shape[0]))
 
     def __getitem__(self, index):
         aug_flag = "train" in self.task
