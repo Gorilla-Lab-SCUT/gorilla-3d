@@ -1,17 +1,18 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
-import json
+import os
 import glob
-import os.path as osp
 from typing import List
 
 import gorilla
 import numpy as np
+import open3d as o3d
 import torch
 from torch.utils.data import Dataset
 
 from ...utils import elastic, pc_aug
 
 try:
+    import segmentator
     import pointgroup_ops
 except:
     pass
@@ -42,25 +43,24 @@ class ScanNetV2Inst(Dataset):
         self.load_files()
     
     def load_files(self):
-        file_names = sorted(glob.glob(osp.join(self.data_root, self.task, "*.pth")))
+        file_names = sorted(glob.glob(os.path.join(self.data_root, self.task, "*.pth")))
         self.files = [torch.load(i) for i in gorilla.track(file_names)]
         self.logger.info(f"{self.task} samples: {len(self.files)}")
-        # load superpoint
-        self.superpoints = []
-        sub_dir = "scans_test" if "test" in self.task else "scans"
-        for file in gorilla.track(self.files):
-            if self.with_superpoints:
-                scene = file[-1]
-                with open(osp.join(self.data_root, sub_dir, scene, scene+"_vh_clean_2.0.010000.segs.json"), "r") as f:
-                    superpoint = json.load(f)
-                self.superpoints.append(np.array(superpoint["segIndices"]))
-            else:
-                # fake superpoints
-                self.superpoints.append(np.zeros(file[0].shape[0]))
+
+    def read_superpoint(self, sub_dir: str, scene: str):
+        # read superpoint
+        mesh_file = os.path.join(os.path.join(self.data_root, sub_dir, scene, scene+"_vh_clean_2.ply"))
+        mesh = o3d.io.read_triangle_mesh(mesh_file)
+        vertices = torch.from_numpy(np.array(mesh.vertices).astype(np.float32))
+        faces = torch.from_numpy(np.array(mesh.triangles).astype(np.int64))
+        superpoint = segmentator.segment_mesh(vertices, faces).numpy()
+        return superpoint
 
     def __getitem__(self, index):
         aug_flag = "train" in self.task
+        sub_dir = "scans"
         if "test" in self.task:
+            sub_dir = "scans_test"
             xyz_origin, rgb, faces, scene = self.files[index]
             # construct fake label for label-lack testset
             semantic_label = np.zeros(xyz_origin.shape[0], dtype=np.int32)
@@ -69,7 +69,11 @@ class ScanNetV2Inst(Dataset):
             xyz_origin, rgb, faces, semantic_label, instance_label, coords_shift, scene = self.files[index]
 
         # read superpoint
-        superpoint = self.superpoints[index]
+        if self.with_superpoints:
+            superpoint = self.read_superpoint(sub_dir, scene)
+        else:
+            # pseudo superpoint
+            superpoint = np.zeros_like(semantic_label)
 
         ### jitter / flip x / rotation
         if aug_flag:

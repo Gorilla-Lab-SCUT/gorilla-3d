@@ -248,8 +248,7 @@ if __name__ == "__main__":
 
     Trainer = CylinderSolver(model,
                              [train_dataloader, val_dataloader],
-                             cfg,
-                             logger)
+                             cfg)
 
     checkpoint, epoch = get_checkpoint(cfg.log_dir)
     Trainer.epoch = epoch

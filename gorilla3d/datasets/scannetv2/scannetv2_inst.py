@@ -1,17 +1,19 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
-import json
+import os
 import glob
 import os.path as osp
 from abc import ABCMeta, abstractmethod
 
 import gorilla
 import numpy as np
+import open3d as o3d
 import torch
 from torch.utils.data import (Dataset, DataLoader)
 
 from ...utils import elastic, pc_aug
 
 try:
+    import segmentator
     import pointgroup_ops
 except:
     pass
@@ -46,14 +48,6 @@ class ScanNetV2Inst(Dataset, metaclass=ABCMeta):
         file_names = sorted(glob.glob(osp.join(self.data_root, self.dataset, self.task, "*" + self.filename_suffix)))
         self.files = [torch.load(i) for i in gorilla.track(file_names)]
         self.logger.info(f"{self.task} samples: {len(self.files)}")
-        # load superpoint
-        self.superpoints = []
-        sub_dir = "scans_test" if "test" in self.task else "scans"
-        for file in gorilla.track(self.files):
-            scene = file[-1]
-            with open(osp.join(self.data_root, self.dataset, sub_dir, scene, scene+"_vh_clean_2.0.010000.segs.json"), "r") as f:
-                superpoint = json.load(f)
-            self.superpoints.append(np.array(superpoint["segIndices"]))
 
     def __len__(self):
         return len(self.files)
@@ -72,6 +66,15 @@ class ScanNetV2Inst(Dataset, metaclass=ABCMeta):
     def dataloader(self, shuffle=True):
         return DataLoader(self, batch_size=self.batch_size, collate_fn=self.collate_fn, num_workers=self.workers,
                           shuffle=shuffle, sampler=None, drop_last=True, pin_memory=True)
+
+    def read_superpoint(self, sub_dir: str, scene: str):
+        # read superpoint
+        mesh_file = os.path.join(os.path.join(self.data_root, sub_dir, scene, scene+"_vh_clean_2.ply"))
+        mesh = o3d.io.read_triangle_mesh(mesh_file)
+        vertices = torch.from_numpy(np.array(mesh.vertices).astype(np.float32))
+        faces = torch.from_numpy(np.array(mesh.triangles).astype(np.int64))
+        superpoint = segmentator.segment_mesh(vertices, faces).numpy()
+        return superpoint
 
     def crop(self, xyz):
         """
@@ -139,7 +142,7 @@ class ScanNetV2InstTrainVal(ScanNetV2Inst):
     def getitem(self, index):
         xyz_origin, rgb, faces, semantic_label, instance_label, coords_shift, scene = self.files[index]
         # read superpoint
-        superpoint = self.superpoints[index]
+        superpoint = self.read_superpoint("scans", scene)
 
         ### jitter / flip x / rotation
         if self.split=="train":
@@ -271,7 +274,7 @@ class ScanNetV2InstTest(ScanNetV2Inst):
             xyz_origin, rgb, faces, scene = self.files[index]
 
         # read superpoint
-        superpoint = self.superpoints[index]
+        superpoint = self.read_superpoint("scans", scene)
         
         # read edge
         edges = np.concatenate([faces[:, :2], faces[:, 1:], faces[:, [0, 2]]]) # [nEdges, 2]

@@ -1,7 +1,6 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
 import math
 from typing import Optional, Union
-from numpy.lib.arraysetops import isin
 
 import torch
 import numpy as np

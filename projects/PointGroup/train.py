@@ -292,6 +292,7 @@ if __name__ == "__main__":
     ##### dataset
     # get the real data root
     cfg.dataset.task = "train"  # change task
+    train_dataset = gorilla.build_dataset(cfg.dataset)
     train_dataloader = gorilla.build_dataloader(cfg.dataset,
                                                 cfg.dataloader,
                                                 shuffle=True,
@@ -302,8 +303,7 @@ if __name__ == "__main__":
 
     Trainer = PointGroupSolver(model,
                                [train_dataloader, val_dataloader],
-                               cfg,
-                               logger)
+                               cfg)
 
     checkpoint, epoch = get_checkpoint(cfg.log_dir)
     Trainer.epoch = epoch

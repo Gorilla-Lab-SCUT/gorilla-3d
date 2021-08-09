@@ -36,6 +36,7 @@ class KittiSem(Dataset):
                     max_volume_space=[50, np.pi, 2],
                     use_voxel_center=False,
                  ),
+                 with_instance: bool=False,
                  **kwargs):
         self.logger = gorilla.derive_logger(__name__)
         self.return_ref = return_ref
@@ -46,6 +47,7 @@ class KittiSem(Dataset):
         assert task in ["train", "val", "test"], f"`task` must be in ['train', 'val', 'test'], but got {task}"
         self.sequences = self.semkittiyaml["split"][task]
         self.task = task
+        self.with_instance = with_instance
 
         self.data_files = []
         for i_folder in self.sequences:
@@ -77,12 +79,15 @@ class KittiSem(Dataset):
         return len(self.data_files)
 
     def __getitem__(self, index):
-        raw_data = np.fromfile(self.data_files[index], dtype=np.float32).reshape((-1, 4)) # [N, 4]
+        data_file = self.data_files[index]
+        scene_name = (f"{data_file.split('/')[-3]}_{data_file.split('/')[-1].split('.')[0]}") # xx_yyyyyy
+        raw_data = np.fromfile(data_file, dtype=np.float32).reshape((-1, 4)) # [N, 4]
         if self.task == "test":
             annotated_data = np.expand_dims(np.zeros_like(raw_data[:, 0], dtype=int), axis=1)
         else:
             annotated_data = np.fromfile(self.data_files[index].replace("velodyne", "labels").replace(".bin", ".label"),
                                          dtype=np.int32).reshape((-1, 1)) # [N, 1]
+            instance_label = annotated_data.copy()
             annotated_data = annotated_data & 0xFFFF  # delete high 16 digits binary
             annotated_data = self.label_mapper(annotated_data) # annotated id map
 
@@ -131,6 +136,11 @@ class KittiSem(Dataset):
             proj_y = np.pad(self.scan.proj_y, (0, num_pad), constant_values=(-1.0, -1.0)).astype(np.int64) # [max_points]
             data_tuple += (proj, proj_label, proj_x, proj_y, npoint)
 
+        if self.with_instance:
+            data_tuple += (instance_label, )
+        
+        data_tuple += (scene_name, )
+
         return data_tuple
 
     @property
@@ -148,14 +158,20 @@ class KittiSem(Dataset):
         point_labels = []
         point_xyzs = []
         point_features = []
+        scene_names = []
         # TODO: ugly
-        proj_flag = len(batch[0]) > 6
+        proj_flag = len(batch[0]) >= 12
         if proj_flag:
             projs = []
             proj_labels = []
             proj_xs = []
             proj_ys = []
             npoints = []
+        
+        # TODO: ugly
+        instance_flag = len(batch[0]) == 8 or len(batch[0]) == 13
+        if instance_flag:
+            instance_labels = []
 
         for i, b in enumerate(batch):
             voxel_centers.append(torch.from_numpy(b[0]).float())
@@ -170,7 +186,9 @@ class KittiSem(Dataset):
                 proj_xs.append(torch.from_numpy(b[8]).long())
                 proj_ys.append(torch.from_numpy(b[9]).long())
                 npoints.append(torch.Tensor(b[10]).long())
-
+            if instance_flag:
+                instance_labels.append(torch.from_numpy(b[-2])) # NOTE: point-wise not voxel-wise
+            scene_names.append(b[-1])
         
         voxel_centers = torch.stack(voxel_centers) # [B, H, W, D, 3]
         voxel_labels = torch.stack(voxel_labels) # [B, H, W, D]
@@ -185,7 +203,8 @@ class KittiSem(Dataset):
             "grid_inds": grid_inds,
             "point_labels": point_labels,
             "point_xyzs": point_xyzs,
-            "point_features": point_features
+            "point_features": point_features,
+            "scene_names": scene_names
         }
 
         if proj_flag:
@@ -200,6 +219,11 @@ class KittiSem(Dataset):
                 "proj_xs": proj_xs,
                 "proj_ys": proj_ys,
                 "npoints": npoints,
+            })
+        
+        if instance_flag:
+            data.update({
+                "instance_labels": torch.cat(instance_labels, 0) # [N]
             })
 
         return data

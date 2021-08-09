@@ -23,7 +23,7 @@ solver:
 data:
   mode: 4 # 4=mean
   # test mode
-  split: test
+  split: val
   test_epoch: 384
   test_seed: 567
   test_workers: 8 # data loader workers
@@ -32,7 +32,7 @@ data:
   TEST_SCORE_THRESH: 0.09
   TEST_NPOINT_THRESH: 100
 
-  eval: False
+  eval: True
   save_semantic: False
   save_pt_offsets: False
   save_instance: False

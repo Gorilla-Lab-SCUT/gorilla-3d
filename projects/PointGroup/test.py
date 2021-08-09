@@ -160,7 +160,12 @@ def test(model, cfg, logger):
 
             data_time = timer.since_last()
 
-            ret = model(input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets, epoch, extra_data, mode="test", semantic_only=semantic)
+            ret = model(input_,
+                        p2v_map,
+                        coords_float,
+                        coords[:, 0].int(),
+                        epoch,
+                        semantic_only=semantic)
             semantic_scores = ret["semantic_scores"]  # [N, nClass] float32, cuda
             pt_offsets = ret["pt_offsets"]            # [N, 3], float32, cuda
             if (epoch > cfg.model.prepare_epochs) and not semantic:
@@ -249,6 +254,7 @@ def test(model, cfg, logger):
                         cross_ious.cpu().numpy(),
                         scores_pred.cpu().numpy(),
                         cfg.data.TEST_NMS_THRESH)  # int, (nCluster, N)
+
                 clusters = proposals_pred[pick_idxs]
                 cluster_scores = scores_pred[pick_idxs]
                 cluster_semantic_id = semantic_id[pick_idxs]
