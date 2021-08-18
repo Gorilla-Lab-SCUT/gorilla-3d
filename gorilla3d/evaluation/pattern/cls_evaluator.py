@@ -16,7 +16,7 @@ class ClassificationEvaluator(gorilla.evaluation.DatasetEvaluator):
     def __init__(self,
                  num_classes: int,
                  class_labels: List[str],
-                 valid_class_ids: List[int],
+                 class_ids: List[int],
                  top_k: Tuple[int],
                  **kwargs,):
         """
@@ -26,7 +26,7 @@ class ClassificationEvaluator(gorilla.evaluation.DatasetEvaluator):
         super().__init__() # init logger
         self.num_classes = num_classes
         self.class_labels = class_labels
-        self.valid_class_ids = valid_class_ids
+        self.class_ids = class_ids
         self._top_k = top_k
         self.reset()
 

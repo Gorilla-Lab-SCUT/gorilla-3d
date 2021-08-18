@@ -72,7 +72,8 @@ def pc_aug(xyz, jitter=False, flip=False, rot=False):
     return np.matmul(xyz, m)
 
 
-def square_distance(src, dst=None):
+def square_distance(src: Union[np.ndarray, torch.Tensor],
+                    dst: Optional[Union[np.ndarray, torch.Tensor]]=None):
     r"""Calculate Euclid distance between each two points.
         src^T * dst = xn * xm + yn * ym + zn * zm；
         sum(src^2, dim=-1) = xn*xn + yn*yn + zn*zn;
@@ -144,6 +145,7 @@ def save_lines(coords: np.ndarray,
     assert coords.shape[0] == vector.shape[0]
     assert coords.shape[1] == vector.shape[1] == 3
     N = coords.shape[0]
+    import open3d as o3d
     try:
         import open3d as o3d
         shifted_coords = coords + vector # [N, 3]
