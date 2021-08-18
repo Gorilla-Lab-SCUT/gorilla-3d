@@ -1,16 +1,13 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
 import glob
 import os.path as osp
-import logging
-from random import sample
 
-import gorilla
 import numpy as np
-from numpy.core.fromnumeric import sort
 import torch
 from torch.utils.data import (Dataset, DataLoader)
 
-from ...utils import elastic, pc_aug
+import gorilla
+from gorilla3d.utils import elastic, pc_aug
 
 try:
     import pointgroup_ops

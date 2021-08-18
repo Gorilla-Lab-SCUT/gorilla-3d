@@ -9,7 +9,7 @@ import open3d as o3d
 import torch
 from torch.utils.data import Dataset
 
-from ...utils import elastic, pc_aug
+from gorilla3d.utils import elastic, pc_aug
 
 try:
     import segmentator

@@ -5,12 +5,13 @@ import glob
 import argparse
 
 import torch
-import gorilla
-import gorilla3d
 import spconv
 
-import pointgroup
 import pointgroup_ops
+import gorilla
+import gorilla3d
+import gorilla3d.datasets as g3d
+import pointgroup
 
 
 def get_parser():

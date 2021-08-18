@@ -4,13 +4,13 @@ import glob
 import os.path as osp
 from abc import ABCMeta, abstractmethod
 
-import gorilla
 import numpy as np
 import open3d as o3d
 import torch
 from torch.utils.data import (Dataset, DataLoader)
 
-from ...utils import elastic, pc_aug
+import gorilla
+from gorilla3d.utils import elastic, pc_aug
 
 try:
     import segmentator

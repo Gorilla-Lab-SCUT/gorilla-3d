@@ -8,12 +8,13 @@ import os
 
 import torch
 import spconv
-import gorilla
-import gorilla3d
 import scipy.stats as stats
 
-import pointgroup
 import pointgroup_ops
+import gorilla
+import gorilla3d
+import gorilla3d.datasets as g3d
+import pointgroup
 
 def get_parser():
     parser = argparse.ArgumentParser(description="Point Cloud Instance Segmentation")

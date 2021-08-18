@@ -4,10 +4,12 @@
 
 import os
 import argparse
-import gorilla
-import gorilla3d
 import torch
 
+import gorilla
+import gorilla3d
+import gorilla3d.nn as g3n
+import gorilla3d.datasets as g3d
 import network
 
 

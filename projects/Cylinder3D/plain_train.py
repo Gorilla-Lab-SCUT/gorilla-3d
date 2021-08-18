@@ -3,9 +3,10 @@ import os
 import glob
 
 import torch
+
 import gorilla
 import gorilla3d
-
+import gorilla3d.datasets as g3d
 import cylinder
 
 def get_parser():

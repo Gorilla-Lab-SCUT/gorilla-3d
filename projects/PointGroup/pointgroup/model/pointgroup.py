@@ -7,14 +7,15 @@ import functools
 from typing import Dict, List
 
 import spconv
-import gorilla
-import gorilla3d
 import torch
 import torch.nn as nn
 import numpy as np
 from torch_scatter import scatter_min, scatter_mean, scatter_max
 
 import pointgroup_ops
+import gorilla
+import gorilla.nn as gn
+import gorilla3d.nn as g3n
 
 @gorilla.MODELS.register_module()
 class PointGroup(nn.Module):
@@ -54,7 +55,7 @@ class PointGroup(nn.Module):
 
         norm_fn = functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1)
 
-        block = gorilla3d.ResidualBlock
+        block = g3n.ResidualBlock
 
         if use_coords:
             input_channel += 3
@@ -65,7 +66,7 @@ class PointGroup(nn.Module):
         )
 
         block_list = [media * (i + 1) for i in range(blocks)]
-        self.unet = gorilla3d.UBlock(block_list, norm_fn, block_reps, block, indice_key_id=1)
+        self.unet = g3n.UBlock(block_list, norm_fn, block_reps, block, indice_key_id=1)
 
         # #### self attention module
         # self.self_attn = nn.MultiheadAttention(m * blocks, 8)
@@ -87,7 +88,7 @@ class PointGroup(nn.Module):
         self.offset_linear = nn.Linear(media, 3, bias=True)
 
         #### score branch
-        self.score_unet = gorilla3d.UBlock([media, 2*media], norm_fn, 2, block, indice_key_id=1)
+        self.score_unet = g3n.UBlock([media, 2*media], norm_fn, 2, block, indice_key_id=1)
         self.score_outputlayer = spconv.SparseSequential(
             norm_fn(media),
             nn.ReLU()
