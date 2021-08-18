@@ -8,25 +8,25 @@ from .pattern import SemanticEvaluator, InstanceEvaluator
 
 
 CLASS_LABELS = [
-    "car", "bicycle", "motorcycle", "truck", "bus", "person", "bicyclist",
+    "unlabeled", "car", "bicycle", "motorcycle", "truck", "bus", "person", "bicyclist",
     "motorcyclist", "road", "parking", "sidewalk", "other-ground",
     "building", "fence", "vegetation", "trunk", "terrain", "pole", "traffic-sign"
 ]
 
 
-VALID_CLASS_IDS = np.arange(len(CLASS_LABELS))
+CLASS_IDS = np.arange(len(CLASS_LABELS))
 
 class KittiSemanticEvaluator(SemanticEvaluator):
     def __init__(self,
-                 num_classes: int=19,
-                 avoid_zero: bool=True,
+                 num_classes: int=20,
                  class_labels: List[str]=CLASS_LABELS,
-                 valid_class_ids: Union[np.ndarray, List[int]]=VALID_CLASS_IDS,
+                 class_ids: Union[np.ndarray, List[int]]=CLASS_IDS,
+                 ignore: List[int]=[0],
                  **kwargs):
-        super().__init__(num_classes,
-                         avoid_zero,
-                         class_labels,
-                         valid_class_ids,
+        super().__init__(num_classes=num_classes,
+                         class_labels=class_labels,
+                         class_ids=class_ids,
+                         ignore=ignore,
                          **kwargs)
 
     def process(self, inputs, outputs):
@@ -52,7 +52,7 @@ FOREGROUND_CLASS_LABELS = [
     "car", "bicycle", "motorcycle", "truck", "bus",
     "person", "bicyclist", "motorcyclist"
 ]
-FOREGROUND_VALID_CLASS_IDS = np.array(range(1, 9))
+FOREGROUND_CLASS_IDS = np.array(range(1, 9))
 
 
 class KittiInstanceInstanceEvaluator(InstanceEvaluator):
@@ -62,18 +62,16 @@ class KittiInstanceInstanceEvaluator(InstanceEvaluator):
     def __init__(self,
                 dataset_root: str,
                 num_classes: int=8,
-                avoid_zero: bool=False,
                 class_labels: List[str]=FOREGROUND_CLASS_LABELS,
-                valid_class_ids: List[int]=FOREGROUND_VALID_CLASS_IDS,
+                class_ids: List[int]=FOREGROUND_CLASS_IDS,
                 **kwargs):
         r"""
         Args:
             num_classes, ignore_label: deprecated argument
         """
-        super().__init__(num_classes,
-                         avoid_zero,
-                         class_labels,
-                         valid_class_ids,
+        super().__init__(num_classes=num_classes,
+                         class_labels=class_labels,
+                         class_ids=class_ids,
                          **kwargs)
         self._dataset_root = dataset_root
 

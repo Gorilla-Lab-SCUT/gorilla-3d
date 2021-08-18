@@ -14,18 +14,18 @@ CLASS_LABELS = [
     "stool", "desk", "sink", "chair", "toilet", "table", "laptop", "wardrobe",
 ]
 
-VALID_CLASS_IDS = np.arange(len(CLASS_LABELS))
+CLASS_IDS = np.arange(len(CLASS_LABELS))
 
 class ModelNetClassificationEvaluator(ClassificationEvaluator):
     def __init__(self,
                  num_classes: int=len(CLASS_LABELS),
                  class_labels: List[str]=CLASS_LABELS,
-                 valid_class_ids: Union[np.ndarray, List[int]]=VALID_CLASS_IDS,
+                 class_ids: Union[np.ndarray, List[int]]=CLASS_IDS,
                  top_k: Tuple[int]=(1, 5),
                  **kwargs):
         super().__init__(num_classes,
                          class_labels,
-                         valid_class_ids,
+                         class_ids,
                          top_k,
                          **kwargs)
 

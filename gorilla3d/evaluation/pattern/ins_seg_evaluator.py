@@ -24,9 +24,8 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
     DISTANCE_CONFS = np.array([-float("inf")])
     def __init__(self,
                  num_classes: int,
-                 avoid_zero: bool,
                  class_labels: List[str],
-                 valid_class_ids: List[int],
+                 class_ids: List[int],
                  **kwargs,):
         """
         Args:
@@ -34,16 +33,12 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
         """
         super().__init__() # init logger
         self.num_classes = num_classes
-        self.avoid_zero = avoid_zero
         self.class_labels = class_labels
-        self.valid_class_ids = valid_class_ids
+        self.class_ids = class_ids
         self.id_to_label = {}
-        for i in range(len(valid_class_ids)):
-            self.id_to_label[valid_class_ids[i]] = class_labels[i]
+        for i in range(len(class_ids)):
+            self.id_to_label[class_ids[i]] = class_labels[i]
         # avoid the zero class (NOTE: unlabel_id in semantic-kitti)
-        if self.avoid_zero:
-            self.num_classes += 1
-            self.valid_class_ids += 1
         self.reset()
 
     def reset(self):
@@ -59,7 +54,7 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
     def assign_instances_for_scan(self, scene_name, pred_info, gt_ids):
         # get gt instances
         gt_instances = VertInstance.get_instances(gt_ids,
-                                                  self.valid_class_ids,
+                                                  self.class_ids,
                                                   self.class_labels,
                                                   self.id_to_label)
 
@@ -73,7 +68,7 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
             pred2gt[label] = []
         num_pred_instances = 0
         # mask of void labels in the groundtruth
-        bool_void = np.logical_not(np.in1d(gt_ids // 1000, self.valid_class_ids))
+        bool_void = np.logical_not(np.in1d(gt_ids // 1000, self.class_ids))
         # go thru all prediction masks
         nMask = pred_info["label_id"].shape[0]
 
@@ -86,8 +81,9 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
             # read the mask
             pred_mask = pred_info["mask"][i]  # [N], long
             if len(pred_mask) != len(gt_ids):
-                sys.stderr.write(f"ERROR: wrong number of lines in mask#{i}: "
-                                f"({len(pred_mask)}) vs #mesh vertices ({len(gt_ids)})\n")
+                sys.stderr.write(
+                    f"ERROR: wrong number of lines in mask#{i}: "
+                    f"({len(pred_mask)}) vs #points ({len(gt_ids)})\n")
                 sys.exit(2)
             # convert to binary
             pred_mask = np.not_equal(pred_mask, 0)
@@ -360,7 +356,7 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
     def print_prec_recall(self, threshold: float=0.5):
         # init the confusion matrix dict
         TP_FP_Total = {}
-        for class_id in self.valid_class_ids:
+        for class_id in self.class_ids:
             TP_FP_Total[class_id] = {}
             TP_FP_Total[class_id]["TP"] = 0
             TP_FP_Total[class_id]["FP"] = 0
@@ -370,7 +366,7 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
             # pred ins
             ins_pred_by_sem = {}
             ins_gt_by_sem = {}
-            for class_id, class_label in zip(self.valid_class_ids, self.class_labels):
+            for class_id, class_label in zip(self.class_ids, self.class_labels):
                 # pred ins
                 ins_pred_by_sem[class_id] = []
                 pred_instances = self.matches[m]["instance_pred"][class_label]
@@ -383,7 +379,7 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
                     ins_gt_by_sem[class_id].append(gt["gt_mask"])
 
             # to associate
-            for class_id, class_label in zip(self.valid_class_ids, self.class_labels):
+            for class_id, class_label in zip(self.class_ids, self.class_labels):
                 ins_pred_tp = ins_pred_by_sem[class_id] # [num_pred, N]
                 ins_gt_tp = ins_gt_by_sem[class_id] # [num_gt, N]
 
@@ -410,7 +406,7 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
         results = []
         self.logger.info("Evaluation precision and recall for instance segmentation:")
         max_length = max(15, max(map(lambda x: len(x), self.class_labels)))
-        for class_id, class_label in zip(self.valid_class_ids, self.class_labels):
+        for class_id, class_label in zip(self.class_ids, self.class_labels):
             TP = TP_FP_Total[class_id]["TP"]
             FP = TP_FP_Total[class_id]["FP"]
             Total = TP_FP_Total[class_id]["Total"]

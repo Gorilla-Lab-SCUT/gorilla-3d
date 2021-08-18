@@ -12,9 +12,9 @@ class SemanticEvaluator(gorilla.evaluation.DatasetEvaluator):
     """
     def __init__(self,
                  num_classes: int,
-                 avoid_zero: bool,
                  class_labels: List[str],
-                 valid_class_ids: List[int],
+                 class_ids: List[int],
+                 ignore: List[int]=[],
                  **kwargs,):
         """
         Args:
@@ -22,17 +22,24 @@ class SemanticEvaluator(gorilla.evaluation.DatasetEvaluator):
         """
         super().__init__() # init logger
         self.num_classes = num_classes
-        self.avoid_zero = avoid_zero
         self.class_labels = class_labels
-        self.valid_class_ids = valid_class_ids
-        # avoid the zero class (NOTE: unlabel_id in semantic-kitti)
-        if self.avoid_zero:
-            self.num_classes += 1
-            self.valid_class_ids += 1
+        self.class_ids = class_ids
+        self.ignore = ignore
+        assert len(self.class_labels) == len(self.class_ids), (
+            f"all classe labels are {self.class_labels}, length is {len(self.class_labels)}\n"
+            f"all class ids are {self.class_ids}, length is {len(self.class_ids)}\n"
+            f"their length do not match")
+        self.id_to_label = {i : name for (i, name) in zip(self.class_ids, self.class_labels)}
         self.reset()
 
+    @property
+    def filter_confusion(self):
+        ### get iou of not interesting categories
+        not_ignored = [l for l in self.class_ids if l not in self.ignore]
+        return self.confusion[not_ignored, :][:, not_ignored] # [num_class, num_class]
+
     def reset(self):
-        max_id = self.valid_class_ids.max() + 1
+        max_id = self.class_ids.max() + 1
         self.confusion = np.zeros((max_id + 1, max_id + 1), dtype=np.int64)
 
     def fill_confusion(self,
@@ -46,29 +53,28 @@ class SemanticEvaluator(gorilla.evaluation.DatasetEvaluator):
         # ).reshape(self.confusion.shape)
 
     def evaluate(self, return_confusion: bool=False):
-        ### get iou
-        not_ignored = [l for l in self.valid_class_ids]
-        filter_confusion = self.confusion[not_ignored, :][:, not_ignored] # [num_class, num_class]
 
         # print semantic segmentation result(IoU)
-        self.print_result(filter_confusion)
+        self.print_result()
 
         # return confusion matrix
         if return_confusion:
-            return filter_confusion
+            return self.filter_confusion
 
-    def print_result(self, filter_confusion):
+    def print_result(self):
         # calculate ious
-        tp = np.diag(filter_confusion) # [num_class]
-        denom = filter_confusion.sum(1) + filter_confusion.sum(0) - np.diag(filter_confusion) # [num_class]
+        tp = np.diag(self.filter_confusion) # [num_class]
+        denom = self.filter_confusion.sum(1) + self.filter_confusion.sum(0) - np.diag(self.filter_confusion) # [num_class]
         ious = (tp / denom) * 100 # [num_class]
 
         # build IoU table
         haeders = ["class", "IoU", "TP/(TP+FP+FN)"]
         results = []
         self.logger.info("Evaluation results for semantic segmentation:")
+        
         max_length = max(15, max(map(lambda x: len(x), self.class_labels)))
-        for i, class_label in enumerate(self.class_labels):
+        filterd_class_labels = [v for k, v in self.id_to_label.items() if k not in self.ignore]
+        for i, class_label in enumerate(filterd_class_labels):
             results.append((class_label.ljust(max_length, " "), ious[i], f"({tp[i]:>6d}/{denom[i]:<6d})"))
         acc_table = gorilla.table(
             results,
