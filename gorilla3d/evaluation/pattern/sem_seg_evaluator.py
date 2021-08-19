@@ -1,5 +1,5 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
-from typing import List
+from typing import Sequence
 
 import numpy as np
 
@@ -11,25 +11,19 @@ class SemanticEvaluator(gorilla.evaluation.DatasetEvaluator):
     Evaluate semantic segmentation metrics.
     """
     def __init__(self,
-                 class_labels: List[str],
-                 class_ids: List[int],
-                 ignore: List[int]=[],
+                 class_labels: Sequence[str],
+                 class_ids: Sequence[int],
+                 ignore: Sequence[int]=[],
                  **kwargs,):
         """
         Args:
             ignore_label: deprecated argument
         """
-        super().__init__() # init logger
-        self.class_labels = class_labels
-        self.class_ids = np.array(class_ids)
+        super().__init__(
+            class_labels=class_labels,
+            class_ids=class_ids)
         self.ignore = ignore
-        self.num_classes = len(class_labels)
         self.include = [i for i in self.class_ids if i not in self.ignore]
-        assert len(self.class_labels) == len(self.class_ids), (
-            f"all classe labels are {self.class_labels}, length is {len(self.class_labels)}\n"
-            f"all class ids are {self.class_ids}, length is {len(self.class_ids)}\n"
-            f"their length do not match")
-        self.id_to_label = {i : name for (i, name) in zip(self.class_ids, self.class_labels)}
         self.reset()
 
     def reset(self):
@@ -84,14 +78,12 @@ class SemanticEvaluator(gorilla.evaluation.DatasetEvaluator):
         self.logger.info(f"mean: {np.nanmean(ious[self.include]):.1f}")
         self.logger.info("")
 
-    def evaluate(self, return_confusion: bool=False):
-
+    def evaluate(self):
         # print semantic segmentation result(IoU)
         self.print_result()
 
         # return confusion matrix
-        if return_confusion:
-            return self.confusion
+        return self.confusion
 
 
 
