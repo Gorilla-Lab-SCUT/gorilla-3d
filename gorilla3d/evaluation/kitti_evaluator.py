@@ -1,6 +1,6 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
 import os
-from typing import List, Union
+from typing import List
 
 import numpy as np
 
@@ -14,17 +14,15 @@ CLASS_LABELS = [
 ]
 
 
-CLASS_IDS = np.arange(len(CLASS_LABELS))
+CLASS_IDS = list(range(len(CLASS_LABELS)))
 
 class KittiSemanticEvaluator(SemanticEvaluator):
     def __init__(self,
-                 num_classes: int=20,
                  class_labels: List[str]=CLASS_LABELS,
-                 class_ids: Union[np.ndarray, List[int]]=CLASS_IDS,
+                 class_ids: List[int]=CLASS_IDS,
                  ignore: List[int]=[0],
                  **kwargs):
-        super().__init__(num_classes=num_classes,
-                         class_labels=class_labels,
+        super().__init__(class_labels=class_labels,
                          class_ids=class_ids,
                          ignore=ignore,
                          **kwargs)
@@ -61,16 +59,14 @@ class KittiInstanceInstanceEvaluator(InstanceEvaluator):
     """
     def __init__(self,
                 dataset_root: str,
-                num_classes: int=8,
                 class_labels: List[str]=FOREGROUND_CLASS_LABELS,
                 class_ids: List[int]=FOREGROUND_CLASS_IDS,
                 **kwargs):
         r"""
         Args:
-            num_classes, ignore_label: deprecated argument
+            ignore_label: deprecated argument
         """
-        super().__init__(num_classes=num_classes,
-                         class_labels=class_labels,
+        super().__init__(class_labels=class_labels,
                          class_ids=class_ids,
                          **kwargs)
         self._dataset_root = dataset_root

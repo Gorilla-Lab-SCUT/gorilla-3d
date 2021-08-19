@@ -14,19 +14,23 @@ class ClassificationEvaluator(gorilla.evaluation.DatasetEvaluator):
     Evaluate semantic segmentation metrics.
     """
     def __init__(self,
-                 num_classes: int,
                  class_labels: List[str],
                  class_ids: List[int],
                  top_k: Tuple[int],
                  **kwargs,):
         """
         Args:
-            num_classes, ignore_label: deprecated argument
+            ignore_label: deprecated argument
         """
         super().__init__() # init logger
-        self.num_classes = num_classes
         self.class_labels = class_labels
         self.class_ids = class_ids
+        self.num_classes = len(class_labels)
+        assert len(self.class_labels) == len(self.class_ids), (
+            f"all classe labels are {self.class_labels}, length is {len(self.class_labels)}\n"
+            f"all class ids are {self.class_ids}, length is {len(self.class_ids)}\n"
+            f"their length do not match")
+        self.id_to_label = {i : name for (i, name) in zip(self.class_ids, self.class_labels)}
         self._top_k = top_k
         self.reset()
 

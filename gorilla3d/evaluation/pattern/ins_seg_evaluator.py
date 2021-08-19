@@ -23,21 +23,22 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
     # distance confidences
     DISTANCE_CONFS = np.array([-float("inf")])
     def __init__(self,
-                 num_classes: int,
                  class_labels: List[str],
                  class_ids: List[int],
                  **kwargs,):
         """
         Args:
-            num_classes, ignore_label: deprecated argument
+            ignore_label: deprecated argument
         """
         super().__init__() # init logger
-        self.num_classes = num_classes
         self.class_labels = class_labels
         self.class_ids = class_ids
-        self.id_to_label = {}
-        for i in range(len(class_ids)):
-            self.id_to_label[class_ids[i]] = class_labels[i]
+        assert len(self.class_labels) == len(self.class_ids), (
+            f"all classe labels are {self.class_labels}, length is {len(self.class_labels)}\n"
+            f"all class ids are {self.class_ids}, length is {len(self.class_ids)}\n"
+            f"their length do not match")
+        self.id_to_label = {class_id: class_label for \
+            (class_id, class_label) in zip(class_ids, class_labels)}
         # avoid the zero class (NOTE: unlabel_id in semantic-kitti)
         self.reset()
 

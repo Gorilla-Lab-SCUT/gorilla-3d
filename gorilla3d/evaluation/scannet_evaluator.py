@@ -16,19 +16,16 @@ CLASS_LABELS = [
     "refrigerator", "shower curtain", "toilet", "sink", "bathtub",
     "otherfurniture"
 ]
-CLASS_IDS = np.array(
-    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39])
+CLASS_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39]
 
 
 class ScanNetSemanticEvaluator(SemanticEvaluator):
     def __init__(self,
                  dataset_root,
-                 num_classes: int=20,
                  class_labels: List[str]=CLASS_LABELS,
                  class_ids: Union[np.ndarray, List[int]]=CLASS_IDS,
                  **kwargs):
-        super().__init__(num_classes=num_classes,
-                         class_labels=class_labels,
+        super().__init__(class_labels=class_labels,
                          class_ids=class_ids,
                          **kwargs)
         self.dataset_root = dataset_root
@@ -75,16 +72,14 @@ class ScanNetInstanceEvaluator(InstanceEvaluator):
     """
     def __init__(self,
                 dataset_root: str,
-                num_classes: int=18,
                 class_labels: List[str]=FOREGROUND_CLASS_LABELS,
                 class_ids: List[int]=FOREGROUND_CLASS_IDS,
                 **kwargs):
         """
         Args:
-            num_classes, ignore_label: deprecated argument
+            ignore_label: deprecated argument
         """
-        super().__init__(num_classes=num_classes,
-                         class_labels=class_labels,
+        super().__init__(class_labels=class_labels,
                          class_ids=class_ids,
                          **kwargs)
         self._dataset_root = dataset_root

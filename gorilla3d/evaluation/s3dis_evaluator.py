@@ -18,12 +18,10 @@ CLASS_IDS = np.arange(len(CLASS_LABELS))
 
 class S3DISSemanticEvaluator(SemanticEvaluator):
     def __init__(self,
-                 num_classes: int=13,
                  class_labels: List[str]=CLASS_LABELS,
                  class_ids: Union[np.ndarray, List[int]]=CLASS_IDS,
                  **kwargs):
-        super().__init__(num_classes=num_classes,
-                         class_labels=class_labels,
+        super().__init__(class_labels=class_labels,
                          class_ids=class_ids,
                          **kwargs)
 
@@ -52,16 +50,14 @@ class S3DISInstanceEvaluator(InstanceEvaluator):
     """
     def __init__(self,
                 dataset_root: str,
-                num_classes: int=13,
                 class_labels: List[str]=CLASS_LABELS,
                 class_ids: List[int]=CLASS_IDS,
                 **kwargs):
         """
         Args:
-            num_classes, ignore_label: deprecated argument
+            ignore_label: deprecated argument
         """
-        super().__init__(num_classes=num_classes,
-                         class_labels=class_labels,
+        super().__init__(class_labels=class_labels,
                          class_ids=class_ids,
                          **kwargs)
         self._dataset_root = dataset_root
