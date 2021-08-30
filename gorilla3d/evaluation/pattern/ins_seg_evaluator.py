@@ -1,6 +1,6 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
 import sys
-from typing import List
+from typing import Sequence
 
 import numpy as np
 
@@ -23,22 +23,16 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
     # distance confidences
     DISTANCE_CONFS = np.array([-float("inf")])
     def __init__(self,
-                 num_classes: int,
-                 class_labels: List[str],
-                 class_ids: List[int],
+                 class_labels: Sequence[str],
+                 class_ids: Sequence[int],
                  **kwargs,):
         """
         Args:
-            num_classes, ignore_label: deprecated argument
+            ignore_label: deprecated argument
         """
-        super().__init__() # init logger
-        self.num_classes = num_classes
-        self.class_labels = class_labels
-        self.class_ids = class_ids
-        self.id_to_label = {}
-        for i in range(len(class_ids)):
-            self.id_to_label[class_ids[i]] = class_labels[i]
-        # avoid the zero class (NOTE: unlabel_id in semantic-kitti)
+        super().__init__(
+            class_labels=class_labels,
+            class_ids=class_ids,)
         self.reset()
 
     def reset(self):

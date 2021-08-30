@@ -12,7 +12,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
+
 import gorilla
+from gorilla.losses import lovasz_loss
 
 @gorilla.LOSSES.register_module()
 class SalsaLoss(nn.Module):
@@ -43,7 +45,7 @@ class SalsaLoss(nn.Module):
         loss_w = loss_w.cuda()
         self.ce_criterion = nn.NLLLoss(weight=loss_w)
 
-        self.lovasz_criterion = partial(gorilla.losses.lovasz_loss, ignore=0)
+        self.lovasz_criterion = partial(lovasz_loss, ignore=0)
 
         self.ignore_label = ignore_label
         self.ce_weight, self.lovasz_weight = loss_weight

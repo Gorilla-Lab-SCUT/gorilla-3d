@@ -1,13 +1,12 @@
-# -*- coding:utf-8 -*-
-# author: Xinge
-# @file: train_cylinder_asym.py
 
 import os
 import argparse
-import gorilla
-import gorilla3d
+
 import torch
 
+import gorilla
+import gorilla3d
+import gorilla3d.datasets as g3d
 import cylinder
 
 

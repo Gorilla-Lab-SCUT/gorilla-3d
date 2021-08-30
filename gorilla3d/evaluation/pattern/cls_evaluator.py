@@ -1,12 +1,12 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
 import itertools
-from typing import List, Tuple
-from collections import OrderedDict
+from typing import Sequence
 
 import torch
 import numpy as np
 
 import gorilla
+
 
 # modify from https://github.com/Megvii-BaseDetection/cvpods/blob/master/cvpods/evaluation/classification_evaluation.py
 class ClassificationEvaluator(gorilla.evaluation.DatasetEvaluator):
@@ -14,19 +14,17 @@ class ClassificationEvaluator(gorilla.evaluation.DatasetEvaluator):
     Evaluate semantic segmentation metrics.
     """
     def __init__(self,
-                 num_classes: int,
-                 class_labels: List[str],
-                 class_ids: List[int],
-                 top_k: Tuple[int],
+                 class_labels: Sequence[str],
+                 class_ids: Sequence[int],
+                 top_k: Sequence[int],
                  **kwargs,):
         """
         Args:
-            num_classes, ignore_label: deprecated argument
+            ignore_label: deprecated argument
         """
-        super().__init__() # init logger
-        self.num_classes = num_classes
-        self.class_labels = class_labels
-        self.class_ids = class_ids
+        super().__init__(
+            class_labels=class_labels,
+            class_ids=class_ids,)
         self._top_k = top_k
         self.reset()
 
@@ -41,7 +39,7 @@ class ClassificationEvaluator(gorilla.evaluation.DatasetEvaluator):
         self._labels.append(label)
         
 
-    def evaluate(self, show_per_class: bool=True, return_acc: bool=False):
+    def evaluate(self, show_per_class: bool=True):
         self._predictions = torch.cat(self._predictions).view(-1, self.num_classes) # [N, num_classes]
         self._labels = torch.cat(self._labels).view(-1) # [N]
 
@@ -76,7 +74,6 @@ class ClassificationEvaluator(gorilla.evaluation.DatasetEvaluator):
                 self.logger.info(line)
             self.logger.info(f"mean: {corrects_per_class.mean():.4f}")
             self.logger.info("")
-        
-        if return_acc:
-            return acc
+
+        return acc
 

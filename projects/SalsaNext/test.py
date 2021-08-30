@@ -5,13 +5,11 @@
 import os
 import argparse
 
-import cv2
+import torch
+
 import gorilla
 import gorilla3d
-import torch
-import numpy as np
-import matplotlib.pyplot as plt
-
+import gorilla3d.datasets as g3d
 import salsa
 
 

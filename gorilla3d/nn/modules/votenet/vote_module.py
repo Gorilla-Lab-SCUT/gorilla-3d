@@ -2,7 +2,7 @@
 import torch
 from torch import nn as nn
 
-from gorilla import GorillaConv
+from gorilla.nn.conv import GorillaConv
 
 
 class VoteModule(nn.Module):

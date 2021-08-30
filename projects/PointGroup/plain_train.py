@@ -5,12 +5,13 @@ import argparse
 import os.path as osp
 
 import torch
-import gorilla
-import gorilla3d
 import spconv
 
-import pointgroup
 import pointgroup_ops
+import gorilla
+import gorilla3d
+import gorilla3d.datasets as g3d
+import pointgroup
 
 def get_parser():
     # the default argument parser contains some 
@@ -60,7 +61,7 @@ def do_train(model, cfg, logger):
                                                 drop_last=True)
 
     # initialize tensorboard (Optional) TODO: integrating the tensorborad manager
-    writer = gorilla.TensorBoardWriter(log_dir=cfg.log_dir) # tensorboard writer
+    writer = gorilla.TensorBoardWriter(cfg.log_dir) # tensorboard writer
 
     # initialize timers (Optional)
     iter_timer = gorilla.Timer()

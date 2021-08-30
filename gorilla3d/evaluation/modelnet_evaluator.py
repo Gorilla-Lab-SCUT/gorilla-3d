@@ -18,13 +18,11 @@ CLASS_IDS = np.arange(len(CLASS_LABELS))
 
 class ModelNetClassificationEvaluator(ClassificationEvaluator):
     def __init__(self,
-                 num_classes: int=len(CLASS_LABELS),
                  class_labels: List[str]=CLASS_LABELS,
                  class_ids: Union[np.ndarray, List[int]]=CLASS_IDS,
                  top_k: Tuple[int]=(1, 5),
                  **kwargs):
-        super().__init__(num_classes,
-                         class_labels,
+        super().__init__(class_labels,
                          class_ids,
                          top_k,
                          **kwargs)

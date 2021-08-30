@@ -6,10 +6,12 @@ import os
 import glob
 import argparse
 import sys
-import gorilla
-import gorilla3d
+
 import torch
 
+import gorilla
+import gorilla3d
+import gorilla3d.datasets as g3d
 import cylinder
 
 
