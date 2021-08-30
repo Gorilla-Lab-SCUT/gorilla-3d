@@ -39,7 +39,7 @@ class ClassificationEvaluator(gorilla.evaluation.DatasetEvaluator):
         self._labels.append(label)
         
 
-    def evaluate(self, show_per_class: bool=True, return_acc: bool=False):
+    def evaluate(self, show_per_class: bool=True):
         self._predictions = torch.cat(self._predictions).view(-1, self.num_classes) # [N, num_classes]
         self._labels = torch.cat(self._labels).view(-1) # [N]
 
@@ -74,7 +74,6 @@ class ClassificationEvaluator(gorilla.evaluation.DatasetEvaluator):
                 self.logger.info(line)
             self.logger.info(f"mean: {corrects_per_class.mean():.4f}")
             self.logger.info("")
-        
-        if return_acc:
-            return acc
+
+        return acc
 

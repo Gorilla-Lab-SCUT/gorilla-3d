@@ -1,7 +1,8 @@
 # Copyright (c) Gorilla-Lab. All rights reserved.
-import os
+import math
 import glob
-from typing import List
+import os.path as osp
+from typing import Dict, List, Sequence, Tuple, Union
 
 import gorilla
 import numpy as np
@@ -9,7 +10,7 @@ import open3d as o3d
 import torch
 from torch.utils.data import Dataset
 
-from gorilla3d.utils import elastic, pc_aug
+from gorilla3d.utils import elastic
 
 try:
     import segmentator
@@ -17,48 +18,42 @@ try:
 except:
     pass
 
+@gorilla.DATASETS.register_module(force=True)
 class ScanNetV2Inst(Dataset):
     def __init__(self,
                  data_root: str,
                  full_scale: List[int]=[128, 512],
-                 scale: float=50.,
+                 scale: int=50,
                  max_npoint: int=250000,
                  task: str="train",
                  with_elastic: bool=False,
                  test_mode: bool=False,
                  with_superpoints: bool=True,
                  **kwargs):
-        
         # initialize dataset parameters
         self.logger = gorilla.derive_logger(__name__)
         self.data_root = data_root
         self.full_scale = full_scale
         self.scale = scale
         self.max_npoint = max_npoint
-        self.task = task
-        self.with_elastic = with_elastic
         self.test_mode = test_mode
+        self.with_elastic = with_elastic
         self.with_superpoints = with_superpoints
+        self.task = task
+        self.aug_flag = "train" in self.task
+        
         # load files
         self.load_files()
     
     def load_files(self):
-        file_names = sorted(glob.glob(os.path.join(self.data_root, self.task, "*.pth")))
+        file_names = sorted(glob.glob(osp.join(self.data_root, self.task, "*.pth")))
         self.files = [torch.load(i) for i in gorilla.track(file_names)]
         self.logger.info(f"{self.task} samples: {len(self.files)}")
 
-    def read_superpoint(self, sub_dir: str, scene: str):
-        # read superpoint
-        mesh_file = os.path.join(os.path.join(self.data_root, sub_dir, scene, scene+"_vh_clean_2.ply"))
-        mesh = o3d.io.read_triangle_mesh(mesh_file)
-        vertices = torch.from_numpy(np.array(mesh.vertices).astype(np.float32))
-        faces = torch.from_numpy(np.array(mesh.triangles).astype(np.int64))
-        superpoint = segmentator.segment_mesh(vertices, faces).numpy()
-        return superpoint
+    def __len__(self):
+        return len(self.files)
 
-    def __getitem__(self, index):
-        aug_flag = "train" in self.task
-        sub_dir = "scans"
+    def __getitem__(self, index: int) -> Tuple:
         if "test" in self.task:
             sub_dir = "scans_test"
             xyz_origin, rgb, faces, scene = self.files[index]
@@ -66,25 +61,25 @@ class ScanNetV2Inst(Dataset):
             semantic_label = np.zeros(xyz_origin.shape[0], dtype=np.int32)
             instance_label = np.zeros(xyz_origin.shape[0], dtype=np.int32)
         else:
+            sub_dir = "scans"
             xyz_origin, rgb, faces, semantic_label, instance_label, coords_shift, scene = self.files[index]
 
-        # read superpoint
-        if self.with_superpoints:
-            superpoint = self.read_superpoint(sub_dir, scene)
-        else:
-            # pseudo superpoint
-            superpoint = np.zeros_like(semantic_label)
+        mesh_file = osp.join(osp.join(self.data_root, sub_dir, scene, scene+"_vh_clean_2.ply"))
+        mesh = o3d.io.read_triangle_mesh(mesh_file)
+        vertices = torch.from_numpy(np.array(mesh.vertices).astype(np.float32))
+        faces = torch.from_numpy(np.array(mesh.triangles).astype(np.int64))
+        superpoint = segmentator.segment_mesh(vertices, faces).numpy()
 
         ### jitter / flip x / rotation
-        if aug_flag:
-            xyz_middle = pc_aug(xyz_origin, True, True, True)
+        if self.aug_flag:
+            xyz_middle = self.data_aug(xyz_origin, True, True, True)
         else:
-            xyz_middle = pc_aug(xyz_origin, False, False, False)
+            xyz_middle = self.data_aug(xyz_origin, False, False, False)
 
         ### scale
         xyz = xyz_middle * self.scale
 
-        ### elastic distortion
+        ### elastic
         if self.with_elastic:
             xyz = elastic(xyz, 6 * self.scale // 50, 40 * self.scale / 50)
             xyz = elastic(xyz, 20 * self.scale // 50, 160 * self.scale / 50)
@@ -93,46 +88,57 @@ class ScanNetV2Inst(Dataset):
         xyz_offset = xyz.min(0)
         xyz -= xyz_offset
 
-        valid_idxs = range(len(xyz_middle))
         ### crop
+        valid_idxs = np.ones(len(xyz_middle), dtype=np.bool)
         if not self.test_mode:
             xyz, valid_idxs = self.crop(xyz)
 
         xyz_middle = xyz_middle[valid_idxs]
         xyz = xyz[valid_idxs]
         rgb = rgb[valid_idxs]
-        superpoint = np.unique(superpoint[valid_idxs], return_inverse=True)[1]
-
-        ### get instance labels
         semantic_label = semantic_label[valid_idxs]
+        superpoint = np.unique(superpoint[valid_idxs], return_inverse=True)[1]
         instance_label = self.get_cropped_inst_label(instance_label, valid_idxs)
+
+        ### get instance information
         inst_num, inst_infos = self.get_instance_info(xyz_middle, instance_label.astype(np.int32))
         inst_info = inst_infos["instance_info"]  # [n, 9], (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
         inst_pointnum = inst_infos["instance_pointnum"]   # [num_inst], list
         
-        # input 
         loc = torch.from_numpy(xyz).long()
         loc_offset = torch.from_numpy(xyz_offset).long()
         loc_float = torch.from_numpy(xyz_middle)
         feat = torch.from_numpy(rgb)
-        superpoint = torch.from_numpy(superpoint)
-        # labels
+        if self.aug_flag:
+            feat += torch.randn(3) * 0.1
         semantic_label = torch.from_numpy(semantic_label)
         instance_label = torch.from_numpy(instance_label)
-        inst_info = torch.from_numpy(inst_info)
+        superpoint = torch.from_numpy(superpoint)
 
-        # training noise
-        if aug_flag:
-            feat += torch.randn(3) * 0.1
+        inst_info = torch.from_numpy(inst_info)
 
         return scene, loc, loc_offset, loc_float, feat, semantic_label, instance_label, superpoint, inst_num, inst_info, inst_pointnum
 
-    def __len__(self):
-        return len(self.files)
+    def data_aug(self, xyz, jitter=False, flip=False, rot=False):
+        m = np.eye(3)
+        if jitter:
+            m += np.random.randn(3, 3) * 0.1
+        if flip:
+            m[0][0] *= np.random.randint(0, 2) * 2 - 1  # flip x randomly
+        if rot:
+            theta = np.random.rand() * 2 * math.pi
+            m = np.matmul(m, [[math.cos(theta), math.sin(theta), 0], [-math.sin(theta), math.cos(theta), 0], [0, 0, 1]])  # rotation
+        return np.matmul(xyz, m)
 
-    def crop(self, xyz):
-        """
-        :param xyz: (n, 3) >= 0
+    def crop(self, xyz: np.ndarray) -> Union[np.ndarray, np.ndarray]:
+        r"""
+        crop the point cloud to reduce training complexity
+
+        Args:
+            xyz (np.ndarray, [N, 3]): input point cloud to be cropped
+
+        Returns:
+            Union[np.ndarray, np.ndarray]: processed point cloud and boolean valid indices
         """
         xyz_offset = xyz.copy()
         valid_idxs = (xyz_offset.min(1) >= 0)
@@ -140,7 +146,6 @@ class ScanNetV2Inst(Dataset):
 
         full_scale = np.array([self.full_scale[1]] * 3)
         room_range = xyz.max(0) - xyz.min(0)
-        # do not crop for testset
         while (valid_idxs.sum() > self.max_npoint):
             offset = np.clip(full_scale - room_range + 0.001, None, 0) * np.random.rand(3)
             xyz_offset = xyz + offset
@@ -149,12 +154,19 @@ class ScanNetV2Inst(Dataset):
 
         return xyz_offset, valid_idxs
 
+    def get_instance_info(self,
+                          xyz: np.ndarray,
+                          instance_label: np.ndarray) -> Union[int, Dict]:
+        r"""
+        get the informations of instances (amount and coordinates)
 
-    def get_instance_info(self, xyz, instance_label):
-        """
-        :param xyz: (n, 3)
-        :param instance_label: (n), int, (0~num_inst-1, -100)
-        :return: instance_num, dict
+        Args:
+            xyz (np.ndarray, [N, 3]): input point cloud data
+            instance_label (np.ndarray, [N]): instance ids of point cloud
+
+        Returns:
+            Union[int, Dict]: the amount of instances andinformations
+                              (coordinates and the number of points) of instances
         """
         instance_info = np.ones((xyz.shape[0], 9), dtype=np.float32) * -100.0   # [n, 9], float, (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
         instance_pointnum = []   # [num_inst], int
@@ -178,8 +190,19 @@ class ScanNetV2Inst(Dataset):
 
         return instance_num, {"instance_info": instance_info, "instance_pointnum": instance_pointnum}
 
+    def get_cropped_inst_label(self,
+                               instance_label: np.ndarray,
+                               valid_idxs: np.ndarray) -> np.ndarray:
+        r"""
+        get the instance labels after crop operation and recompact
 
-    def get_cropped_inst_label(self, instance_label, valid_idxs):
+        Args:
+            instance_label (np.ndarray, [N]): instance label ids of point cloud
+            valid_idxs (np.ndarray, [N]): boolean valid indices
+
+        Returns:
+            np.ndarray: processed instance labels
+        """
         instance_label = instance_label[valid_idxs]
         j = 0
         while (j < instance_label.max()):
@@ -188,8 +211,7 @@ class ScanNetV2Inst(Dataset):
             j += 1
         return instance_label
 
-    
-    def collate_fn(self, batch):
+    def collate_fn(self, batch: Sequence[Sequence]) -> Dict:
         locs = []
         loc_offset_list = []
         locs_float = []
