@@ -18,7 +18,6 @@ try:
 except:
     pass
 
-@gorilla.DATASETS.register_module(force=True)
 class ScanNetV2Inst(Dataset):
     def __init__(self,
                  data_root: str,
