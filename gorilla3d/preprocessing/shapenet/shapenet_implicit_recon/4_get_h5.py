@@ -37,32 +37,39 @@ def process(class_name, obj_name):
 
     st = time.time()
 
-    load_mesh_path = os.path.join(SRC_DATASET_DIR, class_name, obj_name, LOAD_MESH_NAME)
+    load_mesh_path = os.path.join(SRC_DATASET_DIR, class_name, obj_name,
+                                  LOAD_MESH_NAME)
     mesh = trimesh.load_mesh(load_mesh_path)
-    samples, face_index = trimesh.sample.sample_surface(mesh, count=SDF_APPROX_SAMPLING_NUM)
+    samples, face_index = trimesh.sample.sample_surface(
+        mesh, count=SDF_APPROX_SAMPLING_NUM)
     normals = mesh.face_normals[face_index]
     tree = cKDTree(samples, compact_nodes=False, balanced_tree=False)
 
     def normals_method(num_, std_, in_pts=None):
         if in_pts is None:
             index = np.random.choice(len(samples), size=num_)
-            pts = samples[index] + np.random.normal(loc=0.0, scale=std_, size=[num_, 3])
+            pts = samples[index] + np.random.normal(
+                loc=0.0, scale=std_, size=[num_, 3])
         else:
             pts = in_pts
         _, idx = tree.query(pts, k=1, n_jobs=N_JOBS)
-        sdf = ((pts - samples[idx]) * normals[idx]).sum(axis=1).reshape([-1, 1])
+        sdf = ((pts - samples[idx]) * normals[idx]).sum(axis=1).reshape(
+            [-1, 1])
         pts_sdf = np.concatenate([pts, sdf], axis=1)
         return pts_sdf
 
     def nearest_method(num_, std_, in_pts=None):
         if in_pts is None:
             index = np.random.choice(len(samples), size=num_)
-            pts = samples[index] + np.random.normal(loc=0.0, scale=std_, size=[num_, 3])
+            pts = samples[index] + np.random.normal(
+                loc=0.0, scale=std_, size=[num_, 3])
         else:
             pts = in_pts
         _, idx = tree.query(pts, k=1, n_jobs=N_JOBS)
-        sdf = np.linalg.norm(pts - samples[idx], axis=1, keepdims=True) * np.sign(
-            ((pts - samples[idx]) * normals[idx]).sum(axis=1).reshape([-1, 1]))
+        sdf = np.linalg.norm(
+            pts - samples[idx], axis=1, keepdims=True) * np.sign(
+                ((pts - samples[idx]) * normals[idx]).sum(axis=1).reshape(
+                    [-1, 1]))
         pts_sdf = np.concatenate([pts, sdf], axis=1)
         return pts_sdf
 
@@ -77,7 +84,8 @@ def process(class_name, obj_name):
 
     uni_bb_min = ctr - np.full([3], fill_value=mag) * UNI_SCALE
     uni_bb_max = ctr + np.full([3], fill_value=mag) * UNI_SCALE
-    uni_pts = np.random.rand(UNI_NUM, 3) * (uni_bb_max - uni_bb_min) + uni_bb_min
+    uni_pts = np.random.rand(UNI_NUM,
+                             3) * (uni_bb_max - uni_bb_min) + uni_bb_min
     uni_pts_sdf = method(None, None, uni_pts)
 
     pts_sdf = np.concatenate([near_pts_sdf, far_pts_sdf, uni_pts_sdf], axis=0)
@@ -85,19 +93,26 @@ def process(class_name, obj_name):
 
     ################################################################
     v, f, n, _ = pcu.read_ply(load_mesh_path)
-    v_poisson, n_poisson = pcu.sample_mesh_poisson_disk(v, f, n, POISSON_SAMPLING_NUM, use_geodesic_distance=True)
+    v_poisson, n_poisson = pcu.sample_mesh_poisson_disk(
+        v, f, n, POISSON_SAMPLING_NUM, use_geodesic_distance=True)
     if v_poisson.shape[0] >= POISSON_SAMPLING_NUM:
         v_poisson = v_poisson[:POISSON_SAMPLING_NUM]
     else:
-        v_poisson = np.concatenate([v_poisson, v_poisson[:(POISSON_SAMPLING_NUM - v_poisson.shape[0])]], axis=0)
+        v_poisson = np.concatenate([
+            v_poisson, v_poisson[:(POISSON_SAMPLING_NUM - v_poisson.shape[0])]
+        ],
+                                   axis=0)
     np.random.shuffle(v_poisson)
     ################################################################
-    rand_pts = samples[np.random.choice(samples.shape[0], size=RAND_SAMPLING_NUM, replace=False)]
+    rand_pts = samples[np.random.choice(samples.shape[0],
+                                        size=RAND_SAMPLING_NUM,
+                                        replace=False)]
     ################################################################
     if IMAGES_NUM > 0:
         imgs = np.empty([IMAGES_NUM, 137, 137, 3], dtype=np.uint8)
         for index in range(IMAGES_NUM):
-            image_path = os.path.join(IMG_DATASET_DIR, class_name, obj_name, "rendering",
+            image_path = os.path.join(IMG_DATASET_DIR, class_name, obj_name,
+                                      "rendering",
                                       f"{str(index).zfill(2)}.png")
             img = cv2.imread(image_path)  # 0~255 HWC uint8
             imgs[index] = img
@@ -115,7 +130,8 @@ def process(class_name, obj_name):
     )
 
     print(f"time = {(time.time() - st):.3f} ({class_name} / {obj_name})")
-    print("===================================================================")
+    print(
+        "===================================================================")
     print(flush=True)
 
     return results_dict
@@ -193,21 +209,28 @@ def auto_process():
         if i >= dset_pts_sdf.shape[0]:
             results_dict = process(CLASS_NAME, obj_name)
 
-            dset_pts_sdf.resize((dset_pts_sdf.shape[0] + 1, NEAR_NUM + FAR_NUM + UNI_NUM, 4))
+            dset_pts_sdf.resize(
+                (dset_pts_sdf.shape[0] + 1, NEAR_NUM + FAR_NUM + UNI_NUM, 4))
             dset_pts_sdf[-1, :, :] = results_dict["pts_sdf"].astype(np.float16)
 
-            dset_poisson_pts.resize((dset_poisson_pts.shape[0] + 1, POISSON_SAMPLING_NUM, 3))
-            dset_poisson_pts[-1, :, :] = results_dict["poisson_pts"].astype(np.float16)
+            dset_poisson_pts.resize(
+                (dset_poisson_pts.shape[0] + 1, POISSON_SAMPLING_NUM, 3))
+            dset_poisson_pts[-1, :, :] = results_dict["poisson_pts"].astype(
+                np.float16)
 
-            dset_rand_pts.resize((dset_rand_pts.shape[0] + 1, RAND_SAMPLING_NUM, 3))
-            dset_rand_pts[-1, :, :] = results_dict["rand_pts"].astype(np.float16)
+            dset_rand_pts.resize(
+                (dset_rand_pts.shape[0] + 1, RAND_SAMPLING_NUM, 3))
+            dset_rand_pts[-1, :, :] = results_dict["rand_pts"].astype(
+                np.float16)
 
             dset_ctrmag.resize((dset_ctrmag.shape[0] + 1, 4))
             dset_ctrmag[-1, :] = results_dict["ctrmag"].astype(np.float32)
 
             if IMAGES_NUM > 0:
-                dset_imgs.resize((dset_imgs.shape[0] + 1, IMAGES_NUM, 3, 137, 137))
-                dset_imgs[-1, :, :, :, :] = results_dict["imgs"].astype(np.uint8)
+                dset_imgs.resize(
+                    (dset_imgs.shape[0] + 1, IMAGES_NUM, 3, 137, 137))
+                dset_imgs[-1, :, :, :, :] = results_dict["imgs"].astype(
+                    np.uint8)
         else:
             print(f"Skip: {CLASS_NAME} / {obj_name}", flush=True)
         f.close()
@@ -217,16 +240,37 @@ def auto_process():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--class_name", type=str, nargs="+", default=["03001627"], help="Categories to process")
-    parser.add_argument("--split", type=str, default="train", help="Which split")
-    parser.add_argument("--src_dataset_dir", type=str, help="Path to load mesh")
-    parser.add_argument("--dst_dataset_dir", type=str, help="Path to save h5 file")
-    parser.add_argument("--img_dataset_dir", type=str, help="Path to the ShapeNetRendering folder")
-    parser.add_argument("--split_dir", type=str, help="Path to the split folder")
-    parser.add_argument("--load_mesh_name", type=str, default="mesh_gt_simplified.ply", help="Mesh name to load")
+    parser.add_argument("--class_name",
+                        type=str,
+                        nargs="+",
+                        default=["03001627"],
+                        help="Categories to process")
+    parser.add_argument("--split",
+                        type=str,
+                        default="train",
+                        help="Which split")
+    parser.add_argument("--src_dataset_dir",
+                        type=str,
+                        help="Path to load mesh")
+    parser.add_argument("--dst_dataset_dir",
+                        type=str,
+                        help="Path to save h5 file")
+    parser.add_argument("--img_dataset_dir",
+                        type=str,
+                        help="Path to the ShapeNetRendering folder")
+    parser.add_argument("--split_dir",
+                        type=str,
+                        help="Path to the split folder")
+    parser.add_argument("--load_mesh_name",
+                        type=str,
+                        default="mesh_gt_simplified.ply",
+                        help="Mesh name to load")
     ###################################################
-    parser.add_argument("--images_num", type=int, default=24,
-                        help="Images num to store to h5 file")  # set to <=0 (e.g. -1) to disable storing images
+    parser.add_argument("--images_num",
+                        type=int,
+                        default=24,
+                        help="Images num to store to h5 file"
+                        )  # set to <=0 (e.g. -1) to disable storing images
     ###################################################
     parser.add_argument("--rand_sampling_num",
                         type=int,
@@ -239,21 +283,50 @@ if __name__ == "__main__":
                         help="Num of poisson disk sampling surface points")
     ###################################################
     # SDF
-    parser.add_argument("--sdf_method", type=str, default="nearest",
-                        help="Method to calculate sdf value")  # normals / nearest
-    parser.add_argument("--sdf_approx_sampling_num",
+    parser.add_argument(
+        "--sdf_method",
+        type=str,
+        default="nearest",
+        help="Method to calculate sdf value")  # normals / nearest
+    parser.add_argument(
+        "--sdf_approx_sampling_num",
+        type=int,
+        default=3000000,
+        help=
+        "Num of surface points to help calculate sdf value (will not store to h5 file)"
+    )
+    parser.add_argument("--near_std",
+                        type=float,
+                        default=0.01,
+                        help="Gaussian std for near locations")
+    parser.add_argument("--near_num",
                         type=int,
-                        default=3000000,
-                        help="Num of surface points to help calculate sdf value (will not store to h5 file)")
-    parser.add_argument("--near_std", type=float, default=0.01, help="Gaussian std for near locations")
-    parser.add_argument("--near_num", type=int, default=300000, help="Num of near points")
-    parser.add_argument("--far_std", type=float, default=0.1, help="Gaussian std for far locations")
-    parser.add_argument("--far_num", type=int, default=100000, help="Num of far points")
-    parser.add_argument("--uni_scale", type=float, default=1.5, help="Scale of the uniform sampling bounding box")
-    parser.add_argument("--uni_num", type=int, default=100000, help="Num of uniform points")
+                        default=300000,
+                        help="Num of near points")
+    parser.add_argument("--far_std",
+                        type=float,
+                        default=0.1,
+                        help="Gaussian std for far locations")
+    parser.add_argument("--far_num",
+                        type=int,
+                        default=100000,
+                        help="Num of far points")
+    parser.add_argument("--uni_scale",
+                        type=float,
+                        default=1.5,
+                        help="Scale of the uniform sampling bounding box")
+    parser.add_argument("--uni_num",
+                        type=int,
+                        default=100000,
+                        help="Num of uniform points")
 
-    parser.add_argument("--n_jobs", type=int, default=8, help="Workers num to query")
-    parser.add_argument("--override", action="store_true", help="Overriding existing files")
+    parser.add_argument("--n_jobs",
+                        type=int,
+                        default=8,
+                        help="Workers num to query")
+    parser.add_argument("--override",
+                        action="store_true",
+                        help="Overriding existing files")
     args = parser.parse_args()
 
     if len(args.class_name) == 1:
@@ -291,12 +364,13 @@ if __name__ == "__main__":
 
     else:
         for class_name in args.class_name:
-            os.system(f"python {__file__} --class_name {class_name} --split {args.split} --src_dataset_dir {args.src_dataset_dir} "
-                      f"--dst_dataset_dir {args.dst_dataset_dir} --img_dataset_dir {args.img_dataset_dir} --split_dir {args.split_dir} "
-                      f"--load_mesh_name {args.load_mesh_name} --images_num {args.images_num} --rand_sampling_num {args.rand_sampling_num} "
-                      f"--poisson_sampling_num {args.poisson_sampling_num} --sdf_method {args.sdf_method} "
-                      f"--sdf_approx_sampling_num {args.sdf_approx_sampling_num} --near_std {args.near_std} --near_num {args.near_num} "
-                      f"--far_std {args.far_std} --far_num {args.far_num} --uni_scale {args.uni_scale} "
-                      f"--uni_num {args.uni_num} --n_jobs {args.n_jobs}")
+            os.system(
+                f"python {__file__} --class_name {class_name} --split {args.split} --src_dataset_dir {args.src_dataset_dir} "
+                f"--dst_dataset_dir {args.dst_dataset_dir} --img_dataset_dir {args.img_dataset_dir} --split_dir {args.split_dir} "
+                f"--load_mesh_name {args.load_mesh_name} --images_num {args.images_num} --rand_sampling_num {args.rand_sampling_num} "
+                f"--poisson_sampling_num {args.poisson_sampling_num} --sdf_method {args.sdf_method} "
+                f"--sdf_approx_sampling_num {args.sdf_approx_sampling_num} --near_std {args.near_std} --near_num {args.near_num} "
+                f"--far_std {args.far_std} --far_num {args.far_num} --uni_scale {args.uni_scale} "
+                f"--uni_num {args.uni_num} --n_jobs {args.n_jobs}")
 
     print("All done.")

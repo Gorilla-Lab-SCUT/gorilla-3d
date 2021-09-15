@@ -6,7 +6,8 @@ from typing import List, Union
 from torch.utils.data import Dataset
 from gorilla import to_float32, find_vcs_root
 
-_DEFAULT_H5_FOLDER = os.path.join(find_vcs_root(__file__), "data", "shapenet", "shapenet_implicit_recon", "data")
+_DEFAULT_H5_FOLDER = os.path.join(find_vcs_root(__file__), "data", "shapenet",
+                                  "shapenet_implicit_recon", "data")
 
 
 class ShapenetImplicitRecon(Dataset):
@@ -78,7 +79,8 @@ class ShapenetImplicitRecon(Dataset):
                 stored out of order in files naturally. Defaults to False.
         """
         super(ShapenetImplicitRecon, self).__init__()
-        assert split in ["train", "val", "test"], "`split` must be \"train\" \"val\" or \"test\""
+        assert split in ["train", "val", "test"
+                         ], "`split` must be \"train\" \"val\" or \"test\""
         self.h5_dataset_folder = h5_dataset_folder
         self.split = split
         self.categories = categories
@@ -98,7 +100,10 @@ class ShapenetImplicitRecon(Dataset):
         assert self.categories is not None and len(self.categories) != 0, \
                "`categories` should be a list of str containing all the needed categories"
         self.h5_list = [f"{c}_{self.split}.h5" for c in self.categories]
-        self.field_list = [ShapenetImplicitReconField(os.path.join(self.h5_dataset_folder, s)) for s in self.h5_list]
+        self.field_list = [
+            ShapenetImplicitReconField(os.path.join(self.h5_dataset_folder, s))
+            for s in self.h5_list
+        ]
 
         self.load_configs = dict(
             requires_xyzgt=self.requires_xyzgt,
@@ -128,7 +133,8 @@ class ShapenetImplicitRecon(Dataset):
                 class_index = i
                 break
             st = ed
-        obj_index = idx - (self.cumsum[class_index - 1] if class_index != 0 else 0)
+        obj_index = idx - (self.cumsum[class_index -
+                                       1] if class_index != 0 else 0)
         return class_index, obj_index
 
     def __len__(self):
@@ -154,7 +160,8 @@ class ShapenetImplicitRecon(Dataset):
         """
         class_index, obj_index = self._parse_index(idx)
 
-        data = self.field_list[class_index].load(obj_index=obj_index, **self.load_configs)
+        data = self.field_list[class_index].load(obj_index=obj_index,
+                                                 **self.load_configs)
 
         data["class_name"] = self.categories[class_index]
 
@@ -273,15 +280,18 @@ class ShapenetImplicitReconField:
                 data["ctrmag"] = ctrmag
 
         if requires_xyzgt:
-            xyzgt = to_float32(_get_data(self.f, "pts_sdf", obj_index, sdf_num))
+            xyzgt = to_float32(_get_data(self.f, "pts_sdf", obj_index,
+                                         sdf_num))
             if shuffle:
                 np.random.shuffle(xyzgt)
             if do_normalization:
-                xyzgt = (xyzgt - np.array([*ctrmag[:3], 0], dtype=np.float32)) / ctrmag[3]  # normalize to unit sphere
+                xyzgt = (xyzgt - np.array([*ctrmag[:3], 0], dtype=np.float32)
+                         ) / ctrmag[3]  # normalize to unit sphere
             data["xyzgt"] = xyzgt
 
         if requires_pc:
-            pc = to_float32(_get_data(self.f, "poisson_pts", obj_index, pc_num))
+            pc = to_float32(_get_data(self.f, "poisson_pts", obj_index,
+                                      pc_num))
             if shuffle:
                 np.random.shuffle(pc)
             if do_normalization:
@@ -289,11 +299,13 @@ class ShapenetImplicitReconField:
             data["pc"] = pc
 
         if requires_randpts:
-            randpts = to_float32(_get_data(self.f, "rand_pts", obj_index, randpts_num))
+            randpts = to_float32(
+                _get_data(self.f, "rand_pts", obj_index, randpts_num))
             if shuffle:
                 np.random.shuffle(randpts)
             if do_normalization:
-                randpts = (randpts - ctrmag[:3]) / ctrmag[3]  # normalize to unit sphere
+                randpts = (randpts -
+                           ctrmag[:3]) / ctrmag[3]  # normalize to unit sphere
             data["randpts"] = randpts
 
         if requires_rgb:
@@ -301,11 +313,14 @@ class ShapenetImplicitReconField:
                    (rgb_rand_num is None and isinstance(rgb_idx_lst, list)), \
                    "only one of `rgb_rand_num` and `rgb_idx_lst` can be used"
             if isinstance(rgb_rand_num, int) and rgb_idx_lst is None:
-                image_index_list = list(np.random.choice(24, size=rgb_rand_num, replace=False))
+                image_index_list = list(
+                    np.random.choice(24, size=rgb_rand_num, replace=False))
             else:
                 image_index_list = rgb_idx_lst
 
-            imgs = to_float32(_get_data(self.f, "imgs", obj_index, image_index_list).squeeze())
+            imgs = to_float32(
+                _get_data(self.f, "imgs", obj_index,
+                          image_index_list).squeeze())
             if do_normalization:
                 imgs = (imgs - 127.5) / 255.0  # to -0.5~0.5
 

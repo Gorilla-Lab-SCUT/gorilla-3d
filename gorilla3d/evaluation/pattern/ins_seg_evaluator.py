@@ -22,33 +22,35 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
     DISTANCE_THRESHES = np.array([float("inf")])
     # distance confidences
     DISTANCE_CONFS = np.array([-float("inf")])
-    def __init__(self,
-                 class_labels: Sequence[str],
-                 class_ids: Sequence[int],
-                 **kwargs,):
+
+    def __init__(
+        self,
+        class_labels: Sequence[str],
+        class_ids: Sequence[int],
+        **kwargs,
+    ):
         """
         Args:
             ignore_label: deprecated argument
         """
         super().__init__(
             class_labels=class_labels,
-            class_ids=class_ids,)
+            class_ids=class_ids,
+        )
         self.reset()
 
     def reset(self):
         # initialize precision-recall container to calculate AP
         self.matches = {}
         self.prec_recall_total = {}
-        self.ap_scores = np.zeros((len(self.DISTANCE_THRESHES),
-                                   len(self.class_labels),
-                                   len(self.OVERLAPS)), np.float)
+        self.ap_scores = np.zeros(
+            (len(self.DISTANCE_THRESHES), len(
+                self.class_labels), len(self.OVERLAPS)), np.float)
         self.avgs = {}
-
 
     def assign_instances_for_scan(self, scene_name, pred_info, gt_ids):
         # get gt instances
-        gt_instances = VertInstance.get_instances(gt_ids,
-                                                  self.class_ids,
+        gt_instances = VertInstance.get_instances(gt_ids, self.class_ids,
                                                   self.class_labels,
                                                   self.id_to_label)
 
@@ -87,7 +89,8 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
 
             # record pred instance as dict
             pred_instance = {}
-            pred_instance["filename"] = f"{scene_name}_{num_pred_instances:03d}"
+            pred_instance[
+                "filename"] = f"{scene_name}_{num_pred_instances:03d}"
             pred_instance["pred_id"] = num_pred_instances
             pred_instance["label_id"] = label_id
             pred_instance["instance_count"] = num
@@ -101,28 +104,29 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
             # go thru all gt instances with matching label
             for (gt_num, gt_inst) in enumerate(gt2pred[label_name]):
                 intersection = np.count_nonzero(
-                    np.logical_and(gt_ids == gt_inst["instance_id"], pred_mask))
+                    np.logical_and(gt_ids == gt_inst["instance_id"],
+                                   pred_mask))
                 if intersection > 0:
                     gt_copy = gt_inst.copy()
                     pred_copy = pred_instance.copy()
                     gt_copy["intersection"] = intersection
                     pred_copy["intersection"] = intersection
                     matched_gt.append(gt_copy)
-                    gt2pred[label_name][gt_num]["matched_pred"].append(pred_copy)
+                    gt2pred[label_name][gt_num]["matched_pred"].append(
+                        pred_copy)
             pred_instance["matched_gt"] = matched_gt
             num_pred_instances += 1
             pred2gt[label_name].append(pred_instance)
 
         return gt2pred, pred2gt
 
-
     def assign(self, scene_name, pred_info, gt_ids):
-        gt2pred, pred2gt = self.assign_instances_for_scan(scene_name, pred_info, gt_ids)
+        gt2pred, pred2gt = self.assign_instances_for_scan(
+            scene_name, pred_info, gt_ids)
         self.matches[scene_name] = {
             "instance_pred": pred2gt,
             "instance_gt": gt2pred
         }
-
 
     def evaluate(self, ap=True, prec_rec=True):
         if ap:
@@ -135,44 +139,44 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
         haeders = ["class", "AP", "AP_50%", "AP_25%"]
         results = []
         max_length = max(15, max(map(lambda x: len(x), self.class_labels)))
-        self.logger.info("Evaluation average precision(AP) for instance segmentation:")
+        self.logger.info(
+            "Evaluation average precision(AP) for instance segmentation:")
         for (li, class_label) in enumerate(self.class_labels):
             ap_avg = self.avgs["classes"][class_label]["ap"]
             ap_50o = self.avgs["classes"][class_label]["ap50%"]
             ap_25o = self.avgs["classes"][class_label]["ap25%"]
-            results.append((class_label.ljust(max_length, " "), ap_avg, ap_50o, ap_25o))
-        
-        ap_table = gorilla.table(
-            results,
-            headers=haeders,
-            stralign="left"
-        )
+            results.append((class_label.ljust(max_length,
+                                              " "), ap_avg, ap_50o, ap_25o))
+
+        ap_table = gorilla.table(results, headers=haeders, stralign="left")
         for line in ap_table.split("\n"):
             self.logger.info(line)
 
         # print mean results
         self.logger.info("Mean average precision(AP):")
         mean_ap_dict = {}
-        for idx, metric in zip(["all_ap", "all_ap_50%", "all_ap_25%"], ["AP", "AP_50%", "AP_25%"]):
+        for idx, metric in zip(["all_ap", "all_ap_50%", "all_ap_25%"],
+                               ["AP", "AP_50%", "AP_25%"]):
             mean_ap_dict[metric] = self.avgs[idx]
-            
+
         acc_table = gorilla.create_small_table(mean_ap_dict)
         for line in acc_table.split("\n"):
             self.logger.info(line)
         self.logger.info("")
 
-
     def evaluate_matches(self):
         # results: class x overlap
         for di, (min_region_size, distance_thresh, distance_conf) in enumerate(
-                zip(self.MIN_REGION_SIZES, self.DISTANCE_THRESHES, self.DISTANCE_CONFS)):
+                zip(self.MIN_REGION_SIZES, self.DISTANCE_THRESHES,
+                    self.DISTANCE_CONFS)):
             for oi, overlap_th in enumerate(self.OVERLAPS):
                 self.prec_recall_total[overlap_th] = {}
                 pred_visited = {}
                 for m in self.matches:
                     for p in self.matches[m]["instance_pred"]:
                         for label_name in self.class_labels:
-                            for p in self.matches[m]["instance_pred"][label_name]:
+                            for p in self.matches[m]["instance_pred"][
+                                    label_name]:
                                 if "filename" in p:
                                     pred_visited[p["filename"]] = False
                 for li, label_name in enumerate(self.class_labels):
@@ -182,13 +186,15 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
                     has_gt = False
                     has_pred = False
                     for m in self.matches:
-                        pred_instances = self.matches[m]["instance_pred"][label_name]
-                        gt_instances = self.matches[m]["instance_gt"][label_name]
+                        pred_instances = self.matches[m]["instance_pred"][
+                            label_name]
+                        gt_instances = self.matches[m]["instance_gt"][
+                            label_name]
                         # filter groups in ground truth
                         gt_instances = [
-                            gt for gt in gt_instances
-                            if gt["instance_id"] >= 0 and gt["instance_count"] >=
-                            min_region_size and gt["med_dist"] <= distance_thresh
+                            gt for gt in gt_instances if gt["instance_id"] >= 0
+                            and gt["instance_count"] >= min_region_size
+                            and gt["med_dist"] <= distance_thresh
                             and gt["dist_conf"] >= distance_conf
                         ]
                         if gt_instances:
@@ -197,7 +203,8 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
                             has_pred = True
 
                         cur_true = np.ones(len(gt_instances))
-                        cur_score = np.ones(len(gt_instances)) * (-float("inf"))
+                        cur_score = np.ones(
+                            len(gt_instances)) * (-float("inf"))
                         cur_match = np.zeros(len(gt_instances), dtype=np.bool)
                         # collect matches
                         for (gti, gt) in enumerate(gt_instances):
@@ -208,19 +215,23 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
                                 if pred_visited[pred["filename"]]:
                                     continue
                                 overlap = float(pred["intersection"]) / (
-                                    gt["instance_count"] + pred["instance_count"] -
+                                    gt["instance_count"] +
+                                    pred["instance_count"] -
                                     pred["intersection"])
                                 if overlap > overlap_th:
                                     confidence = pred["confidence"]
                                     # if already have a prediction for this gt,
                                     # the prediction with the lower score is automatically a false positive
                                     if cur_match[gti]:
-                                        max_score = max(cur_score[gti], confidence)
-                                        min_score = min(cur_score[gti], confidence)
+                                        max_score = max(
+                                            cur_score[gti], confidence)
+                                        min_score = min(
+                                            cur_score[gti], confidence)
                                         cur_score[gti] = max_score
                                         # append false positive
                                         cur_true = np.append(cur_true, 0)
-                                        cur_score = np.append(cur_score, min_score)
+                                        cur_score = np.append(
+                                            cur_score, min_score)
                                         cur_match = np.append(cur_match, True)
                                     # otherwise set score
                                     else:
@@ -239,7 +250,8 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
                             found_gt = False
                             for gt in pred["matched_gt"]:
                                 overlap = float(gt["intersection"]) / (
-                                    gt["instance_count"] + pred["instance_count"] -
+                                    gt["instance_count"] +
+                                    pred["instance_count"] -
                                     gt["intersection"])
                                 if overlap > overlap_th:
                                     found_gt = True
@@ -261,7 +273,8 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
                                 if proportion_ignore <= overlap_th:
                                     cur_true = np.append(cur_true, 0)
                                     confidence = pred["confidence"]
-                                    cur_score = np.append(cur_score, confidence)
+                                    cur_score = np.append(
+                                        cur_score, confidence)
 
                         # append to overall results
                         y_true = np.append(y_true, cur_true)
@@ -278,8 +291,9 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
                         y_true_sorted_cumsum = np.cumsum(y_true_sorted)
 
                         # unique thresholds
-                        (thresholds, unique_indices) = np.unique(y_score_sorted,
-                                                                return_index=True)
+                        (thresholds,
+                         unique_indices) = np.unique(y_score_sorted,
+                                                     return_index=True)
                         num_prec_recall = len(unique_indices) + 1
 
                         # prepare precision recall
@@ -292,7 +306,8 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
                         recall = np.zeros(num_prec_recall)
 
                         # deal with the first point
-                        y_true_sorted_cumsum = np.append(y_true_sorted_cumsum, 0)
+                        y_true_sorted_cumsum = np.append(
+                            y_true_sorted_cumsum, 0)
                         # deal with remaining
                         for idx_res, idx_scores in enumerate(unique_indices):
                             cumsum = y_true_sorted_cumsum[idx_scores - 1]
@@ -308,7 +323,9 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
                         precision[-1] = 1.
                         recall[-1] = 0.
 
-                        self.prec_recall_total[overlap_th][label_name] = [precision, recall]
+                        self.prec_recall_total[overlap_th][label_name] = [
+                            precision, recall
+                        ]
 
                         # compute average of precision-recall curve
                         recall_for_conv = np.copy(recall)
@@ -316,8 +333,8 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
                                                     recall_for_conv)
                         recall_for_conv = np.append(recall_for_conv, 0.)
 
-                        stepWidths = np.convolve(recall_for_conv, [-0.5, 0, 0.5],
-                                                "valid")
+                        stepWidths = np.convolve(recall_for_conv,
+                                                 [-0.5, 0, 0.5], "valid")
                         # integrate is now simply a dot product
                         ap_current = np.dot(precision, stepWidths)
 
@@ -345,9 +362,8 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
             self.avgs["classes"][label_name]["ap25%"] = \
                 np.average(self.ap_scores[d_inf, li, o25])
 
-
     # modify from https://github.com/Yang7879/3D-BoNet/blob/master/main_eval.py
-    def print_prec_recall(self, threshold: float=0.5):
+    def print_prec_recall(self, threshold: float = 0.5):
         # init the confusion matrix dict
         TP_FP_Total = {}
         for class_id in self.class_ids:
@@ -360,7 +376,8 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
             # pred ins
             ins_pred_by_sem = {}
             ins_gt_by_sem = {}
-            for class_id, class_label in zip(self.class_ids, self.class_labels):
+            for class_id, class_label in zip(self.class_ids,
+                                             self.class_labels):
                 # pred ins
                 ins_pred_by_sem[class_id] = []
                 pred_instances = self.matches[m]["instance_pred"][class_label]
@@ -373,9 +390,10 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
                     ins_gt_by_sem[class_id].append(gt["gt_mask"])
 
             # to associate
-            for class_id, class_label in zip(self.class_ids, self.class_labels):
-                ins_pred_tp = ins_pred_by_sem[class_id] # [num_pred, N]
-                ins_gt_tp = ins_gt_by_sem[class_id] # [num_gt, N]
+            for class_id, class_label in zip(self.class_ids,
+                                             self.class_labels):
+                ins_pred_tp = ins_pred_by_sem[class_id]  # [num_pred, N]
+                ins_gt_tp = ins_gt_by_sem[class_id]  # [num_gt, N]
 
                 flag_pred = np.zeros(len(ins_pred_tp), dtype=np.int8)
 
@@ -390,7 +408,8 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
 
                 # fullfil
                 TP_FP_Total[class_id]["TP"] += np.sum(flag_pred)
-                TP_FP_Total[class_id]["FP"] += len(flag_pred) - np.sum(flag_pred)
+                TP_FP_Total[class_id]["FP"] += len(flag_pred) - np.sum(
+                    flag_pred)
                 TP_FP_Total[class_id]["Total"] += len(ins_gt_tp)
 
         # build precision-recall table
@@ -398,7 +417,8 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
         rec_all = []
         haeders = ["class", "precision", "recall"]
         results = []
-        self.logger.info("Evaluation precision and recall for instance segmentation:")
+        self.logger.info(
+            "Evaluation precision and recall for instance segmentation:")
         max_length = max(15, max(map(lambda x: len(x), self.class_labels)))
         for class_id, class_label in zip(self.class_ids, self.class_labels):
             TP = TP_FP_Total[class_id]["TP"]
@@ -410,22 +430,21 @@ class InstanceEvaluator(gorilla.evaluation.DatasetEvaluator):
             pre_all.append(pre)
             rec_all.append(rec)
 
-        pre_rec_table = gorilla.table(
-            results,
-            headers=haeders,
-            stralign="left"
-        )
+        pre_rec_table = gorilla.table(results,
+                                      headers=haeders,
+                                      stralign="left")
         for line in pre_rec_table.split("\n"):
             self.logger.info(line)
-        
+
         # print mean results
         self.logger.info("Mean precision and recall:")
         mean_pr_dict = {}
-        for metric, value in zip(["precision", "recall"], [np.mean(pre_all), np.mean(rec_all)]):
+        for metric, value in zip(
+            ["precision", "recall"],
+            [np.mean(pre_all), np.mean(rec_all)]):
             mean_pr_dict[metric] = f"{value:.3f}"
-            
+
         acc_table = gorilla.create_small_table(mean_pr_dict)
         for line in acc_table.split("\n"):
             self.logger.info(line)
         self.logger.info("")
-

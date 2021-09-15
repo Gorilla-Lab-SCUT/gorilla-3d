@@ -8,18 +8,17 @@ from gorilla.evaluation import DatasetEvaluators
 
 from .pattern import SemanticEvaluator, InstanceEvaluator
 
-
 CLASS_LABELS = [
-    "ceiling", "floor", "wall", "beam", "column", "window", "door",
-    "table", "chair", "sofa", "bookcase", "board", "clutter"
+    "ceiling", "floor", "wall", "beam", "column", "window", "door", "table",
+    "chair", "sofa", "bookcase", "board", "clutter"
 ]
 CLASS_IDS = np.arange(len(CLASS_LABELS))
 
 
 class S3DISSemanticEvaluator(SemanticEvaluator):
     def __init__(self,
-                 class_labels: List[str]=CLASS_LABELS,
-                 class_ids: Union[np.ndarray, List[int]]=CLASS_IDS,
+                 class_labels: List[str] = CLASS_LABELS,
+                 class_ids: Union[np.ndarray, List[int]] = CLASS_IDS,
                  **kwargs):
         super().__init__(class_labels=class_labels,
                          class_ids=class_ids,
@@ -43,16 +42,15 @@ class S3DISSemanticEvaluator(SemanticEvaluator):
             self.fill_confusion(semantic_pred, semantic_gt)
 
 
-
 class S3DISInstanceEvaluator(InstanceEvaluator):
     """
     Evaluate semantic segmentation metrics.
     """
     def __init__(self,
-                dataset_root: str,
-                class_labels: List[str]=CLASS_LABELS,
-                class_ids: List[int]=CLASS_IDS,
-                **kwargs):
+                 dataset_root: str,
+                 class_labels: List[str] = CLASS_LABELS,
+                 class_ids: List[int] = CLASS_IDS,
+                 **kwargs):
         """
         Args:
             ignore_label: deprecated argument

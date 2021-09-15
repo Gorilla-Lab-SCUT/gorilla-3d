@@ -5,19 +5,20 @@ import torch.nn as nn
 import torch
 import torch.nn.functional as F
 
+
 class DeepSDF(nn.Module):
     def __init__(
         self,
         latent_size: int,
         dims: List[int],
-        dropout: List[int]=None,
+        dropout: List[int] = None,
         dropout_prob=0.0,
-        norm_layers: List[int]=[],
-        latent_in: List[int]=[],
-        weight_norm: bool=False,
-        xyz_in_all: bool=False,
-        use_tanh: bool=False,
-        latent_dropout: bool=False,
+        norm_layers: List[int] = [],
+        latent_in: List[int] = [],
+        weight_norm: bool = False,
+        xyz_in_all: bool = False,
+        use_tanh: bool = False,
+        latent_dropout: bool = False,
     ):
         """Author: wu.chaozheng
         DeepSDF
@@ -69,13 +70,11 @@ class DeepSDF(nn.Module):
                     nn.utils.weight_norm(nn.Linear(dims[layer], out_dim)),
                 )
             else:
-                setattr(self, "lin" + str(layer), nn.Linear(dims[layer], out_dim))
+                setattr(self, "lin" + str(layer),
+                        nn.Linear(dims[layer], out_dim))
 
-            if (
-                (not weight_norm)
-                and self.norm_layers is not None
-                and layer in self.norm_layers
-            ):
+            if ((not weight_norm) and self.norm_layers is not None
+                    and layer in self.norm_layers):
                 setattr(self, "bn" + str(layer), nn.LayerNorm(out_dim))
 
         self.use_tanh = use_tanh
@@ -116,16 +115,15 @@ class DeepSDF(nn.Module):
             if layer == self.num_layers - 2 and self.use_tanh:
                 x = self.tanh(x)
             if layer < self.num_layers - 2:
-                if (
-                    self.norm_layers is not None
-                    and layer in self.norm_layers
-                    and not self.weight_norm
-                ):
+                if (self.norm_layers is not None and layer in self.norm_layers
+                        and not self.weight_norm):
                     bn = getattr(self, "bn" + str(layer))
                     x = bn(x)
                 x = self.relu(x)
                 if self.dropout is not None and layer in self.dropout:
-                    x = F.dropout(x, p=self.dropout_prob, training=self.training)
+                    x = F.dropout(x,
+                                  p=self.dropout_prob,
+                                  training=self.training)
 
         if hasattr(self, "th"):
             x = self.th(x)

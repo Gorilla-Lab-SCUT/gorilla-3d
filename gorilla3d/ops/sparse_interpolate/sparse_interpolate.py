@@ -9,10 +9,11 @@ from typing import Tuple
 
 from . import sparse_interpolate_ext
 
-class SparseThreeNN(Function):
 
+class SparseThreeNN(Function):
     @staticmethod
-    def forward(ctx, unknown: torch.Tensor, known: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(ctx, unknown: torch.Tensor,
+                known: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Find the three nearest neighbors of unknown in known
         :param ctx:
@@ -30,20 +31,22 @@ class SparseThreeNN(Function):
         dist2 = torch.cuda.FloatTensor(N, 3)
         idx = torch.cuda.IntTensor(N, 3)
 
-        sparse_interpolate_ext.three_nn_wrapper(N, m, unknown, known, dist2, idx)
+        sparse_interpolate_ext.three_nn_wrapper(N, m, unknown, known, dist2,
+                                                idx)
         return torch.sqrt(dist2), idx
 
     @staticmethod
     def backward(ctx, a=None, b=None):
         return None, None
 
+
 sparse_three_nn = SparseThreeNN.apply
 
 
 class SparseThreeInterpolate(Function):
-
     @staticmethod
-    def forward(ctx, features: torch.Tensor, idx: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:
+    def forward(ctx, features: torch.Tensor, idx: torch.Tensor,
+                weight: torch.Tensor) -> torch.Tensor:
         """
         Performs weight linear interpolation on 3 features
         :param ctx:
@@ -62,11 +65,14 @@ class SparseThreeInterpolate(Function):
         ctx.three_interpolate_for_backward = (idx, weight, m)
         output = torch.cuda.FloatTensor(n, c)
 
-        sparse_interpolate_ext.three_interpolate_wrapper(c, m, n, features, idx, weight, output)
+        sparse_interpolate_ext.three_interpolate_wrapper(
+            c, m, n, features, idx, weight, output)
         return output
 
     @staticmethod
-    def backward(ctx, grad_out: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def backward(
+        ctx, grad_out: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         :param ctx:
         :param grad_out: (N, C) tensor with gradients of outputs
@@ -81,8 +87,10 @@ class SparseThreeInterpolate(Function):
         grad_features = Variable(torch.cuda.FloatTensor(m, c).zero_())
         grad_out_data = grad_out.data.contiguous()
 
-        sparse_interpolate_ext.three_interpolate_grad_wrapper( c, n, m, grad_out_data, idx, weight, grad_features.data)
+        sparse_interpolate_ext.three_interpolate_grad_wrapper(
+            c, n, m, grad_out_data, idx, weight, grad_features.data)
         return grad_features, None, None
+
 
 sparse_three_interpolate = SparseThreeInterpolate.apply
 
@@ -102,4 +110,3 @@ def three_nearest_neighbor_interpolate(unknown, known, known_feats):
     interpolated_feats = sparse_three_interpolate(known_feats, idx, weight)
 
     return interpolated_feats
-

@@ -1,14 +1,11 @@
 import gorilla
 
-
 # Copyright (c) Gorilla-Lab. All rights reserved.
 import numpy as np
 
 
-def non_max_suppression(ious: np.ndarray,
-                        scores: np.ndarray,
-                        threshold: float
-) -> np.ndarray:
+def non_max_suppression(ious: np.ndarray, scores: np.ndarray,
+                        threshold: float) -> np.ndarray:
     r"""non max suppression for nparray (have given the ious map)
 
     Args:
@@ -29,5 +26,3 @@ def non_max_suppression(ious: np.ndarray,
         ixs = np.delete(ixs, remove_ixs)
         ixs = np.delete(ixs, 0)
     return np.array(keep, dtype=np.int32)
-
-

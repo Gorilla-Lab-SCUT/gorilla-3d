@@ -62,7 +62,6 @@ class PointNetCls(nn.Module):
         >>> y = pointnet(x)
         >>> print(y.shape)
     """
-
     def __init__(self,
                  in_channels: int = 3,
                  feat_size: int = 1024,
@@ -89,8 +88,9 @@ class PointNetCls(nn.Module):
             raise TypeError("Argument classifier_layer_dims is not iterable.")
         for idx, layer_dim in enumerate(classifier_layer_dims):
             if not isinstance(layer_dim, int):
-                raise TypeError(f"Expected classifier_layer_dims to contain "
-                                f"int. Found type {type(layer_dim)} at index {idx}.")
+                raise TypeError(
+                    f"Expected classifier_layer_dims to contain "
+                    f"int. Found type {type(layer_dim)} at index {idx}.")
 
         # Add feat_size to the head of classifier_layer_dims (the output of
         # the PointNet feature extractor has number of elements equal to
@@ -102,21 +102,24 @@ class PointNetCls(nn.Module):
         # Note that `global_feat` MUST be set to True, for global
         # classification tasks.
         self.feature_extractor = PointNetFeatExt(
-            in_channels=in_channels, feat_size=feat_size,
-            layer_dims=feat_layer_dims, global_feat=True,
-            activation=activation, batchnorm=batchnorm,
-            transposed_input=transposed_input
-        )
+            in_channels=in_channels,
+            feat_size=feat_size,
+            layer_dims=feat_layer_dims,
+            global_feat=True,
+            activation=activation,
+            batchnorm=batchnorm,
+            transposed_input=transposed_input)
 
         self.linear_layers = nn.ModuleList()
         if batchnorm:
             self.bn_layers = nn.ModuleList()
         for idx in range(len(classifier_layer_dims) - 1):
-            self.linear_layers.append(nn.Linear(classifier_layer_dims[idx],
-                                                classifier_layer_dims[idx + 1]))
+            self.linear_layers.append(
+                nn.Linear(classifier_layer_dims[idx],
+                          classifier_layer_dims[idx + 1]))
             if batchnorm:
-                self.bn_layers.append(nn.BatchNorm1d(
-                    classifier_layer_dims[idx + 1]))
+                self.bn_layers.append(
+                    nn.BatchNorm1d(classifier_layer_dims[idx + 1]))
 
         self.last_linear_layer = nn.Linear(classifier_layer_dims[-1],
                                            num_classes)
@@ -216,7 +219,6 @@ class PointNetSeg(nn.Module):
         >>> y = pointnet(x)
         >>> print(y.shape)
     """
-
     def __init__(self,
                  in_channels: int = 3,
                  feat_size: int = 1024,
@@ -239,8 +241,9 @@ class PointNetSeg(nn.Module):
             raise TypeError("Argument classifier_layer_dims is not iterable.")
         for idx, layer_dim in enumerate(classifier_layer_dims):
             if not isinstance(layer_dim, int):
-                raise TypeError(f"Expected classifier_layer_dims to contain "
-                                f"int. Found type {type(layer_dim)} at index {idx}.")
+                raise TypeError(
+                    f"Expected classifier_layer_dims to contain "
+                    f"int. Found type {type(layer_dim)} at index {idx}.")
 
         # Add feat_size to the head of classifier_layer_dims (the output of
         # the PointNet feature extractor has number of elements equal to
@@ -252,11 +255,13 @@ class PointNetSeg(nn.Module):
         # Note that `global_feat` MUST be set to False, for
         # segmentation tasks.
         self.feature_extractor = PointNetFeatExt(
-            in_channels=in_channels, feat_size=feat_size,
-            layer_dims=feat_layer_dims, global_feat=False,
-            activation=activation, batchnorm=batchnorm,
-            transposed_input=transposed_input
-        )
+            in_channels=in_channels,
+            feat_size=feat_size,
+            layer_dims=feat_layer_dims,
+            global_feat=False,
+            activation=activation,
+            batchnorm=batchnorm,
+            transposed_input=transposed_input)
 
         # Compute the dimensionality of local features
         # Local feature size = (global feature size) + (feature size
@@ -271,16 +276,17 @@ class PointNetSeg(nn.Module):
         if batchnorm:
             self.bn_layers = nn.ModuleList()
         # First classifier layer
-        self.conv_layers.append(nn.Conv1d(self.local_feat_size,
-                                          classifier_layer_dims[0], 1))
+        self.conv_layers.append(
+            nn.Conv1d(self.local_feat_size, classifier_layer_dims[0], 1))
         if batchnorm:
             self.bn_layers.append(nn.BatchNorm1d(classifier_layer_dims[0]))
         for idx in range(len(classifier_layer_dims) - 1):
-            self.conv_layers.append(nn.Conv1d(classifier_layer_dims[idx],
-                                              classifier_layer_dims[idx + 1], 1))
+            self.conv_layers.append(
+                nn.Conv1d(classifier_layer_dims[idx],
+                          classifier_layer_dims[idx + 1], 1))
             if batchnorm:
-                self.bn_layers.append(nn.BatchNorm1d(
-                    classifier_layer_dims[idx + 1]))
+                self.bn_layers.append(
+                    nn.BatchNorm1d(classifier_layer_dims[idx + 1]))
 
         self.last_conv_layer = nn.Conv1d(classifier_layer_dims[-1],
                                          num_classes, 1)

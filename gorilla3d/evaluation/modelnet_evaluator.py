@@ -5,27 +5,59 @@ import numpy as np
 
 from .pattern import ClassificationEvaluator
 
-
 CLASS_LABELS = [
-    "bed", "tv_stand", "xbox", "person", "night_stand", "curtain", "bottle", "bench",
-    "mantel", "plant", "flower_pot", "tent", "stairs", "radio", "monitor", "guitar",
-    "bathtub", "door", "piano", "cone", "keyboard", "bowl", "airplane", "dresser",
-    "cup", "vase", "sofa", "range_hood", "glass_box", "car", "bookshelf", "lamp",
-    "stool", "desk", "sink", "chair", "toilet", "table", "laptop", "wardrobe",
+    "bed",
+    "tv_stand",
+    "xbox",
+    "person",
+    "night_stand",
+    "curtain",
+    "bottle",
+    "bench",
+    "mantel",
+    "plant",
+    "flower_pot",
+    "tent",
+    "stairs",
+    "radio",
+    "monitor",
+    "guitar",
+    "bathtub",
+    "door",
+    "piano",
+    "cone",
+    "keyboard",
+    "bowl",
+    "airplane",
+    "dresser",
+    "cup",
+    "vase",
+    "sofa",
+    "range_hood",
+    "glass_box",
+    "car",
+    "bookshelf",
+    "lamp",
+    "stool",
+    "desk",
+    "sink",
+    "chair",
+    "toilet",
+    "table",
+    "laptop",
+    "wardrobe",
 ]
 
 CLASS_IDS = np.arange(len(CLASS_LABELS))
 
+
 class ModelNetClassificationEvaluator(ClassificationEvaluator):
     def __init__(self,
-                 class_labels: List[str]=CLASS_LABELS,
-                 class_ids: Union[np.ndarray, List[int]]=CLASS_IDS,
-                 top_k: Tuple[int]=(1, 5),
+                 class_labels: List[str] = CLASS_LABELS,
+                 class_ids: Union[np.ndarray, List[int]] = CLASS_IDS,
+                 top_k: Tuple[int] = (1, 5),
                  **kwargs):
-        super().__init__(class_labels,
-                         class_ids,
-                         top_k,
-                         **kwargs)
+        super().__init__(class_labels, class_ids, top_k, **kwargs)
 
     def process(self, inputs, outputs):
         """
@@ -43,5 +75,3 @@ class ModelNetClassificationEvaluator(ClassificationEvaluator):
             prediction = output["prediction"].cpu().clone()
             labels = output["labels"].cpu().clone()
             self.match(prediction, labels)
-
-

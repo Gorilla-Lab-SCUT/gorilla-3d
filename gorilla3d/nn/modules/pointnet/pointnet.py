@@ -64,7 +64,6 @@ class PointNetFeatExt(nn.Module):
         >>> y = pointnet(x)
         print(y.shape)
     """
-
     def __init__(self,
                  in_channels: int = 3,
                  feat_size: int = 1024,
@@ -76,8 +75,9 @@ class PointNetFeatExt(nn.Module):
         super().__init__()
 
         if not isinstance(in_channels, int):
-            raise TypeError(f"Argument in_channels expected to be of type int. "
-                            f"Got {type(in_channels)} instead.")
+            raise TypeError(
+                f"Argument in_channels expected to be of type int. "
+                f"Got {type(in_channels)} instead.")
         if not isinstance(feat_size, int):
             raise TypeError(f"Argument feat_size expected to be of type int. "
                             f"Got {type(feat_size)} instead.")
@@ -85,8 +85,9 @@ class PointNetFeatExt(nn.Module):
             raise TypeError("Argument layer_dims is not iterable.")
         for idx, layer_dim in enumerate(layer_dims):
             if not isinstance(layer_dim, int):
-                raise TypeError(f"Elements of layer_dims must be of type int. "
-                                f"Found type {type(layer_dim)} at index {idx}.")
+                raise TypeError(
+                    f"Elements of layer_dims must be of type int. "
+                    f"Found type {type(layer_dim)} at index {idx}.")
         if not isinstance(global_feat, bool):
             raise TypeError(f"Argument global_feat expected to be of type "
                             f"bool. Got {type(global_feat)} instead.")
@@ -112,8 +113,8 @@ class PointNetFeatExt(nn.Module):
         if batchnorm:
             self.bn_layers = nn.ModuleList()
         for idx in range(len(layer_dims) - 1):
-            self.conv_layers.append(nn.Conv1d(layer_dims[idx],
-                                              layer_dims[idx + 1], 1))
+            self.conv_layers.append(
+                nn.Conv1d(layer_dims[idx], layer_dims[idx + 1], 1))
             if batchnorm:
                 self.bn_layers.append(nn.BatchNorm1d(layer_dims[idx + 1]))
 
@@ -180,4 +181,3 @@ class PointNetFeatExt(nn.Module):
         # concatenating global features, and per-point features
         x = x.view(-1, self.feat_size, 1).repeat(1, 1, num_points)
         return torch.cat((x, local_features), dim=1)
-
