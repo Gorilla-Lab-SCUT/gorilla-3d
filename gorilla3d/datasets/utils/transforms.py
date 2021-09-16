@@ -6,11 +6,11 @@ import numpy as np
 
 class PointCloudTransfromer(object):
     def __init__(self,
-                 rotate_aug: bool=False,
-                 flip_aug: bool=False,
-                 scale_aug: bool=False,
-                 transform: bool=False,
-                 trans_std: List[float]=[0.1, 0.1, 0.1]):
+                 rotate_aug: bool = False,
+                 flip_aug: bool = False,
+                 scale_aug: bool = False,
+                 transform: bool = False,
+                 trans_std: List[float] = [0.1, 0.1, 0.1]):
         super().__init__()
         self.rotate_aug = rotate_aug
         self.flip_aug = flip_aug
@@ -19,7 +19,8 @@ class PointCloudTransfromer(object):
         self.trans_std = trans_std
 
     def __call__(self, point: np.array):
-        assert point.shape[1] >= 3, "the dimension of xyz must be larger than or equal to 3"
+        assert point.shape[
+            1] >= 3, "the dimension of xyz must be larger than or equal to 3"
         xyz = point[:, :3]
         # random data augmentation by rotation
         if self.rotate_aug:
@@ -44,13 +45,14 @@ class PointCloudTransfromer(object):
         # convert coordinate into polar coordinates
 
         if self.transform:
-            noise_translate = np.array([np.random.normal(0, self.trans_std[0], 1),
-                                        np.random.normal(0, self.trans_std[1], 1),
-                                        np.random.normal(0, self.trans_std[2], 1)]).T
+            noise_translate = np.array([
+                np.random.normal(0, self.trans_std[0], 1),
+                np.random.normal(0, self.trans_std[1], 1),
+                np.random.normal(0, self.trans_std[2], 1)
+            ]).T
 
             xyz[:, 0:3] += noise_translate
 
         point[:, :3] = xyz
 
         return point
-

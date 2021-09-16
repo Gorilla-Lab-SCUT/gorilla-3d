@@ -10,18 +10,18 @@ class SemanticEvaluator(gorilla.evaluation.DatasetEvaluator):
     """
     Evaluate semantic segmentation metrics.
     """
-    def __init__(self,
-                 class_labels: Sequence[str],
-                 class_ids: Sequence[int],
-                 ignore: Sequence[int]=[],
-                 **kwargs,):
+    def __init__(
+        self,
+        class_labels: Sequence[str],
+        class_ids: Sequence[int],
+        ignore: Sequence[int] = [],
+        **kwargs,
+    ):
         """
         Args:
             ignore_label: deprecated argument
         """
-        super().__init__(
-            class_labels=class_labels,
-            class_ids=class_ids)
+        super().__init__(class_labels=class_labels, class_ids=class_ids)
         self.ignore = ignore
         self.include = [i for i in self.class_ids if i not in self.ignore]
         self.reset()
@@ -30,9 +30,7 @@ class SemanticEvaluator(gorilla.evaluation.DatasetEvaluator):
         max_id = self.class_ids.max() + 1
         self.confusion = np.zeros((max_id + 1, max_id + 1), dtype=np.int64)
 
-    def fill_confusion(self,
-                       pred: np.ndarray,
-                       gt: np.ndarray):
+    def fill_confusion(self, pred: np.ndarray, gt: np.ndarray):
         np.add.at(self.confusion, (gt.flatten(), pred.flatten()), 1)
 
     def prase_iou(self):
@@ -61,18 +59,15 @@ class SemanticEvaluator(gorilla.evaluation.DatasetEvaluator):
         haeders = ["class", "IoU", "TP/(TP+FP+FN)"]
         results = []
         self.logger.info("Evaluation results for semantic segmentation:")
-        
+
         max_length = max(15, max(map(lambda x: len(x), self.class_labels)))
         for class_id in self.include:
-            results.append((
-                self.id_to_label[class_id].ljust(max_length, " "),
-                ious[class_id],
-                f"({intersection[class_id]:>6d}/{union[class_id]:<6d})"))
+            results.append(
+                (self.id_to_label[class_id].ljust(max_length,
+                                                  " "), ious[class_id],
+                 f"({intersection[class_id]:>6d}/{union[class_id]:<6d})"))
 
-        acc_table = gorilla.table(
-            results,
-            headers=haeders,
-            stralign="left")
+        acc_table = gorilla.table(results, headers=haeders, stralign="left")
         for line in acc_table.split("\n"):
             self.logger.info(line)
         self.logger.info(f"mean: {np.nanmean(ious[self.include]):.1f}")
@@ -84,6 +79,3 @@ class SemanticEvaluator(gorilla.evaluation.DatasetEvaluator):
 
         # return confusion matrix
         return self.confusion
-
-
-

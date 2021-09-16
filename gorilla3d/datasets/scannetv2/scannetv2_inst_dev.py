@@ -18,16 +18,17 @@ try:
 except:
     pass
 
+
 class ScanNetV2Inst(Dataset):
     def __init__(self,
                  data_root: str,
-                 full_scale: List[int]=[128, 512],
-                 scale: int=50,
-                 max_npoint: int=250000,
-                 task: str="train",
-                 with_elastic: bool=False,
-                 test_mode: bool=False,
-                 with_superpoints: bool=True,
+                 full_scale: List[int] = [128, 512],
+                 scale: int = 50,
+                 max_npoint: int = 250000,
+                 task: str = "train",
+                 with_elastic: bool = False,
+                 test_mode: bool = False,
+                 with_superpoints: bool = True,
                  **kwargs):
         # initialize dataset parameters
         self.logger = gorilla.derive_logger(__name__)
@@ -40,12 +41,13 @@ class ScanNetV2Inst(Dataset):
         self.with_superpoints = with_superpoints
         self.task = task
         self.aug_flag = "train" in self.task
-        
+
         # load files
         self.load_files()
-    
+
     def load_files(self):
-        file_names = sorted(glob.glob(osp.join(self.data_root, self.task, "*.pth")))
+        file_names = sorted(
+            glob.glob(osp.join(self.data_root, self.task, "*.pth")))
         self.files = [torch.load(i) for i in gorilla.track(file_names)]
         self.logger.info(f"{self.task} samples: {len(self.files)}")
 
@@ -61,9 +63,12 @@ class ScanNetV2Inst(Dataset):
             instance_label = np.zeros(xyz_origin.shape[0], dtype=np.int32)
         else:
             sub_dir = "scans"
-            xyz_origin, rgb, faces, semantic_label, instance_label, coords_shift, scene = self.files[index]
+            xyz_origin, rgb, faces, semantic_label, instance_label, coords_shift, scene = self.files[
+                index]
 
-        mesh_file = osp.join(osp.join(self.data_root, sub_dir, scene, scene+"_vh_clean_2.ply"))
+        mesh_file = osp.join(
+            osp.join(self.data_root, sub_dir, scene,
+                     scene + "_vh_clean_2.ply"))
         mesh = o3d.io.read_triangle_mesh(mesh_file)
         vertices = torch.from_numpy(np.array(mesh.vertices).astype(np.float32))
         faces = torch.from_numpy(np.array(mesh.triangles).astype(np.int64))
@@ -97,13 +102,16 @@ class ScanNetV2Inst(Dataset):
         rgb = rgb[valid_idxs]
         semantic_label = semantic_label[valid_idxs]
         superpoint = np.unique(superpoint[valid_idxs], return_inverse=True)[1]
-        instance_label = self.get_cropped_inst_label(instance_label, valid_idxs)
+        instance_label = self.get_cropped_inst_label(instance_label,
+                                                     valid_idxs)
 
         ### get instance information
-        inst_num, inst_infos = self.get_instance_info(xyz_middle, instance_label.astype(np.int32))
-        inst_info = inst_infos["instance_info"]  # [n, 9], (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
-        inst_pointnum = inst_infos["instance_pointnum"]   # [num_inst], list
-        
+        inst_num, inst_infos = self.get_instance_info(
+            xyz_middle, instance_label.astype(np.int32))
+        inst_info = inst_infos[
+            "instance_info"]  # [n, 9], (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
+        inst_pointnum = inst_infos["instance_pointnum"]  # [num_inst], list
+
         loc = torch.from_numpy(xyz).long()
         loc_offset = torch.from_numpy(xyz_offset).long()
         loc_float = torch.from_numpy(xyz_middle)
@@ -126,7 +134,9 @@ class ScanNetV2Inst(Dataset):
             m[0][0] *= np.random.randint(0, 2) * 2 - 1  # flip x randomly
         if rot:
             theta = np.random.rand() * 2 * math.pi
-            m = np.matmul(m, [[math.cos(theta), math.sin(theta), 0], [-math.sin(theta), math.cos(theta), 0], [0, 0, 1]])  # rotation
+            m = np.matmul(m, [[
+                math.cos(theta), math.sin(theta), 0
+            ], [-math.sin(theta), math.cos(theta), 0], [0, 0, 1]])  # rotation
         return np.matmul(xyz, m)
 
     def crop(self, xyz: np.ndarray) -> Union[np.ndarray, np.ndarray]:
@@ -146,15 +156,16 @@ class ScanNetV2Inst(Dataset):
         full_scale = np.array([self.full_scale[1]] * 3)
         room_range = xyz.max(0) - xyz.min(0)
         while (valid_idxs.sum() > self.max_npoint):
-            offset = np.clip(full_scale - room_range + 0.001, None, 0) * np.random.rand(3)
+            offset = np.clip(full_scale - room_range + 0.001, None,
+                             0) * np.random.rand(3)
             xyz_offset = xyz + offset
-            valid_idxs = (xyz_offset.min(1) >= 0) * ((xyz_offset < full_scale).sum(1) == 3)
+            valid_idxs = (xyz_offset.min(1) >= 0) * (
+                (xyz_offset < full_scale).sum(1) == 3)
             full_scale[:2] -= 32
 
         return xyz_offset, valid_idxs
 
-    def get_instance_info(self,
-                          xyz: np.ndarray,
+    def get_instance_info(self, xyz: np.ndarray,
                           instance_label: np.ndarray) -> Union[int, Dict]:
         r"""
         get the informations of instances (amount and coordinates)
@@ -167,8 +178,10 @@ class ScanNetV2Inst(Dataset):
             Union[int, Dict]: the amount of instances andinformations
                               (coordinates and the number of points) of instances
         """
-        instance_info = np.ones((xyz.shape[0], 9), dtype=np.float32) * -100.0   # [n, 9], float, (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
-        instance_pointnum = []   # [num_inst], int
+        instance_info = np.ones(
+            (xyz.shape[0], 9), dtype=np.float32
+        ) * -100.0  # [n, 9], float, (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
+        instance_pointnum = []  # [num_inst], int
         instance_num = int(instance_label.max()) + 1
         for i_ in range(instance_num):
             inst_idx_i = np.where(instance_label == i_)
@@ -187,10 +200,12 @@ class ScanNetV2Inst(Dataset):
             ### instance_pointnum
             instance_pointnum.append(inst_idx_i[0].size)
 
-        return instance_num, {"instance_info": instance_info, "instance_pointnum": instance_pointnum}
+        return instance_num, {
+            "instance_info": instance_info,
+            "instance_pointnum": instance_pointnum
+        }
 
-    def get_cropped_inst_label(self,
-                               instance_label: np.ndarray,
+    def get_cropped_inst_label(self, instance_label: np.ndarray,
                                valid_idxs: np.ndarray) -> np.ndarray:
         r"""
         get the instance labels after crop operation and recompact
@@ -229,7 +244,7 @@ class ScanNetV2Inst(Dataset):
         total_inst_num = 0
         for i, data in enumerate(batch):
             scene, loc, loc_offset, loc_float, feat, semantic_label, instance_label, superpoint, inst_num, inst_info, inst_pointnum = data
-            
+
             scene_list.append(scene)
             superpoint += superpoint_bias
             superpoint_bias += (superpoint.max() + 1)
@@ -241,7 +256,9 @@ class ScanNetV2Inst(Dataset):
             ### merge the scene to the batch
             batch_offsets.append(batch_offsets[-1] + loc.shape[0])
 
-            locs.append(torch.cat([torch.LongTensor(loc.shape[0], 1).fill_(i), loc], 1))
+            locs.append(
+                torch.cat([torch.LongTensor(loc.shape[0], 1).fill_(i), loc],
+                          1))
             loc_offset_list.append(loc_offset)
             locs_float.append(loc_float)
             feats.append(feat)
@@ -253,29 +270,46 @@ class ScanNetV2Inst(Dataset):
             instance_pointnum.extend(inst_pointnum)
 
         ### merge all the scenes in the batchd
-        batch_offsets = torch.tensor(batch_offsets, dtype=torch.int)  # int [B+1]
+        batch_offsets = torch.tensor(batch_offsets,
+                                     dtype=torch.int)  # int [B+1]
 
-        locs = torch.cat(locs, 0)                                # long [N, 1 + 3], the batch item idx is put in locs[:, 0]
+        locs = torch.cat(
+            locs,
+            0)  # long [N, 1 + 3], the batch item idx is put in locs[:, 0]
         locs_float = torch.cat(locs_float, 0).to(torch.float32)  # float [N, 3]
-        superpoint = torch.cat(superpoint_list, 0).long()               # long[N]
-        feats = torch.cat(feats, 0)                              # float [N, C]
-        semantic_labels = torch.cat(semantic_labels, 0).long()                     # long [N]
-        instance_labels = torch.cat(instance_labels, 0).long()   # long [N]
-        locs_offset = torch.stack(loc_offset_list)               # long [B, 3]
+        superpoint = torch.cat(superpoint_list, 0).long()  # long[N]
+        feats = torch.cat(feats, 0)  # float [N, C]
+        semantic_labels = torch.cat(semantic_labels, 0).long()  # long [N]
+        instance_labels = torch.cat(instance_labels, 0).long()  # long [N]
+        locs_offset = torch.stack(loc_offset_list)  # long [B, 3]
 
-        instance_infos = torch.cat(instance_infos, 0).to(torch.float32)       # float [N, 9] (meanxyz, minxyz, maxxyz)
-        instance_pointnum = torch.tensor(instance_pointnum, dtype=torch.int)  # int [total_num_inst]
+        instance_infos = torch.cat(instance_infos, 0).to(
+            torch.float32)  # float [N, 9] (meanxyz, minxyz, maxxyz)
+        instance_pointnum = torch.tensor(
+            instance_pointnum, dtype=torch.int)  # int [total_num_inst]
 
-        spatial_shape = np.clip((locs.max(0)[0][1:] + 1).numpy(), self.full_scale[0], None) # long [3]
+        spatial_shape = np.clip((locs.max(0)[0][1:] + 1).numpy(),
+                                self.full_scale[0], None)  # long [3]
 
         ### voxelize
         batch_size = len(batch)
-        voxel_locs, p2v_map, v2p_map = pointgroup_ops.voxelization_idx(locs, batch_size, 4)
+        voxel_locs, p2v_map, v2p_map = pointgroup_ops.voxelization_idx(
+            locs, batch_size, 4)
 
-        return {"locs": locs, "locs_offset": locs_offset, "voxel_locs": voxel_locs,
-                "scene_list": scene_list, "p2v_map": p2v_map, "v2p_map": v2p_map,
-                "locs_float": locs_float, "feats": feats,
-                "semantic_labels": semantic_labels, "instance_labels": instance_labels,
-                "instance_info": instance_infos, "instance_pointnum": instance_pointnum,
-                "offsets": batch_offsets, "spatial_shape": spatial_shape, "superpoint": superpoint}
-
+        return {
+            "locs": locs,
+            "locs_offset": locs_offset,
+            "voxel_locs": voxel_locs,
+            "scene_list": scene_list,
+            "p2v_map": p2v_map,
+            "v2p_map": v2p_map,
+            "locs_float": locs_float,
+            "feats": feats,
+            "semantic_labels": semantic_labels,
+            "instance_labels": instance_labels,
+            "instance_info": instance_infos,
+            "instance_pointnum": instance_pointnum,
+            "offsets": batch_offsets,
+            "spatial_shape": spatial_shape,
+            "superpoint": superpoint
+        }

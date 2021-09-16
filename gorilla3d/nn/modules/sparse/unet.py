@@ -16,14 +16,18 @@ from .block import ResidualBlock, VGGBlock, AsymResidualBlock
 
 
 class UBlock(nn.Module):
-    def __init__(self,
-                 nPlanes: List[int],
-                 norm_fn: Union[Dict, Callable]=functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1),
-                 block_reps: int=2,
-                 block: Union[str, Callable]=ResidualBlock,
-                 indice_key_id: int=1,
-                 normalize_before: bool=True,
-                 return_blocks: bool=False,):
+    def __init__(
+        self,
+        nPlanes: List[int],
+        norm_fn: Union[Dict, Callable] = functools.partial(nn.BatchNorm1d,
+                                                           eps=1e-4,
+                                                           momentum=0.1),
+        block_reps: int = 2,
+        block: Union[str, Callable] = ResidualBlock,
+        indice_key_id: int = 1,
+        normalize_before: bool = True,
+        return_blocks: bool = False,
+    ):
 
         super().__init__()
 
@@ -40,18 +44,18 @@ class UBlock(nn.Module):
                 block = VGGBlock
             elif block == "asym":
                 block = AsymResidualBlock
-        
+
         if isinstance(norm_fn, Dict):
-            norm_caller = gorilla.nn.get_torch_layer_caller(norm_fn.pop("type"))
+            norm_caller = gorilla.nn.get_torch_layer_caller(
+                norm_fn.pop("type"))
             norm_fn = functools.partial(norm_caller, **norm_fn)
-            
+
         blocks = {
-            f"block{i}":
-            block(nPlanes[0],
-                  nPlanes[0],
-                  norm_fn,
-                  normalize_before=normalize_before,
-                  indice_key=f"subm{indice_key_id}")
+            f"block{i}": block(nPlanes[0],
+                               nPlanes[0],
+                               norm_fn,
+                               normalize_before=normalize_before,
+                               indice_key=f"subm{indice_key_id}")
             for i in range(block_reps)
         }
         blocks = OrderedDict(blocks)
@@ -60,26 +64,22 @@ class UBlock(nn.Module):
         if len(nPlanes) > 1:
             if normalize_before:
                 self.conv = spconv.SparseSequential(
-                    norm_fn(nPlanes[0]),
-                    nn.ReLU(),
-                    spconv.SparseConv3d(
-                        nPlanes[0],
-                        nPlanes[1],
-                        kernel_size=2,
-                        stride=2,
-                        bias=False,
-                        indice_key=f"spconv{indice_key_id}"))
+                    norm_fn(nPlanes[0]), nn.ReLU(),
+                    spconv.SparseConv3d(nPlanes[0],
+                                        nPlanes[1],
+                                        kernel_size=2,
+                                        stride=2,
+                                        bias=False,
+                                        indice_key=f"spconv{indice_key_id}"))
             else:
                 self.conv = spconv.SparseSequential(
-                    spconv.SparseConv3d(
-                        nPlanes[0],
-                        nPlanes[1],
-                        kernel_size=2,
-                        stride=2,
-                        bias=False,
-                        indice_key=f"spconv{indice_key_id}"),
-                    norm_fn(nPlanes[1]),
-                    nn.ReLU())
+                    spconv.SparseConv3d(nPlanes[0],
+                                        nPlanes[1],
+                                        kernel_size=2,
+                                        stride=2,
+                                        bias=False,
+                                        indice_key=f"spconv{indice_key_id}"),
+                    norm_fn(nPlanes[1]), nn.ReLU())
 
             self.u = UBlock(nPlanes[1:],
                             norm_fn,
@@ -91,15 +91,13 @@ class UBlock(nn.Module):
 
             if normalize_before:
                 self.deconv = spconv.SparseSequential(
-                    norm_fn(nPlanes[1]),
-                    nn.ReLU(),
+                    norm_fn(nPlanes[1]), nn.ReLU(),
                     spconv.SparseInverseConv3d(
                         nPlanes[1],
                         nPlanes[0],
                         kernel_size=2,
                         bias=False,
-                        indice_key=f"spconv{indice_key_id}")
-                    )
+                        indice_key=f"spconv{indice_key_id}"))
             else:
                 self.deconv = spconv.SparseSequential(
                     spconv.SparseInverseConv3d(
@@ -108,8 +106,7 @@ class UBlock(nn.Module):
                         kernel_size=2,
                         bias=False,
                         indice_key=f"spconv{indice_key_id}"),
-                    norm_fn(nPlanes[0]),
-                    nn.ReLU())
+                    norm_fn(nPlanes[0]), nn.ReLU())
 
             blocks_tail = {}
             for i in range(block_reps):
@@ -122,19 +119,17 @@ class UBlock(nn.Module):
             blocks_tail = OrderedDict(blocks_tail)
             self.blocks_tail = spconv.SparseSequential(blocks_tail)
 
-    def forward(self,
-                input,
-                previous_outputs: Optional[List]=None):
+    def forward(self, input, previous_outputs: Optional[List] = None):
         output = self.blocks(input)
-        identity = spconv.SparseConvTensor(output.features,
-                                           output.indices,
+        identity = spconv.SparseConvTensor(output.features, output.indices,
                                            output.spatial_shape,
                                            output.batch_size)
 
         if len(self.nPlanes) > 1:
             output_decoder = self.conv(output)
             if self.return_blocks:
-                output_decoder, previous_outputs = self.u(output_decoder, previous_outputs)
+                output_decoder, previous_outputs = self.u(
+                    output_decoder, previous_outputs)
             else:
                 output_decoder = self.u(output_decoder)
             output_decoder = self.deconv(output_decoder)
@@ -152,4 +147,3 @@ class UBlock(nn.Module):
             return output, previous_outputs
         else:
             return output
-

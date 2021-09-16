@@ -78,7 +78,6 @@ class PointNet2SASSG(nn.Module):
                 fp_source_channel = cur_fp_mlps[-1]
                 fp_target_channel = skip_channel_list.pop()
 
-
     @staticmethod
     def _split_point_feats(points):
         r"""Split coordinates and features of input points.

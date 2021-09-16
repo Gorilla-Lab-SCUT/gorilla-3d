@@ -13,18 +13,21 @@ class ClassificationEvaluator(gorilla.evaluation.DatasetEvaluator):
     """
     Evaluate semantic segmentation metrics.
     """
-    def __init__(self,
-                 class_labels: Sequence[str],
-                 class_ids: Sequence[int],
-                 top_k: Sequence[int],
-                 **kwargs,):
+    def __init__(
+        self,
+        class_labels: Sequence[str],
+        class_ids: Sequence[int],
+        top_k: Sequence[int],
+        **kwargs,
+    ):
         """
         Args:
             ignore_label: deprecated argument
         """
         super().__init__(
             class_labels=class_labels,
-            class_ids=class_ids,)
+            class_ids=class_ids,
+        )
         self._top_k = top_k
         self.reset()
 
@@ -32,24 +35,23 @@ class ClassificationEvaluator(gorilla.evaluation.DatasetEvaluator):
         self._predictions = []
         self._labels = []
 
-    def match(self,
-              prediction: np.ndarray,
-              label: np.ndarray):
+    def match(self, prediction: np.ndarray, label: np.ndarray):
         self._predictions.append(prediction)
         self._labels.append(label)
-        
 
-    def evaluate(self, show_per_class: bool=True):
-        self._predictions = torch.cat(self._predictions).view(-1, self.num_classes) # [N, num_classes]
-        self._labels = torch.cat(self._labels).view(-1) # [N]
+    def evaluate(self, show_per_class: bool = True):
+        self._predictions = torch.cat(self._predictions).view(
+            -1, self.num_classes)  # [N, num_classes]
+        self._labels = torch.cat(self._labels).view(-1)  # [N]
 
         # calcualate instance accuracy
-        acc = gorilla.evaluation.accuracy(self._predictions, self._labels, self._top_k)
-        
+        acc = gorilla.evaluation.accuracy(self._predictions, self._labels,
+                                          self._top_k)
+
         acc_dict = {}
         for i, k in enumerate(self._top_k):
             acc_dict[f"Top_{k} Acc"] = acc[i]
-            
+
         acc_table = gorilla.create_small_table(acc_dict)
         self.logger.info("Evaluation results for classification:")
         for line in acc_table.split("\n"):
@@ -57,15 +59,20 @@ class ClassificationEvaluator(gorilla.evaluation.DatasetEvaluator):
         self.logger.info("")
 
         if show_per_class:
-            totals, corrects = gorilla.accuracy_for_each_class(self._predictions, self._labels.view(-1, 1), self.num_classes) # [num_classes]
-            corrects_per_class = (corrects * 100)/ totals # [num_classes]
+            totals, corrects = gorilla.accuracy_for_each_class(
+                self._predictions, self._labels.view(-1, 1),
+                self.num_classes)  # [num_classes]
+            corrects_per_class = (corrects * 100) / totals  # [num_classes]
 
             self.logger.info("Top_1 Acc of each class")
             # tabulate it
             N_COLS = min(8, len(self.class_labels) * 2)
-            acc_per_class = [(self.class_labels[i], float(corrects_per_class[i])) for i in range(len(self.class_labels))]
+            acc_per_class = [(self.class_labels[i],
+                              float(corrects_per_class[i]))
+                             for i in range(len(self.class_labels))]
             acc_flatten = gorilla.concat_list(acc_per_class)
-            results_2d = itertools.zip_longest(*[acc_flatten[i::N_COLS] for i in range(N_COLS)])
+            results_2d = itertools.zip_longest(
+                *[acc_flatten[i::N_COLS] for i in range(N_COLS)])
             acc_table = gorilla.table(
                 results_2d,
                 headers=["class", "Acc"] * (N_COLS // 2),
@@ -76,4 +83,3 @@ class ClassificationEvaluator(gorilla.evaluation.DatasetEvaluator):
             self.logger.info("")
 
         return acc
-

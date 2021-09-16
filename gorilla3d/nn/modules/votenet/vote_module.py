@@ -89,5 +89,5 @@ class VoteModule(nn.Module):
         if self.norm_feats:
             features_norm = torch.norm(vote_feats, p=2, dim=1)
             vote_feats = vote_feats.div(features_norm.unsqueeze(1))
-            
+
         return vote_points, vote_feats

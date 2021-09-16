@@ -1,7 +1,10 @@
 import numpy as np
 
 
-def project_depth_to_points(intrinsics: np.array, depth: np.array, instance_mask: np.array = None) -> [np.array, tuple]:
+def project_depth_to_points(
+        intrinsics: np.array,
+        depth: np.array,
+        instance_mask: np.array = None) -> [np.array, tuple]:
     r"""Projection of depth map to points.
 
         Input:

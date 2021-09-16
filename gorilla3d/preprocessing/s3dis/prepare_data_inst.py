@@ -44,17 +44,19 @@ INV_OBJECT_LABEL = {
 
 OBJECT_LABEL = {name: i for i, name in INV_OBJECT_LABEL.items()}
 
+
 def object_name_to_label(object_class):
     r"""convert from object name in S3DIS to an int"""
     object_label = OBJECT_LABEL.get(object_class, OBJECT_LABEL["clutter"])
     return object_label
 
+
 # modify from https://github.com/nicolas-chaulet/torch-points3d/blob/master/torch_points3d/datasets/segmentation/s3dis.py
 def read_s3dis_format(area_id: str,
                       room_name: str,
-                      data_root: str="./",
-                      label_out: bool=True,
-                      verbose: bool=False):
+                      data_root: str = "./",
+                      label_out: bool = True,
+                      verbose: bool = False):
     r"""
     extract data from a room folder
     """
@@ -62,7 +64,7 @@ def read_s3dis_format(area_id: str,
     room_label = ROOM_TYPES[room_type]
     room_dir = osp.join(data_root, area_id, room_name)
     raw_path = osp.join(room_dir, f"{room_name}.txt")
-    
+
     room_ver = pd.read_csv(raw_path, sep=" ", header=None).values
     xyz = np.ascontiguousarray(room_ver[:, 0:3], dtype="float32")
     rgb = np.ascontiguousarray(room_ver[:, 3:6], dtype="uint8")
@@ -71,9 +73,9 @@ def read_s3dis_format(area_id: str,
     n_ver = len(room_ver)
     del room_ver
     nn = NearestNeighbors(n_neighbors=1, algorithm="kd_tree").fit(xyz)
-    semantic_labels = np.zeros((n_ver,), dtype="int64")
+    semantic_labels = np.zeros((n_ver, ), dtype="int64")
     room_label = np.asarray([room_label])
-    instance_labels = np.ones((n_ver,), dtype="int64") * -100
+    instance_labels = np.ones((n_ver, ), dtype="int64") * -100
     objects = glob.glob(osp.join(room_dir, "Annotations", "*.txt"))
     i_object = 1
     for single_object in objects:
@@ -109,9 +111,10 @@ def get_parser():
                         type=str,
                         default="./inputs",
                         help="directory save processed data")
-    parser.add_argument("--patch",
-                        action="store_true",
-                        help="patch data or not (just patch at first time running)")
+    parser.add_argument(
+        "--patch",
+        action="store_true",
+        help="patch data or not (just patch at first time running)")
     parser.add_argument("--align",
                         action="store_true",
                         help="processing aligned dataset or not")
@@ -132,15 +135,24 @@ if __name__ == "__main__":
     save_dir = args.save_dir
     os.makedirs(save_dir, exist_ok=True)
     if args.patch:
-        if args.align: # processing aligned s3dis dataset
+        if args.align:  # processing aligned s3dis dataset
             # os.system(f"cd {data_root} && git apply {osp.join(osp.dirname(__file__), 's3dis_align.diff')}")
-            os.system(f"patch -ruN -p0 -d  {data_root} < {osp.join(osp.dirname(__file__), 's3dis_align.patch')}")
+            os.system(
+                f"patch -ruN -p0 -d  {data_root} < {osp.join(osp.dirname(__file__), 's3dis_align.patch')}"
+            )
             # rename to avoid room_name conflict
-            if osp.exists(osp.join(data_root, "Area_6", "copyRoom_1", "copy_Room_1.txt")):
-                os.rename(osp.join(data_root, "Area_6", "copyRoom_1", "copy_Room_1.txt"),
-                          osp.join(data_root, "Area_6", "copyRoom_1", "copyRoom_1.txt"))
+            if osp.exists(
+                    osp.join(data_root, "Area_6", "copyRoom_1",
+                             "copy_Room_1.txt")):
+                os.rename(
+                    osp.join(data_root, "Area_6", "copyRoom_1",
+                             "copy_Room_1.txt"),
+                    osp.join(data_root, "Area_6", "copyRoom_1",
+                             "copyRoom_1.txt"))
         else:
-            os.system(f"patch -ruN -p0 -d  {data_root} < {osp.join(osp.dirname(__file__), 's3dis.patch')}")
+            os.system(
+                f"patch -ruN -p0 -d  {data_root} < {osp.join(osp.dirname(__file__), 's3dis.patch')}"
+            )
 
     area_list = ["Area_1", "Area_2", "Area_3", "Area_4", "Area_5", "Area_6"]
 
@@ -161,6 +173,8 @@ if __name__ == "__main__":
             save_path = osp.join(save_dir, scene + ".pth")
             if osp.exists(save_path):
                 continue
-            (xyz, rgb, semantic_labels, instance_labels, room_label) = read_s3dis_format(area_id, room_name, data_root)
+            (xyz, rgb, semantic_labels, instance_labels,
+             room_label) = read_s3dis_format(area_id, room_name, data_root)
             rgb = (rgb / 127.5) - 1
-            torch.save((xyz, rgb, semantic_labels, instance_labels, room_label, scene), save_path)
+            torch.save((xyz, rgb, semantic_labels, instance_labels, room_label,
+                        scene), save_path)

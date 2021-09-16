@@ -6,21 +6,21 @@ import numpy as np
 
 from .pattern import SemanticEvaluator, InstanceEvaluator
 
-
 CLASS_LABELS = [
-    "unlabeled", "car", "bicycle", "motorcycle", "truck", "bus", "person", "bicyclist",
-    "motorcyclist", "road", "parking", "sidewalk", "other-ground",
-    "building", "fence", "vegetation", "trunk", "terrain", "pole", "traffic-sign"
+    "unlabeled", "car", "bicycle", "motorcycle", "truck", "bus", "person",
+    "bicyclist", "motorcyclist", "road", "parking", "sidewalk", "other-ground",
+    "building", "fence", "vegetation", "trunk", "terrain", "pole",
+    "traffic-sign"
 ]
-
 
 CLASS_IDS = list(range(len(CLASS_LABELS)))
 
+
 class KittiSemanticEvaluator(SemanticEvaluator):
     def __init__(self,
-                 class_labels: List[str]=CLASS_LABELS,
-                 class_ids: List[int]=CLASS_IDS,
-                 ignore: List[int]=[0],
+                 class_labels: List[str] = CLASS_LABELS,
+                 class_ids: List[int] = CLASS_IDS,
+                 ignore: List[int] = [0],
                  **kwargs):
         super().__init__(class_labels=class_labels,
                          class_ids=class_ids,
@@ -47,8 +47,8 @@ class KittiSemanticEvaluator(SemanticEvaluator):
 
 # ---------- Label info ---------- #
 FOREGROUND_CLASS_LABELS = [
-    "car", "bicycle", "motorcycle", "truck", "bus",
-    "person", "bicyclist", "motorcyclist"
+    "car", "bicycle", "motorcycle", "truck", "bus", "person", "bicyclist",
+    "motorcyclist"
 ]
 FOREGROUND_CLASS_IDS = np.array(range(1, 9))
 
@@ -58,10 +58,10 @@ class KittiInstanceInstanceEvaluator(InstanceEvaluator):
     Evaluate instance segmentation metrics.
     """
     def __init__(self,
-                dataset_root: str,
-                class_labels: List[str]=FOREGROUND_CLASS_LABELS,
-                class_ids: List[int]=FOREGROUND_CLASS_IDS,
-                **kwargs):
+                 dataset_root: str,
+                 class_labels: List[str] = FOREGROUND_CLASS_LABELS,
+                 class_ids: List[int] = FOREGROUND_CLASS_IDS,
+                 **kwargs):
         r"""
         Args:
             ignore_label: deprecated argument
@@ -87,7 +87,7 @@ class KittiInstanceInstanceEvaluator(InstanceEvaluator):
         for input, output in zip(inputs, outputs):
             scene_name = input["scene_name"]
             scene_id, frame_id = scene_name.split("_")
-            gt_file = os.path.join(self._dataset_root, scene_id, frame_id + ".txt")
+            gt_file = os.path.join(self._dataset_root, scene_id,
+                                   frame_id + ".txt")
             gt_ids = np.loadtxt(gt_file)
             self.assign(scene_name, output, gt_ids)
-

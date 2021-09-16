@@ -26,6 +26,7 @@ INV_OBJECT_LABEL = {
     12: "clutter",
 }
 
+
 def get_parser():
     parser = argparse.ArgumentParser(description="s3dis data prepare")
     parser.add_argument("--data-dir",
@@ -53,10 +54,14 @@ if __name__ == "__main__":
         os.mkdir(save_dir)
 
     for i, f in enumerate(gorilla.track(files)):
-        (xyz, rgb, semantic_labels, instance_labels, room_label, scene) = torch.load(f) # semantic label 0-12 instance_labels 0~instance_num-1 -100
+        (xyz, rgb, semantic_labels, instance_labels, room_label,
+         scene) = torch.load(
+             f)  # semantic label 0-12 instance_labels 0~instance_num-1 -100
         print(f"{i + 1}/{len(files)} {scene}")
 
-        instance_labels_new = np.zeros(instance_labels.shape, dtype=np.int32)  # 0 for unannotated, xx00y: x for semantic_label, y for inst_id (1~instance_num)
+        instance_labels_new = np.zeros(
+            instance_labels.shape, dtype=np.int32
+        )  # 0 for unannotated, xx00y: x for semantic_label, y for inst_id (1~instance_num)
 
         instance_num = int(instance_labels.max()) + 1
         inst_ids = np.unique(instance_labels)
@@ -65,13 +70,11 @@ if __name__ == "__main__":
                 continue
             instance_mask = np.where(instance_labels == inst_id)[0]
             sem_id = int(semantic_labels[instance_mask[0]])
-            if(sem_id == -100): sem_id = 0
+            if (sem_id == -100): sem_id = 0
             semantic_label = sem_id
-            instance_labels_new[instance_mask] = semantic_label * 1000 + inst_id
+            instance_labels_new[
+                instance_mask] = semantic_label * 1000 + inst_id
 
-        np.savetxt(os.path.join(save_dir, scene + ".txt"), instance_labels_new, fmt="%d")
-
-
-
-
-
+        np.savetxt(os.path.join(save_dir, scene + ".txt"),
+                   instance_labels_new,
+                   fmt="%d")

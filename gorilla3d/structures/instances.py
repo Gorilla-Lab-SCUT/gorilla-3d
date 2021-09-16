@@ -4,15 +4,14 @@ from typing import Dict, List
 
 import numpy as np
 
+
 class VertInstance(object):
     instance_id = 0
     instance_count = 0
     med_dist = -1
     dist_conf = 0.0
 
-    def __init__(self,
-                 instance_ids: np.ndarray,
-                 instance_id: int):
+    def __init__(self, instance_ids: np.ndarray, instance_id: int):
         r"""
         construct an instance mask
 
@@ -51,10 +50,8 @@ class VertInstance(object):
         return "(" + str(self.instance_id) + ")"
 
     @staticmethod
-    def get_instances(instance_ids: np.ndarray,
-                      class_ids: np.ndarray,
-                      class_labels: List[str],
-                      id2label: Dict) -> Dict:
+    def get_instances(instance_ids: np.ndarray, class_ids: np.ndarray,
+                      class_labels: List[str], id2label: Dict) -> Dict:
         r"""
         get the dict represents all instance for point cloud
 

@@ -3,7 +3,8 @@ import os
 import paramiko
 import argparse
 
-default_mlx_path = os.path.join(os.path.dirname(__file__), "2_simplify_mesh.mlx")
+default_mlx_path = os.path.join(os.path.dirname(__file__),
+                                "2_simplify_mesh.mlx")
 load_file = "mesh_gt.ply"
 save_file = "mesh_gt_simplified.ply"
 
@@ -15,7 +16,9 @@ class Transfer:
         self.ssh = paramiko.SSHClient()
         self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.ssh.load_system_host_keys()
-        self.ssh.connect(self.server_ip, username=self.server_username, password=password if password else None)
+        self.ssh.connect(self.server_ip,
+                         username=self.server_username,
+                         password=password if password else None)
         self.sftp = self.ssh.open_sftp()
 
     def to_remote(self, localpath, remotepath):
@@ -44,16 +47,34 @@ def local_process(load_path, save_path, script_path):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--class_name", type=str, nargs="+", default=["03001627"], help="Categories to process")
-    parser.add_argument("--dst_dataset_dir",
+    parser.add_argument("--class_name",
                         type=str,
-                        help="Path to the folder to those saved results used in the previous script")
+                        nargs="+",
+                        default=["03001627"],
+                        help="Categories to process")
+    parser.add_argument(
+        "--dst_dataset_dir",
+        type=str,
+        help=
+        "Path to the folder to those saved results used in the previous script"
+    )
     parser.add_argument("--override", action="store_true")
     parser.add_argument("--remote_process", action="store_true")
-    parser.add_argument("--remote_server", type=str, default="", help="Remote server ip address")
-    parser.add_argument("--remote_username", type=str, default="", help="Remote server username")
-    parser.add_argument("--remote_password", type=str, default="", help="Remote server password")
-    parser.add_argument("--remote_localpath", type=str, help="Local directory to process")
+    parser.add_argument("--remote_server",
+                        type=str,
+                        default="",
+                        help="Remote server ip address")
+    parser.add_argument("--remote_username",
+                        type=str,
+                        default="",
+                        help="Remote server username")
+    parser.add_argument("--remote_password",
+                        type=str,
+                        default="",
+                        help="Remote server password")
+    parser.add_argument("--remote_localpath",
+                        type=str,
+                        help="Local directory to process")
     parser.add_argument("--remote_script_path",
                         type=str,
                         default=default_mlx_path,
@@ -89,18 +110,26 @@ if __name__ == "__main__":
             t.remote_cd(class_name)
             for obj_idx, obj_name in enumerate(obj_list):
                 if not t.remote_exists(obj_name, save_file) or override:
-                    load_path = os.path.join(localpath, f"{class_name}_{obj_name}_load.ply")
-                    save_path = os.path.join(localpath, f"{class_name}_{obj_name}_save.ply")
+                    load_path = os.path.join(
+                        localpath, f"{class_name}_{obj_name}_load.ply")
+                    save_path = os.path.join(
+                        localpath, f"{class_name}_{obj_name}_save.ply")
                     t.from_remote(f"{obj_name}/{load_file}", load_path)
                     local_process(load_path, save_path, script_path)
                     t.to_remote(save_path, f"{obj_name}/{save_file}")
                     os.remove(load_path)
                     os.remove(save_path)
-                    print(f"[{obj_idx}/{len(obj_list)}] processed: {class_name} - {obj_name}")
-                    print("============================================================\n")
+                    print(
+                        f"[{obj_idx}/{len(obj_list)}] processed: {class_name} - {obj_name}"
+                    )
+                    print(
+                        "============================================================\n"
+                    )
                 else:
                     print(f"Skip process {class_name} - {obj_name}")
-                    print("============================================================\n")
+                    print(
+                        "============================================================\n"
+                    )
             t.close()
 
         else:
@@ -110,18 +139,29 @@ if __name__ == "__main__":
             class_list = os.listdir(load_path)
             assert class_name in class_list
             obj_list = os.listdir(os.path.join(load_path, class_name))
-            obj_list = [s for s in obj_list if os.path.isdir(os.path.join(load_path, class_name, s))]
+            obj_list = [
+                s for s in obj_list
+                if os.path.isdir(os.path.join(load_path, class_name, s))
+            ]
 
             for obj_idx, obj_name in enumerate(obj_list):
-                load_path = os.path.join(load_path, class_name, obj_name, load_file)
-                save_path = os.path.join(load_path, class_name, obj_name, save_file)
+                load_path = os.path.join(load_path, class_name, obj_name,
+                                         load_file)
+                save_path = os.path.join(load_path, class_name, obj_name,
+                                         save_file)
                 if not os.path.exists(save_path) or override:
                     local_process(load_path, save_path, script_path)
-                    print(f"[{obj_idx}/{len(obj_list)}] processed: {class_name} - {obj_name}")
-                    print("============================================================\n")
+                    print(
+                        f"[{obj_idx}/{len(obj_list)}] processed: {class_name} - {obj_name}"
+                    )
+                    print(
+                        "============================================================\n"
+                    )
                 else:
                     print(f"Skip process {class_name} - {obj_name}")
-                    print("============================================================\n")
+                    print(
+                        "============================================================\n"
+                    )
 
     else:
         for class_name in args.class_name:
@@ -129,6 +169,7 @@ if __name__ == "__main__":
                 f"python {__file__} --class_name {class_name} --remote_localpath {args.remote_localpath} "
                 f"--dst_dataset_dir {args.dst_dataset_dir} --remote_server {args.remote_server} --remote_username {args.remote_username} "
                 f"--remote_script_path {args.remote_script_path} --remote_password {args.remote_password}"
-                + (" --override" if args.override else "") + (" --remote_process" if args.remote_process else ""))
+                + (" --override" if args.override else "") +
+                (" --remote_process" if args.remote_process else ""))
 
     print("All done.")

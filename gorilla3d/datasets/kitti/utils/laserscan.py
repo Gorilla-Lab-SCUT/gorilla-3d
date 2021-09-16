@@ -4,16 +4,17 @@ from typing import Callable, Dict, Optional
 
 import numpy as np
 
+
 class LaserScan:
     """Class that contains LaserScan with x,y,z,r"""
     EXTENSIONS_SCAN = ['.bin']
 
     def __init__(self,
-                 project: bool=False,
-                 height: int=64,
-                 width: int=1024,
-                 fov_up: float=3.0,
-                 fov_down: float=-25.0,
+                 project: bool = False,
+                 height: int = 64,
+                 width: int = 1024,
+                 fov_up: float = 3.0,
+                 fov_down: float = -25.0,
                  **kwargs):
         self.project = project
         self.proj_H = height
@@ -25,27 +26,30 @@ class LaserScan:
     def reset(self):
         """ Reset scan members. """
         self.points = np.zeros((0, 3), dtype=np.float32)  # [m, 3]: x, y, z
-        self.remissions = np.zeros((0, 1), dtype=np.float32)  # [m ,1]: remission
+        self.remissions = np.zeros((0, 1),
+                                   dtype=np.float32)  # [m ,1]: remission
 
         # projected range image - [H,W] range (-1 is no data)
-        self.proj_range = np.full((self.proj_H, self.proj_W), -1,
+        self.proj_range = np.full((self.proj_H, self.proj_W),
+                                  -1,
                                   dtype=np.float32)
 
         # unprojected range (list of depths for each point)
         self.unproj_range = np.zeros((0, 1), dtype=np.float32)
 
         # projected point cloud xyz - [H,W,3] xyz coord (-1 is no data)
-        self.proj_xyz = np.full((self.proj_H, self.proj_W, 3), -1,
+        self.proj_xyz = np.full((self.proj_H, self.proj_W, 3),
+                                -1,
                                 dtype=np.float32)
 
         # projected remission - [H,W] intensity (-1 is no data)
-        self.proj_remission = np.full((self.proj_H, self.proj_W), -1,
+        self.proj_remission = np.full((self.proj_H, self.proj_W),
+                                      -1,
                                       dtype=np.float32)
 
         # projected index (for each pixel, what I am in the pointcloud)
         # [H,W] index (-1 is no data)
-        self.proj_idx = np.full((self.proj_H, self.proj_W), -1,
-                                dtype=np.int32)
+        self.proj_idx = np.full((self.proj_H, self.proj_W), -1, dtype=np.int32)
 
         # for each point, where it is in the range image
         self.proj_x = np.zeros((0, 1), dtype=np.int32)  # [m, 1]: x
@@ -180,15 +184,16 @@ class SemLaserScan(LaserScan):
     EXTENSIONS_LABEL = ['.label']
 
     def __init__(self,
-                 project: bool=False,
-                 height: int=64,
-                 width: int=1024,
-                 fov_up: float=3.0,
-                 fov_down: float=-25.0,
-                 max_classes: int=300,
-                 sem_color_dict: Optional[Dict]=None,
+                 project: bool = False,
+                 height: int = 64,
+                 width: int = 1024,
+                 fov_up: float = 3.0,
+                 fov_down: float = -25.0,
+                 max_classes: int = 300,
+                 sem_color_dict: Optional[Dict] = None,
                  **kwargs):
-        super(SemLaserScan, self).__init__(project, height, width, fov_up, fov_down)
+        super(SemLaserScan, self).__init__(project, height, width, fov_up,
+                                           fov_down)
         self.reset()
 
         # make semantic colors
@@ -198,7 +203,8 @@ class SemLaserScan(LaserScan):
             for key, data in sem_color_dict.items():
                 if key + 1 > max_sem_key:
                     max_sem_key = key + 1
-            self.sem_color_lut = np.zeros((max_sem_key + 100, 3), dtype=np.float32)
+            self.sem_color_lut = np.zeros((max_sem_key + 100, 3),
+                                          dtype=np.float32)
             for key, value in sem_color_dict.items():
                 self.sem_color_lut[key] = np.array(value, np.float32) / 255.0
         else:
@@ -224,11 +230,13 @@ class SemLaserScan(LaserScan):
 
         # semantic labels
         self.sem_label = np.zeros((0, 1), dtype=np.int32)  # [m, 1]: label
-        self.sem_label_color = np.zeros((0, 3), dtype=np.float32)  # [m ,3]: color
+        self.sem_label_color = np.zeros((0, 3),
+                                        dtype=np.float32)  # [m ,3]: color
 
         # instance labels
         self.inst_label = np.zeros((0, 1), dtype=np.int32)  # [m, 1]: label
-        self.inst_label_color = np.zeros((0, 3), dtype=np.float32)  # [m ,3]: color
+        self.inst_label_color = np.zeros((0, 3),
+                                         dtype=np.float32)  # [m ,3]: color
 
         # projection color with semantic labels
         self.proj_sem_label = np.zeros((self.proj_H, self.proj_W),
@@ -276,7 +284,8 @@ class SemLaserScan(LaserScan):
         else:
             print("Points shape: ", self.points.shape)
             print("Label shape: ", label.shape)
-            raise ValueError("Scan and Label don't contain same number of points")
+            raise ValueError(
+                "Scan and Label don't contain same number of points")
 
         # sanity check
         assert ((self.sem_label + (self.inst_label << 16) == label).all())
@@ -299,13 +308,14 @@ class SemLaserScan(LaserScan):
 
         # semantics
         self.proj_sem_label[mask] = self.sem_label[self.proj_idx[mask]]
-        self.proj_sem_color[mask] = self.sem_color_lut[self.sem_label[self.proj_idx[mask]]]
+        self.proj_sem_color[mask] = self.sem_color_lut[self.sem_label[
+            self.proj_idx[mask]]]
 
         # instances
         self.proj_inst_label[mask] = self.inst_label[self.proj_idx[mask]]
-        self.proj_inst_color[mask] = self.inst_color_lut[self.inst_label[self.proj_idx[mask]]]
+        self.proj_inst_color[mask] = self.inst_color_lut[self.inst_label[
+            self.proj_idx[mask]]]
 
     def sem_label_map(self, label_mapper: Callable):
         self.sem_label = label_mapper(self.sem_label)
         self.proj_sem_label = label_mapper(self.proj_sem_label)
-

@@ -11,7 +11,6 @@ class BallQuery(Function):
 
     Find nearby points in spherical space.
     """
-
     @staticmethod
     def forward(ctx, radius: float, sample_num: int, xyz: torch.Tensor,
                 center_xyz: torch.Tensor) -> torch.Tensor:

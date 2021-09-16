@@ -29,7 +29,8 @@ def auto_process():
     try_make_dirs(dst_class_dir)
     class_dir = os.path.join(SRC_DATASET_DIR, CLASS_NAME)
 
-    with open(os.path.join(LOAD_SPLIT_DIR, f"{CLASS_NAME}_{SPLIT}.lst"), "r") as f:
+    with open(os.path.join(LOAD_SPLIT_DIR, f"{CLASS_NAME}_{SPLIT}.lst"),
+              "r") as f:
         obj_list = f.readlines()
     obj_list = [s.strip() for s in obj_list if s.strip() != ""]
     final_obj_list = []
@@ -47,7 +48,8 @@ def auto_process():
         print("======================================")
 
     try_make_dirs(SAVE_SPLIT_DIR)
-    save_split_file_path = os.path.join(SAVE_SPLIT_DIR, f"{CLASS_NAME}_{SPLIT}.lst")
+    save_split_file_path = os.path.join(SAVE_SPLIT_DIR,
+                                        f"{CLASS_NAME}_{SPLIT}.lst")
     with open(save_split_file_path, "w") as f:
         f.writelines([f"{s}\n" for s in final_obj_list])
     print(f"save split file to: {save_split_file_path}")
@@ -55,20 +57,41 @@ def auto_process():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--class_name", type=str, nargs="+", default=["03001627"], help="Categories to process")
-    parser.add_argument("--split", type=str, default="train", help="Which split")
-    parser.add_argument("--src_dataset_dir", type=str, help="The folder containing simplified meshes")
-    parser.add_argument("--moved_dataset_dir",
+    parser.add_argument("--class_name",
                         type=str,
-                        help="The folder to save those unqualified meshes (move to this folder)")
-    parser.add_argument("--load_split_dir", type=str, help="The original split folder")
-    parser.add_argument("--save_split_dir", type=str, help="The target split folder (new split file is save to here)")
-    parser.add_argument("--mesh_name", type=str, default="mesh_gt.ply", help="Which mesh file is the criterion")
+                        nargs="+",
+                        default=["03001627"],
+                        help="Categories to process")
+    parser.add_argument("--split",
+                        type=str,
+                        default="train",
+                        help="Which split")
+    parser.add_argument("--src_dataset_dir",
+                        type=str,
+                        help="The folder containing simplified meshes")
+    parser.add_argument(
+        "--moved_dataset_dir",
+        type=str,
+        help="The folder to save those unqualified meshes (move to this folder)"
+    )
+    parser.add_argument("--load_split_dir",
+                        type=str,
+                        help="The original split folder")
+    parser.add_argument(
+        "--save_split_dir",
+        type=str,
+        help="The target split folder (new split file is save to here)")
+    parser.add_argument("--mesh_name",
+                        type=str,
+                        default="mesh_gt.ply",
+                        help="Which mesh file is the criterion")
     parser.add_argument(
         "--minMB",
         type=float,
         default=2.0,
-        help="The size of qualified mesh file should be larger than this value (MB)")  # should be >= 2.0MB
+        help=
+        "The size of qualified mesh file should be larger than this value (MB)"
+    )  # should be >= 2.0MB
     args = parser.parse_args()
 
     if len(args.class_name) == 1:
@@ -89,6 +112,7 @@ if __name__ == "__main__":
             os.system(
                 f"python {__file__} --class_name {class_name} --split {args.split} --src_dataset_dir {args.src_dataset_dir} "
                 f"--moved_dataset_dir {args.moved_dataset_dir} --load_split_dir {args.load_split_dir} "
-                f"--save_split_dir {args.save_split_dir} --mesh_name {args.mesh_name} --minMB {args.minMB}")
+                f"--save_split_dir {args.save_split_dir} --mesh_name {args.mesh_name} --minMB {args.minMB}"
+            )
 
     print("All done.")
