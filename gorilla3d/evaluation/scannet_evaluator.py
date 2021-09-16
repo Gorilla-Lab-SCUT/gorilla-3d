@@ -45,16 +45,16 @@ class ScanNetSemanticEvaluator(SemanticEvaluator):
             outputs = [outputs]
         for input, output in zip(inputs, outputs):
             scene_name = input["scene_name"]
-            semantic_gt = self.read_gt(osp.join(self.dataset_root, scene_name),
-                                       scene_name)
+            semantic_gt = self.read_gt(self.dataset_root, scene_name)
             semantic_pred = output["semantic_pred"].cpu().clone().numpy()
             semantic_pred = self.class_ids[semantic_pred]
             self.fill_confusion(semantic_pred, semantic_gt)
 
     @staticmethod
     def read_gt(origin_root, scene_name):
-        label = np.load(
-            os.path.join(origin_root, scene_name + ".txt_sem_label.npy"))
+        label = np.loadtxt(os.path.join(origin_root, scene_name + "_sem.txt"))
+        label = label.astype(np.int32)
+        
         return label
 
 

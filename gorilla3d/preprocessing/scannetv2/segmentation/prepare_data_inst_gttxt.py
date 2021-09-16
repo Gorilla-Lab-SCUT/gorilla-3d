@@ -1,12 +1,13 @@
 """
-Generate instance groundtruth .txt files (for evaluation)
+Generate instance and semantic groundtruth .txt files (for evaluation)
 """
-
-import argparse
-import numpy as np
-import glob
-import torch
 import os
+import glob
+import argparse
+
+import torch
+import plyfile
+import numpy as np
 
 import gorilla
 
@@ -33,9 +34,11 @@ if __name__ == "__main__":
     if not os.path.exists(split + "_gt"):
         os.mkdir(split + "_gt")
 
-    for i in range(len(rooms)):
-        xyz, rgb, faces, label, instance_label, coords_shift, sample_idx = rooms[
-            i]  # label 0~19 -100;  instance_label 0~instance_num-1 -100
+    print("begin to prepare instance groundtruth")
+    # instance segmentaiton
+    for i, room in enumerate(rooms):
+        xyz, rgb, faces, label, instance_label, coords_shift, sample_idx = \
+            room # label 0~19 -100;  instance_label 0~instance_num-1 -100
         scene_name = files[i].split("/")[-1][:12]
         print(f"{i + 1}/{len(rooms)} {scene_name}")
 
@@ -57,3 +60,22 @@ if __name__ == "__main__":
                 instance_mask] = semantic_label * 1000 + inst_id + 1
 
         np.savetxt(save_path, instance_label_new, fmt="%d")
+    print("instance groundtruth preparation finish")
+
+    print("begin to prepare semantic groundtruth")
+    # semantic segmentaiton
+    for i, f in enumerate(files):
+        scene_name = f.split("/")[-1][:12]
+        save_path = os.path.join(split + "_gt", scene_name + "_sem.txt")
+        print(f"{i + 1}/{len(rooms)} {scene_name}")
+        if os.path.exists(save_path):
+            continue
+
+        ply_file = os.path.join("scans", scene_name, f"{scene_name}_vh_clean_2.labels.ply")
+        ply = plyfile.PlyData().read(ply_file)
+        label = np.array(ply.elements[0]["label"])
+
+        np.savetxt(save_path, label, fmt="%d")
+    print("semantic groundtruth preparation finish")
+
+
